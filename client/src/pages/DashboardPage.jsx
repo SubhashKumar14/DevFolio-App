@@ -74,7 +74,7 @@ export default function DashboardPage() {
     platforms.push({
       id: 'github',
       username: user.githubUsername,
-      primaryStat: `${githubStats?.totalCommits || 0} Repos`,
+      primaryStat: `${githubStats?.publicRepos || 0} Repos`,
       rating: `${githubStats?.starsReceived || 0}★`,
       breakdown: null,
     });
