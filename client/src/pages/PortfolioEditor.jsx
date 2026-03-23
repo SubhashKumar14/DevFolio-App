@@ -85,7 +85,7 @@ export default function PortfolioEditor() {
         isPublic={isPublic}
         onToggleVisibility={() => visibilityMutation.mutate(!isPublic)}
         dirty={dirty}
-        userId={user?._id}
+        displayName={user?.displayName}
       />
 
       <div className="flex-1 flex min-h-0">

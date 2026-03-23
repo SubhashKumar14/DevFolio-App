@@ -1,10 +1,27 @@
+import mongoose from 'mongoose';
 import PortfolioCode from '../models/PortfolioCode.js';
+import User from '../models/User.js';
 import { sanitizeHtml } from '../utils/sanitizer.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
 // ─── Get Portfolio by User ID ─────────────────────
 export const getPortfolio = asyncHandler(async (req, res) => {
-  const portfolio = await PortfolioCode.findOne({ userId: req.params.userId });
+  const param = req.params.identifier;
+  let userId;
+
+  // Check if param is a valid MongoDB ObjectId
+  if (mongoose.Types.ObjectId.isValid(param)) {
+    userId = param;
+  } else {
+    // Otherwise, look up user by displayName (case-insensitive)
+    const user = await User.findOne({ displayName: { $regex: new RegExp(`^${param}$`, 'i') } });
+    if (!user) {
+      return res.json({ success: true, data: null });
+    }
+    userId = user._id;
+  }
+
+  const portfolio = await PortfolioCode.findOne({ userId });
 
   if (!portfolio) {
     return res.json({ success: true, data: null });

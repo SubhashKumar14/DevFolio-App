@@ -45,7 +45,7 @@ function App() {
         </Route>
 
         {/* Public: Portfolio Preview (no auth needed) */}
-        <Route path="/portfolio/preview/:userId" element={<PortfolioPreview />} />
+        <Route path="/portfolio/preview/:username" element={<PortfolioPreview />} />
 
         {/* Protected: Onboarding (no sidebar) */}
         <Route element={<RootLayout />}>

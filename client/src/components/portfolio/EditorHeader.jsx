@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Save, Eye, EyeOff, Loader2, ExternalLink, Globe, Lock, Check } from 'lucide-react';
 
-export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSuccess, showPreview, isPublic, onToggleVisibility, dirty, userId }) {
+export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSuccess, showPreview, isPublic, onToggleVisibility, dirty, displayName }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
       <div className="flex items-center gap-3">
@@ -29,12 +29,12 @@ export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSu
         </Button>
 
         {/* Open public preview */}
-        {userId && (
+        {displayName && (
           <Button
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => window.open(`/portfolio/preview/${userId}`, '_blank')}
+            onClick={() => window.open(`/portfolio/preview/${encodeURIComponent(displayName)}`, '_blank')}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             View Live

@@ -1,17 +1,36 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { portfolioService } from '@/services/portfolioService';
-import LivePreview from '@/components/portfolio/LivePreview';
+import { useMemo } from 'react';
 
 export default function PortfolioPreview() {
-  const { userId } = useParams();
+  const { username } = useParams();
 
   const { data: portfolio, isLoading, error } = useQuery({
-    queryKey: ['portfolioPreview', userId],
-    queryFn: () => portfolioService.getPortfolio(userId),
-    enabled: !!userId,
+    queryKey: ['portfolioPreview', username],
+    queryFn: () => portfolioService.getPortfolio(username),
+    enabled: !!username,
     retry: false,
   });
+
+  const srcdoc = useMemo(() => {
+    if (!portfolio) return '';
+    const html = portfolio.htmlContent || portfolio.rawHtml || '';
+    const css = portfolio.cssContent || '';
+    const js = portfolio.jsContent || '';
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>${css}</style>
+</head>
+<body>
+  ${html}
+  <script>${js}<\/script>
+</body>
+</html>`;
+  }, [portfolio]);
 
   if (isLoading) {
     return (
@@ -30,12 +49,11 @@ export default function PortfolioPreview() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <LivePreview
-        html={portfolio.htmlContent || portfolio.rawHtml || ''}
-        css={portfolio.cssContent || ''}
-        js={portfolio.jsContent || ''}
-      />
-    </div>
+    <iframe
+      srcDoc={srcdoc}
+      title="Portfolio Preview"
+      sandbox="allow-scripts"
+      style={{ width: '100%', height: '100vh', border: 'none', display: 'block' }}
+    />
   );
 }

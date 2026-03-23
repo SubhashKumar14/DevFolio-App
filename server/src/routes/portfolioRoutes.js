@@ -4,7 +4,7 @@ import { authenticate, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/:userId', optionalAuth, getPortfolio);
+router.get('/:identifier', optionalAuth, getPortfolio);
 router.post('/', authenticate, savePortfolio);
 router.patch('/visibility', authenticate, toggleVisibility);
 
