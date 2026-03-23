@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #f8f9fa;
+    --card: #ffffff;
+    --card-elevated: #ffffff;
+    --border: #e5e7eb;
+    --muted: #6b7280;
+    --foreground: #1f2937;
+    --foreground-bright: #111827;
+
+    --accent-cyan: #06b6d4;
+    --accent-purple: #8b5cf6;
+    --accent-green: #22c55e;
+    --accent-red: #ef4444;
+    --accent-yellow: #eab308;
+    --accent-orange: #f97316;
+  }
+
+  .dark {
+    --background: #0a0a0f;
+    --card: #12121a;
+    --card-elevated: #1a1a2e;
+    --border: #2a2a3e;
+    --muted: #6b7280;
+    --foreground: #e5e7eb;
+    --foreground-bright: #f9fafb;
+    
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground tracking-tight antialiased selection:bg-accent-cyan selection:text-white;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-foreground-bright font-bold;
+  }
+}
