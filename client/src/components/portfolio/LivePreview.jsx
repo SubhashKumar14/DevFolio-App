@@ -1,14 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useMemo } from 'react';
 
 export default function LivePreview({ html, css, js }) {
-  const iframeRef = useRef(null);
-
-  useEffect(() => {
-    const doc = iframeRef.current?.contentDocument;
-    if (!doc) return;
-
-    const content = `
-<!DOCTYPE html>
+  // Build the full HTML document as a string for srcdoc
+  const srcdoc = useMemo(() => {
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
@@ -16,20 +11,16 @@ export default function LivePreview({ html, css, js }) {
   <style>${css || ''}</style>
 </head>
 <body>
-  ${html || ''}
+  ${html || '<p style="color:#999;font-family:sans-serif;text-align:center;margin-top:40px;">Write some HTML to see it here...</p>'}
   <script>${js || ''}<\/script>
 </body>
 </html>`;
-
-    doc.open();
-    doc.write(content);
-    doc.close();
   }, [html, css, js]);
 
   return (
     <div className="flex-1 bg-white rounded-lg overflow-hidden border border-border">
       <iframe
-        ref={iframeRef}
+        srcDoc={srcdoc}
         title="Portfolio Preview"
         sandbox="allow-scripts"
         className="w-full h-full border-0 min-h-[400px]"

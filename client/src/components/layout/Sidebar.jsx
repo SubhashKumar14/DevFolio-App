@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Trophy, Settings, Calendar, LineChart, Code2, Target, GitCompare, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Settings, Calendar, LineChart, Code2, Target, GitCompare, Sparkles, FileCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -8,7 +8,7 @@ const navItems = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart },
   { name: 'Contests', href: '/dashboard/contests', icon: Calendar },
   { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: Trophy },
-  { name: 'Platforms', href: '/dashboard/settings', icon: Code2 },
+  { name: 'Portfolio', href: '/portfolio/editor', icon: FileCode },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

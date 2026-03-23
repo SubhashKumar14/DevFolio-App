@@ -7,10 +7,10 @@ export const getPortfolio = asyncHandler(async (req, res) => {
   const portfolio = await PortfolioCode.findOne({ userId: req.params.userId });
 
   if (!portfolio) {
-    throw new AppError('Portfolio not found', 404);
+    return res.json({ success: true, data: null });
   }
 
-  // Private portfolio check
+  // Private portfolio check (allow owner to always access)
   if (!portfolio.isPublic && (!req.user || req.user._id.toString() !== portfolio.userId.toString())) {
     throw new AppError('This portfolio is private', 403);
   }
