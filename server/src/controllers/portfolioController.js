@@ -82,5 +82,6 @@ export const toggleVisibility = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: `Portfolio is now ${isPublic ? 'public' : 'private'}`,
+    data: portfolio,
   });
 });

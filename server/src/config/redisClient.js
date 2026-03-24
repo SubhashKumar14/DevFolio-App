@@ -1,5 +1,4 @@
 import Redis from 'ioredis';
-import env from './env.js';
 
 let redis = null;
 
@@ -7,7 +6,7 @@ try {
   redis = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
     maxRetriesPerRequest: 1,
     retryStrategy(times) {
-      if (times > 3) return null; // Stop retrying after 3 attempts
+      if (times > 3) return null;
       return Math.min(times * 200, 2000);
     },
     lazyConnect: true,
@@ -22,8 +21,8 @@ try {
     console.log('✅ Redis connected');
   });
 
-  // Attempt connection
-  await redis.connect().catch(() => {
+  // Background connect — don't block app startup
+  redis.connect().catch(() => {
     console.warn('⚠️  Redis unavailable — running without cache');
     redis = null;
   });
@@ -34,14 +33,13 @@ try {
 
 /**
  * Get cached data or run fetcher and cache result.
- * Gracefully returns fetcher result if Redis is unavailable.
  */
 export async function cacheGet(key, fetcherFn, ttlSeconds = 600) {
   if (redis) {
     try {
       const cached = await redis.get(key);
       if (cached) return JSON.parse(cached);
-    } catch { /* ignore Redis errors */ }
+    } catch { /* ignore */ }
   }
 
   const data = await fetcherFn();
@@ -49,7 +47,7 @@ export async function cacheGet(key, fetcherFn, ttlSeconds = 600) {
   if (redis) {
     try {
       await redis.setex(key, ttlSeconds, JSON.stringify(data));
-    } catch { /* ignore Redis errors */ }
+    } catch { /* ignore */ }
   }
 
   return data;

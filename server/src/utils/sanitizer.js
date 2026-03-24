@@ -29,5 +29,10 @@ export function sanitizeHtml(rawHtml) {
       'viewBox', 'd', 'fill', 'stroke', 'xmlns',
       'controls', 'autoplay', 'loop', 'muted',
     ],
+    FORBID_ATTR: [
+      'onerror', 'onload', 'onclick', 'onmouseover', 'onfocus',
+      'onblur', 'onsubmit', 'onchange', 'onkeydown', 'onkeyup',
+      'onmouseenter', 'onmouseleave', 'ondblclick', 'oncontextmenu',
+    ],
   });
 }

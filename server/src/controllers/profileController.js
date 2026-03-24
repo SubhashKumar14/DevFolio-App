@@ -1,9 +1,28 @@
+import mongoose from 'mongoose';
+import User from '../models/User.js';
 import Profile from '../models/Profile.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
-// ─── Get Profile by User ID ──────────────────────
+// ─── Helper: resolve userId param (ObjectId or displayName) ──
+async function resolveUserId(param) {
+  if (mongoose.Types.ObjectId.isValid(param)) {
+    return param;
+  }
+  const user = await User.findOne({
+    displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  });
+  return user?._id || null;
+}
+
+// ─── Get Profile by User ID or displayName ─────────
 export const getProfile = asyncHandler(async (req, res) => {
-  const profile = await Profile.findOne({ userId: req.params.userId }).populate('userId', 'displayName email githubUsername');
+  const userId = await resolveUserId(req.params.userId);
+
+  if (!userId) {
+    throw new AppError('Profile not found', 404);
+  }
+
+  const profile = await Profile.findOne({ userId }).populate('userId', 'displayName email githubUsername leetcodeUsername codeforcesUsername hackerrankUsername codechefUsername kaggleUsername gfgUsername');
 
   if (!profile) {
     throw new AppError('Profile not found', 404);

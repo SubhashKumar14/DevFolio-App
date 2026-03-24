@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
-  withCredentials: true, // For httpOnly cookies like refresh token
+  withCredentials: true,
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -16,45 +16,46 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    // Expected to return { success: true, data: ... }
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
     
-    // Check if error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        // Use raw axios (not apiClient) to avoid interceptor loop
-        // withCredentials sends the httpOnly refresh cookie if the server uses cookies
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        if (!storedRefreshToken) {
+          throw new Error('No refresh token available');
+        }
+
         const refreshRes = await axios.post(
           `${apiClient.defaults.baseURL}/auth/refresh`,
-          {},
+          { refreshToken: storedRefreshToken },
           { withCredentials: true }
         );
         
-        const newToken = refreshRes.data?.data?.accessToken || refreshRes.data?.accessToken;
+        const newAccessToken = refreshRes.data?.data?.accessToken || refreshRes.data?.accessToken;
+        const newRefreshToken = refreshRes.data?.data?.refreshToken || refreshRes.data?.refreshToken;
         
-        if (!newToken) {
+        if (!newAccessToken) {
           throw new Error('No token in refresh response');
         }
         
-        // Update token in store
-        useAuthStore.getState().setAccessToken(newToken);
+        useAuthStore.getState().setAccessToken(newAccessToken);
+        if (newRefreshToken) {
+          useAuthStore.getState().setRefreshToken(newRefreshToken);
+        }
         
-        // Retry original request
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return axios(originalRequest).then(res => res.data);
       } catch (refreshError) {
-        // Refresh failed, logout
         useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
     
-    // Return unified error object
     const apiError = error.response?.data?.error || { message: error.message };
     return Promise.reject(apiError);
   }

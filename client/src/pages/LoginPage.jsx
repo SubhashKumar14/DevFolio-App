@@ -66,12 +66,7 @@ export default function LoginPage() {
               {errors.email && <p className="text-xs text-accent-red">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link to="/forgot-password" className="text-xs text-muted hover:text-accent-cyan transition-colors">
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"

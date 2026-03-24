@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 
 export function useAuth() {
-  const { setAccessToken, setUser, logout: clearStore, isAuthenticated } = useAuthStore();
+  const { setAccessToken, setRefreshToken, setUser, logout: clearStore, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -12,6 +12,7 @@ export function useAuth() {
     mutationFn: ({ email, password }) => authService.login(email, password),
     onSuccess: (data) => {
       setAccessToken(data.accessToken);
+      if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
       navigate('/dashboard');
     },
@@ -21,6 +22,7 @@ export function useAuth() {
     mutationFn: (data) => authService.register(data),
     onSuccess: (data) => {
       setAccessToken(data.accessToken);
+      if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
       navigate('/onboarding');
     },

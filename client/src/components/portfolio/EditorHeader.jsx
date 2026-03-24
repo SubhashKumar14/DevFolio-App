@@ -1,10 +1,14 @@
 import { Button } from '@/components/ui/button';
-import { Save, Eye, EyeOff, Loader2, ExternalLink, Globe, Lock, Check } from 'lucide-react';
+import { Save, Eye, EyeOff, Loader2, ExternalLink, Globe, Lock, Check, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSuccess, showPreview, isPublic, onToggleVisibility, dirty, displayName }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
       <div className="flex items-center gap-3">
+        <Link to="/dashboard" className="text-muted hover:text-foreground transition-colors" title="Back to Dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
         <h2 className="text-lg font-bold tracking-tight">Portfolio Editor</h2>
         {dirty && (
           <span className="text-xs text-accent-orange font-medium animate-pulse">● Unsaved changes</span>

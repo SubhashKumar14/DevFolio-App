@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import GithubStats from '../models/GithubStats.js';
 import DsaStats from '../models/DsaStats.js';
@@ -14,21 +15,33 @@ import { fetchGfgStats } from '../services/gfgService.js';
 import { computeDevScore } from '../utils/devScoreCalculator.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
+// ─── Helper: resolve userId param (ObjectId or displayName) ──
+async function resolveUserId(param) {
+  if (mongoose.Types.ObjectId.isValid(param)) return param;
+  const user = await User.findOne({
+    displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  });
+  return user?._id || null;
+}
+
 // ─── Get GitHub Stats ─────────────────────────────
 export const getGithubStats = asyncHandler(async (req, res) => {
-  const stats = await GithubStats.findOne({ userId: req.params.userId });
+  const userId = await resolveUserId(req.params.userId);
+  const stats = userId ? await GithubStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
 
 // ─── Get DSA Stats ────────────────────────────────
 export const getDsaStats = asyncHandler(async (req, res) => {
-  const stats = await DsaStats.findOne({ userId: req.params.userId });
+  const userId = await resolveUserId(req.params.userId);
+  const stats = userId ? await DsaStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
 
 // ─── Get Platform Stats (new platforms) ───────────
 export const getPlatformStats = asyncHandler(async (req, res) => {
-  const stats = await PlatformStats.findOne({ userId: req.params.userId });
+  const userId = await resolveUserId(req.params.userId);
+  const stats = userId ? await PlatformStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
 
@@ -55,11 +68,24 @@ export const syncStats = asyncHandler(async (req, res) => {
     try {
       const stats = await fetchLeetcodeStats(user.leetcodeUsername);
       const { dailyActivity, ...leetcodeData } = stats;
+
+      // Merge daily activity by date instead of replacing
+      const existing = await DsaStats.findOne({ userId: user._id });
+      const existingMap = new Map((existing?.dailyActivity || []).map(d => [d.date, d]));
+      
+      if (dailyActivity) {
+        dailyActivity.forEach(d => {
+          const current = existingMap.get(d.date) || { date: d.date, leetcodeCount: 0, codeforcesCount: 0 };
+          current.leetcodeCount = d.count || 0;
+          existingMap.set(d.date, current);
+        });
+      }
+
       await DsaStats.findOneAndUpdate(
         { userId: user._id },
         {
           leetcode: leetcodeData,
-          $set: { dailyActivity: dailyActivity?.map(d => ({ date: d.date, leetcodeCount: d.count, codeforcesCount: 0 })) || [] },
+          dailyActivity: Array.from(existingMap.values()),
           lastSyncedAt: new Date(),
           userId: user._id,
         },
@@ -146,6 +172,16 @@ export const syncStats = asyncHandler(async (req, res) => {
     ...scoreResult,
     computedAt: new Date(),
   });
+
+  // Retention: keep only last 100 DevScore entries per user
+  const count = await DevScore.countDocuments({ userId: user._id });
+  if (count > 100) {
+    const oldest = await DevScore.find({ userId: user._id })
+      .sort({ createdAt: 1 })
+      .limit(count - 100)
+      .select('_id');
+    await DevScore.deleteMany({ _id: { $in: oldest.map(d => d._id) } });
+  }
 
   res.json({
     success: true,

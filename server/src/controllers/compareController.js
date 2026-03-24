@@ -1,10 +1,21 @@
-import axios from 'axios';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import GithubStats from '../models/GithubStats.js';
 import DsaStats from '../models/DsaStats.js';
 import DevScore from '../models/DevScore.js';
 import PortfolioCode from '../models/PortfolioCode.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import axios from 'axios';
+
+// Helper: resolve a user param (ObjectId or displayName) to a User document
+async function resolveUser(param) {
+  if (mongoose.Types.ObjectId.isValid(param)) {
+    return await User.findById(param).select('displayName githubUsername');
+  }
+  return await User.findOne({
+    displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  }).select('displayName githubUsername');
+}
 
 // Helper: fetch repo names for a GitHub user
 async function fetchRepoNames(githubUsername) {
@@ -21,10 +32,10 @@ async function fetchRepoNames(githubUsername) {
 export const compareDevelopers = asyncHandler(async (req, res) => {
   const { userId1, userId2 } = req.params;
 
-  // Fetch both users' data in parallel
+  // Resolve by ObjectId OR displayName
   const [user1, user2] = await Promise.all([
-    User.findById(userId1).select('displayName githubUsername'),
-    User.findById(userId2).select('displayName githubUsername'),
+    resolveUser(userId1),
+    resolveUser(userId2),
   ]);
 
   if (!user1 || !user2) {
@@ -37,14 +48,14 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
     score1, score2,
     portfolio1, portfolio2,
   ] = await Promise.all([
-    GithubStats.findOne({ userId: userId1 }),
-    GithubStats.findOne({ userId: userId2 }),
-    DsaStats.findOne({ userId: userId1 }),
-    DsaStats.findOne({ userId: userId2 }),
-    DevScore.findOne({ userId: userId1 }).sort({ createdAt: -1 }),
-    DevScore.findOne({ userId: userId2 }).sort({ createdAt: -1 }),
-    PortfolioCode.findOne({ userId: userId1 }),
-    PortfolioCode.findOne({ userId: userId2 }),
+    GithubStats.findOne({ userId: user1._id }),
+    GithubStats.findOne({ userId: user2._id }),
+    DsaStats.findOne({ userId: user1._id }),
+    DsaStats.findOne({ userId: user2._id }),
+    DevScore.findOne({ userId: user1._id }).sort({ createdAt: -1 }),
+    DevScore.findOne({ userId: user2._id }).sort({ createdAt: -1 }),
+    PortfolioCode.findOne({ userId: user1._id }),
+    PortfolioCode.findOne({ userId: user2._id }),
   ]);
 
   // Shared repository detection
@@ -111,4 +122,3 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
     },
   });
 });
-

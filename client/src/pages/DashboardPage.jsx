@@ -257,7 +257,7 @@ export default function DashboardPage() {
               {scoreBreakdown.map(stat => (
                 <div key={stat.label}>
                   <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span>{stat.label}</span><span>{stat.value}%</span>
+                    <span>{stat.label}</span><span>{stat.value}/100</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-card-elevated overflow-hidden">
                     <div className="h-full bg-accent-purple rounded-full transition-all duration-700" style={{ width: `${stat.value}%` }} />

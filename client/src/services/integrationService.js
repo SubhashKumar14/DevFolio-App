@@ -1,11 +1,16 @@
 import apiClient from '../lib/apiClient';
 
 export const integrationService = {
-  async connectDsa({ githubUsername, leetcodeUsername, codeforcesUsername }) {
+  async connectDsa(data) {
+    // Accept all 7 platform fields
     const response = await apiClient.post('/integrations/dsa/connect', {
-      githubUsername,
-      leetcodeUsername,
-      codeforcesUsername,
+      githubUsername: data.githubUsername,
+      leetcodeUsername: data.leetcodeUsername,
+      codeforcesUsername: data.codeforcesUsername,
+      hackerrankUsername: data.hackerrankUsername,
+      codechefUsername: data.codechefUsername,
+      kaggleUsername: data.kaggleUsername,
+      gfgUsername: data.gfgUsername,
     });
     return response.data;
   },
