@@ -20,6 +20,13 @@ const githubStatsSchema = new Schema({
   githubAvatarUrl: { type: String, default: null },
   githubProfileUrl: { type: String, default: null },
 
+  // ─── Contribution Calendar (for heatmap) ───
+  contributionCalendar: [{
+    date: { type: String, required: true },     // "2024-03-24"
+    count: { type: Number, default: 0 },
+    _id: false,
+  }],
+
   // ─── Sync Metadata ─────────────────────
   lastSyncedAt: { type: Date, default: null },
 

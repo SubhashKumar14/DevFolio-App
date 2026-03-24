@@ -16,6 +16,7 @@ import portfolioRoutes from './routes/portfolioRoutes.js';
 import compareRoutes from './routes/compareRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import recruiterRoutes from './routes/recruiterRoutes.js';
+import contestRoutes from './routes/contestRoutes.js';
 
 // ─── Middleware Imports ─────────────────────────────────
 import { errorHandler } from './middleware/errorHandler.js';
@@ -54,6 +55,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/compare', compareRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/recruiter', recruiterRoutes);
+app.use('/api/contests', contestRoutes);
 
 // ─── Static Files (Uploads) ────────────────────────────
 app.use('/uploads', express.static('uploads'));

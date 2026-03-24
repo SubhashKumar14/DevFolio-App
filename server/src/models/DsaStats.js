@@ -25,6 +25,14 @@ const dsaStatsSchema = new Schema({
     rank: { type: String, default: '' },
   },
 
+  // ─── Daily Activity (for heatmap) ─────
+  dailyActivity: [{
+    date: { type: String, required: true },         // "2024-03-24"
+    leetcodeCount: { type: Number, default: 0 },
+    codeforcesCount: { type: Number, default: 0 },
+    _id: false,
+  }],
+
   // ─── Sync Metadata ─────────────────────
   lastSyncedAt: { type: Date, default: null },
 
