@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { compareService } from '@/services/compareService';
+import apiClient from '@/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GitCompare, Search, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -10,8 +11,40 @@ import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 
 export default function ComparePage() {
   const { user } = useAuthStore();
-  const [targetUserId, setTargetUserId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [compareId, setCompareId] = useState(null);
+  const [selectedName, setSelectedName] = useState('');
+  const dropdownRef = useRef(null);
+
+  // Search users as you type
+  useEffect(() => {
+    if (searchQuery.length < 2) { setSearchResults([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/user/search?q=${encodeURIComponent(searchQuery)}`);
+        const filtered = (res.data || []).filter((u) => u._id !== user?._id);
+        setSearchResults(filtered);
+        setShowDropdown(filtered.length > 0);
+      } catch { setSearchResults([]); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, user?._id]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectUser = (u) => {
+    setCompareId(u._id);
+    setSelectedName(u.displayName);
+    setSearchQuery(u.displayName);
+    setShowDropdown(false);
+  };
 
   const { data: comparison, isLoading, error } = useQuery({
     queryKey: ['compare', user?._id, compareId],
@@ -20,22 +53,13 @@ export default function ComparePage() {
     retry: false,
   });
 
-  const handleCompare = () => {
-    if (targetUserId.trim()) {
-      setCompareId(targetUserId.trim());
-    }
-  };
-
   return (
     <div className="space-y-8 animate-fade-in max-w-5xl mx-auto p-2 md:p-0">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <GitCompare className="h-8 w-8 text-accent-cyan" />
-            Compare Developers
-          </h1>
-          <p className="text-muted mt-1">Pitch your stats against peers to see who comes out on top.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <GitCompare className="h-8 w-8 text-accent-cyan" /> Compare Developers
+        </h1>
+        <p className="text-muted mt-1">Pitch your stats against peers to see who comes out on top.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-start">
@@ -51,7 +75,7 @@ export default function ComparePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <StatRow label="GitHub" value={comparison?.user1?.githubStats?.totalCommits ? `${comparison.user1.githubStats.totalCommits} repos` : '—'} />
+            <StatRow label="GitHub" value={comparison?.user1?.githubStats?.totalCommits ? `${comparison.user1.githubStats.totalCommits} commits` : '—'} />
             <StatRow label="DSA Solved" value={comparison?.user1?.dsaStats?.leetcode?.totalSolved || '—'} />
             <StatRow label="Portfolio" value={comparison?.user1?.hasPortfolio ? '✅ Published' : '—'} />
           </CardContent>
@@ -74,20 +98,39 @@ export default function ComparePage() {
                 <User className="h-8 w-8" />
               )}
             </div>
-            <div className="relative w-full max-w-xs mx-auto flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                <Input 
-                  placeholder="Enter user ID..." 
-                  className="pl-9 bg-transparent border-muted/30 focus-visible:ring-accent-cyan/50"
-                  value={targetUserId}
-                  onChange={(e) => setTargetUserId(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCompare()}
-                />
+            <div className="relative w-full max-w-xs mx-auto" ref={dropdownRef}>
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                  <Input
+                    placeholder="Search by name..."
+                    className="pl-9 bg-transparent border-muted/30 focus-visible:ring-accent-cyan/50"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                  />
+                </div>
               </div>
-              <Button onClick={handleCompare} disabled={isLoading || !targetUserId.trim()} size="sm">
-                {isLoading ? '...' : 'Go'}
-              </Button>
+              {/* Search results dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  {searchResults.map((u) => (
+                    <button
+                      key={u._id}
+                      onClick={() => selectUser(u)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-card-elevated transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-accent-purple/20 flex items-center justify-center text-sm font-bold text-accent-purple">
+                        {u.displayName[0]?.toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{u.displayName}</p>
+                        {u.college && <p className="text-xs text-muted">{u.college}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {comparison?.user2 && (
               <CardDescription className="text-transparent bg-clip-text bg-gradient-devscore font-bold text-lg mt-2">
@@ -96,7 +139,7 @@ export default function ComparePage() {
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            <StatRow label="GitHub" value={comparison?.user2?.githubStats?.totalCommits ? `${comparison.user2.githubStats.totalCommits} repos` : '—'} />
+            <StatRow label="GitHub" value={comparison?.user2?.githubStats?.totalCommits ? `${comparison.user2.githubStats.totalCommits} commits` : '—'} />
             <StatRow label="DSA Solved" value={comparison?.user2?.dsaStats?.leetcode?.totalSolved || '—'} />
             <StatRow label="Portfolio" value={comparison?.user2?.hasPortfolio ? '✅ Published' : '—'} />
           </CardContent>
@@ -125,9 +168,13 @@ export default function ComparePage() {
         </Card>
       )}
 
+      {isLoading && (
+        <div className="text-center py-8 text-muted animate-pulse">Loading comparison...</div>
+      )}
+
       {error && (
         <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg text-accent-red text-sm">
-          User not found. Please check the user ID and try again.
+          User not found. Please search for a valid user.
         </div>
       )}
     </div>

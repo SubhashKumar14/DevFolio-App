@@ -23,11 +23,20 @@ const dsaStatsSchema = new Schema({
     currentRating: { type: Number, default: 0 },
     maxRating: { type: Number, default: 0 },
     rank: { type: String, default: '' },
+    totalSolved: { type: Number, default: 0 },
+    ratingHistory: [{
+      contestName: { type: String },
+      rank: { type: Number },
+      oldRating: { type: Number },
+      newRating: { type: Number },
+      date: { type: String },
+      _id: false,
+    }],
   },
 
   // ─── Daily Activity (for heatmap) ─────
   dailyActivity: [{
-    date: { type: String, required: true },         // "2024-03-24"
+    date: { type: String, required: true },
     leetcodeCount: { type: Number, default: 0 },
     codeforcesCount: { type: Number, default: 0 },
     _id: false,
@@ -39,9 +48,6 @@ const dsaStatsSchema = new Schema({
 }, {
   timestamps: true,
 });
-
-// ─── Indexes ──────────────────────────────
-// userId index auto-created by unique: true
 
 const DsaStats = mongoose.model('DsaStats', dsaStatsSchema);
 

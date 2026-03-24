@@ -1,10 +1,9 @@
 import axios from 'axios';
 
 /**
- * Fetch GitHub user stats using the public GitHub REST API.
- * Works without OAuth — uses username-based public endpoints.
+ * Fetch GitHub user stats using REST API + GraphQL for contribution calendar.
  * @param {string} githubUsername
- * @param {string} [accessToken] - Optional GitHub OAuth token for higher rate limits
+ * @param {string} [accessToken] - Optional OAuth token for higher rate limits + GraphQL
  * @returns {Object} GitHub stats
  */
 export async function fetchGithubStats(githubUsername, accessToken) {
@@ -23,11 +22,20 @@ export async function fetchGithubStats(githubUsername, accessToken) {
   const starsReceived = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0);
   const forksCount = repos.reduce((sum, repo) => sum + (repo.forks_count || 0), 0);
 
-  // 2. Estimate total commits by summing commit activity on owned repos (non-forks)
-  const ownedRepos = repos.filter(r => !r.fork);
-  let totalCommits = 0;
+  // Build language distribution from repos
+  const langMap = {};
+  repos.forEach((repo) => {
+    if (repo.language) {
+      langMap[repo.language] = (langMap[repo.language] || 0) + 1;
+    }
+  });
+  const languageDistribution = Object.entries(langMap)
+    .map(([language, count]) => ({ language, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
 
-  // Use the Search API to get total commit count for this user
+  // 2. Estimate total commits via Search API
+  let totalCommits = 0;
   try {
     const searchRes = await axios.get(
       `https://api.github.com/search/commits?q=author:${githubUsername}`,
@@ -35,11 +43,10 @@ export async function fetchGithubStats(githubUsername, accessToken) {
     );
     totalCommits = searchRes.data.total_count || 0;
   } catch {
-    // Fallback: use public_repos as rough proxy
     totalCommits = userRes.data.public_repos || 0;
   }
 
-  // 3. Count pull requests authored by this user (via Search API)
+  // 3. Count pull requests
   let pullRequests = 0;
   try {
     const prRes = await axios.get(
@@ -51,6 +58,57 @@ export async function fetchGithubStats(githubUsername, accessToken) {
     pullRequests = 0;
   }
 
+  // 4. Fetch contribution calendar via GitHub GraphQL API (requires token)
+  let contributionCalendar = [];
+  if (accessToken) {
+    try {
+      const graphqlRes = await axios.post(
+        'https://api.github.com/graphql',
+        {
+          query: `query($login: String!) {
+            user(login: $login) {
+              contributionsCollection {
+                contributionCalendar {
+                  weeks {
+                    contributionDays {
+                      date
+                      contributionCount
+                    }
+                  }
+                }
+              }
+            }
+          }`,
+          variables: { login: githubUsername },
+        },
+        { headers: { ...headers, 'Content-Type': 'application/json' }, timeout: 15000 }
+      );
+      const weeks = graphqlRes.data?.data?.user?.contributionsCollection?.contributionCalendar?.weeks || [];
+      contributionCalendar = weeks.flatMap((w) =>
+        w.contributionDays.map((d) => ({ date: d.date, count: d.contributionCount }))
+      );
+    } catch (err) {
+      console.warn('GitHub GraphQL calendar fetch failed:', err.message);
+    }
+  }
+
+  // Fallback: scrape from GitHub profile HTML if no token
+  if (contributionCalendar.length === 0) {
+    try {
+      const htmlRes = await axios.get(`https://github.com/users/${githubUsername}/contributions`, {
+        headers: { 'User-Agent': 'DevFolio-App' },
+        timeout: 15000,
+      });
+      const dateRegex = /data-date="(\d{4}-\d{2}-\d{2})"[^>]*data-count="(\d+)"/g;
+      let match;
+      while ((match = dateRegex.exec(htmlRes.data)) !== null) {
+        contributionCalendar.push({ date: match[1], count: parseInt(match[2], 10) });
+      }
+    } catch {
+      // No calendar data available
+    }
+  }
+
   return {
     totalCommits,
     publicRepos: userRes.data.public_repos || 0,
@@ -60,6 +118,8 @@ export async function fetchGithubStats(githubUsername, accessToken) {
     followers: userRes.data.followers || 0,
     githubAvatarUrl: userRes.data.avatar_url,
     githubProfileUrl: userRes.data.html_url,
+    languageDistribution,
+    contributionCalendar,
     lastSyncedAt: new Date(),
   };
 }

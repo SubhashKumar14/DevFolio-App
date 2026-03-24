@@ -28,6 +28,8 @@ export function Sidebar({ className }) {
     { name: 'Goals', href: '/dashboard/goals', icon: Target },
     { name: 'Compare', href: '/dashboard/compare', icon: GitCompare },
     { name: 'Wrapped', href: '/dashboard/wrapped', icon: Sparkles },
+    ...(user?.role === 'admin' ? [{ name: 'Admin Panel', href: '/dashboard/admin', icon: Settings }] : []),
+    ...(user?.role === 'recruiter' ? [{ name: 'Recruiter', href: '/dashboard/recruiter', icon: Settings }] : []),
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 

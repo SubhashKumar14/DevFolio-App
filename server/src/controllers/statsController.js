@@ -99,9 +99,27 @@ export const syncStats = asyncHandler(async (req, res) => {
   if (user.codeforcesUsername) {
     try {
       const stats = await fetchCodeforcesStats(user.codeforcesUsername);
+      const { dailySubmissions, ratingHistory, ...cfData } = stats;
+
+      // Merge Codeforces daily submissions into existing dailyActivity
+      const existing = await DsaStats.findOne({ userId: user._id });
+      const existingMap = new Map((existing?.dailyActivity || []).map(d => [d.date, d]));
+
+      if (dailySubmissions) {
+        dailySubmissions.forEach(d => {
+          const current = existingMap.get(d.date) || { date: d.date, leetcodeCount: 0, codeforcesCount: 0 };
+          current.codeforcesCount = d.count || 0;
+          existingMap.set(d.date, current);
+        });
+      }
+
       await DsaStats.findOneAndUpdate(
         { userId: user._id },
-        { codeforces: stats, lastSyncedAt: new Date() },
+        {
+          codeforces: { ...cfData, ratingHistory: ratingHistory?.slice(-50) || [] },
+          dailyActivity: Array.from(existingMap.values()),
+          lastSyncedAt: new Date(),
+        },
         { upsert: true, new: true }
       );
       synced.push('Codeforces');

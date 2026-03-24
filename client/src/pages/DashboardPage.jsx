@@ -76,20 +76,21 @@ export default function DashboardPage() {
   const quickStats = {
     totalProblemsSolved: dsaStats?.leetcode?.totalSolved || 0,
     totalRepos: githubStats?.publicRepos || 0,
-    activePlatforms: [user?.githubUsername, user?.leetcodeUsername, user?.codeforcesUsername].filter(Boolean).length,
+    activePlatforms: [user?.githubUsername, user?.leetcodeUsername, user?.codeforcesUsername, user?.hackerrankUsername, user?.codechefUsername, user?.kaggleUsername, user?.gfgUsername].filter(Boolean).length,
     currentStreak: 0,
   };
 
   const platforms = useMemo(() => {
     const list = [];
     if (user?.leetcodeUsername) {
+      const total = dsaStats?.leetcode?.totalSolved || 1;
       list.push({
         id: 'leetcode', username: user.leetcodeUsername,
         primaryStat: `${dsaStats?.leetcode?.totalSolved || 0} Solved`, rating: '',
         breakdown: dsaStats?.leetcode ? {
-          label1: 'Easy', pct1: dsaStats.leetcode.easySolved || 0,
-          label2: 'Medium', pct2: dsaStats.leetcode.mediumSolved || 0,
-          label3: 'Hard', pct3: dsaStats.leetcode.hardSolved || 0,
+          label1: 'Easy', pct1: Math.round(((dsaStats.leetcode.easySolved || 0) / total) * 100),
+          label2: 'Medium', pct2: Math.round(((dsaStats.leetcode.mediumSolved || 0) / total) * 100),
+          label3: 'Hard', pct3: Math.round(((dsaStats.leetcode.hardSolved || 0) / total) * 100),
         } : null,
       });
     }
@@ -194,6 +195,17 @@ export default function DashboardPage() {
 
       {/* ─── Quick Stats Row ───────────────── */}
       <QuickStats stats={quickStats} />
+
+      {/* ─── Empty State Banner ──────── */}
+      {quickStats.activePlatforms === 0 && (
+        <div className="rounded-xl border-2 border-dashed border-accent-cyan/30 bg-accent-cyan/5 p-6 text-center animate-slide-up">
+          <h3 className="text-lg font-bold text-foreground mb-2">🚀 Complete Your Setup</h3>
+          <p className="text-sm text-muted mb-4">Connect your coding platforms to unlock DevScore, analytics, and more.</p>
+          <Link to="/dashboard/settings">
+            <Button className="gap-2"><ExternalLink className="h-4 w-4" /> Go to Settings</Button>
+          </Link>
+        </div>
+      )}
 
       {/* ─── Activity Heatmap (full width) ─── */}
       <ActivityHeatmap
