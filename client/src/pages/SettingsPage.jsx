@@ -5,6 +5,7 @@ import { profileService } from '@/services/profileService';
 import { integrationService } from '@/services/integrationService';
 import { statsService } from '@/services/statsService';
 import { authService } from '@/services/authService';
+import apiClient from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,17 +57,8 @@ export default function SettingsPage() {
   // Update user mutation (display name)
   const updateUserMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await authService.getMe(); // Re-fetch after update via apiClient
-      // Actually, we need to call user update endpoint
-      const res = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/user/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${useAuthStore.getState().accessToken}`,
-        },
-        body: JSON.stringify(data),
-      });
-      return res.json();
+      const res = await apiClient.put('/user/me', data);
+      return res;
     },
     onSuccess: (data) => {
       if (data.success) {

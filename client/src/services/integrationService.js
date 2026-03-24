@@ -7,11 +7,11 @@ export const integrationService = {
       leetcodeUsername,
       codeforcesUsername,
     });
-    return response;
+    return response.data;
   },
 
   async connectGithub(code) {
     const response = await apiClient.post('/integrations/github/connect', { code });
-    return response;
+    return response.data;
   },
 };

@@ -9,25 +9,17 @@ export default function AdminPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
-  if (user?.role !== 'admin') {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center space-y-4">
-          <AlertTriangle className="h-12 w-12 text-accent-orange mx-auto" />
-          <p className="text-lg font-medium text-muted">Admin access required</p>
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks MUST be above any conditional return
   const { data: stats } = useQuery({
     queryKey: ['adminStats'],
     queryFn: async () => { const res = await apiClient.get('/admin/stats'); return res.data; },
+    enabled: user?.role === 'admin',
   });
 
   const { data: usersData } = useQuery({
     queryKey: ['adminUsers'],
     queryFn: async () => { const res = await apiClient.get('/admin/users?limit=50'); return res.data; },
+    enabled: user?.role === 'admin',
   });
 
   const syncMutation = useMutation({
@@ -47,6 +39,18 @@ export default function AdminPage() {
     mutationFn: ({ userId, role }) => apiClient.patch(`/admin/users/${userId}/role`, { role }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
   });
+
+  // Now safe to return early
+  if (user?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-accent-orange mx-auto" />
+          <p className="text-lg font-medium text-muted">Admin access required</p>
+        </div>
+      </div>
+    );
+  }
 
   const statCards = [
     { label: 'Total Users', value: stats?.totalUsers ?? '—', icon: Users, color: 'text-accent-cyan' },

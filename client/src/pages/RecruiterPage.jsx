@@ -14,17 +14,7 @@ export default function RecruiterPage() {
   const [filters, setFilters] = useState({ name: '', techStack: '', college: '', minScore: '' });
   const [searchParams, setSearchParams] = useState(null);
 
-  if (user?.role !== 'recruiter' && user?.role !== 'admin') {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center space-y-4">
-          <AlertTriangle className="h-12 w-12 text-accent-orange mx-auto" />
-          <p className="text-lg font-medium text-muted">Recruiter access required</p>
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks MUST be above any conditional return
   const { data: results = [], isLoading } = useQuery({
     queryKey: ['recruiterSearch', searchParams],
     queryFn: async () => {
@@ -40,6 +30,18 @@ export default function RecruiterPage() {
   });
 
   const handleSearch = () => setSearchParams({ ...filters });
+
+  // Now safe to return early
+  if (user?.role !== 'recruiter' && user?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-accent-orange mx-auto" />
+          <p className="text-lg font-medium text-muted">Recruiter access required</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in max-w-5xl mx-auto p-2 md:p-0">

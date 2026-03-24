@@ -26,17 +26,25 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const { accessToken } = await axios.post(
+        // Use raw axios (not apiClient) to avoid interceptor loop
+        // withCredentials sends the httpOnly refresh cookie if the server uses cookies
+        const refreshRes = await axios.post(
           `${apiClient.defaults.baseURL}/auth/refresh`,
           {},
           { withCredentials: true }
         );
         
+        const newToken = refreshRes.data?.data?.accessToken || refreshRes.data?.accessToken;
+        
+        if (!newToken) {
+          throw new Error('No token in refresh response');
+        }
+        
         // Update token in store
-        useAuthStore.getState().setAccessToken(accessToken);
+        useAuthStore.getState().setAccessToken(newToken);
         
         // Retry original request
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return axios(originalRequest).then(res => res.data);
       } catch (refreshError) {
         // Refresh failed, logout

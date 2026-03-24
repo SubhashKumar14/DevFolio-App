@@ -24,6 +24,7 @@ const PortfolioEditor = lazy(() => import('@/pages/PortfolioEditor'));
 const PortfolioPreview = lazy(() => import('@/pages/PortfolioPreview'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const RecruiterPage = lazy(() => import('@/pages/RecruiterPage'));
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -72,6 +73,9 @@ function App() {
           <Route path="/dashboard/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/dashboard/recruiter" element={<ProtectedRoute><RecruiterPage /></ProtectedRoute>} />
         </Route>
+
+        {/* 404 Catch-all */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );

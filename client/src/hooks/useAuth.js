@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 
 export function useAuth() {
-  const { setAccessToken, setUser, logout: clearStore } = useAuthStore();
+  const { setAccessToken, setUser, logout: clearStore, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -43,7 +43,7 @@ export function useAuth() {
       setUser(data);
       return data;
     },
-    enabled: useAuthStore.getState().isAuthenticated,
+    enabled: isAuthenticated,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
