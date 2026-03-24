@@ -39,6 +39,10 @@ const userSchema = new Schema({
   // ─── DSA Platform Handles ───────────────
   leetcodeUsername: { type: String, default: null },
   codeforcesUsername: { type: String, default: null },
+  hackerrankUsername: { type: String, default: null },
+  codechefUsername: { type: String, default: null },
+  kaggleUsername: { type: String, default: null },
+  gfgUsername: { type: String, default: null },
 
   // ─── Auth ───────────────────────────────
   refreshToken: { type: String, select: false },

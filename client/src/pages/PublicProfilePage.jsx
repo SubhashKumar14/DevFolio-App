@@ -6,7 +6,7 @@ import { statsService } from '@/services/statsService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Code2, Trophy, Clock, Share2 } from 'lucide-react';
+import { Code2, Trophy, Clock, Share2, Mail } from 'lucide-react';
 
 export default function PublicProfilePage() {
   const { handle } = useParams();
@@ -77,6 +77,16 @@ export default function PublicProfilePage() {
               onClick={() => navigator.clipboard.writeText(window.location.href)}
             >
               <Share2 className="h-4 w-4" /> Share Profile
+            </Button>
+            <Button 
+              className="gap-2"
+              onClick={() => {
+                const subject = encodeURIComponent(`Interested in your profile — ${userName}`);
+                const body = encodeURIComponent(`Hi ${userName},\n\nI found your DevFolio profile at ${window.location.href} and I'm interested in connecting with you.\n\nBest regards`);
+                window.open(`mailto:?subject=${subject}&body=${body}`);
+              }}
+            >
+              <Mail className="h-4 w-4" /> Hire Me
             </Button>
           </div>
           <p className="text-muted-foreground max-w-2xl">{profile.bio || 'No bio yet.'}</p>

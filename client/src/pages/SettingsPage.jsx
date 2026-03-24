@@ -31,6 +31,10 @@ export default function SettingsPage() {
   const [githubUsername, setGithubUsername] = useState('');
   const [leetcodeUsername, setLeetcodeUsername] = useState('');
   const [codeforcesUsername, setCodeforcesUsername] = useState('');
+  const [hackerrankUsername, setHackerrankUsername] = useState('');
+  const [codechefUsername, setCodechefUsername] = useState('');
+  const [kaggleUsername, setKaggleUsername] = useState('');
+  const [gfgUsername, setGfgUsername] = useState('');
 
   // Initialize form when user/profile data loads
   useEffect(() => {
@@ -39,6 +43,10 @@ export default function SettingsPage() {
       setGithubUsername(user.githubUsername || '');
       setLeetcodeUsername(user.leetcodeUsername || '');
       setCodeforcesUsername(user.codeforcesUsername || '');
+      setHackerrankUsername(user.hackerrankUsername || '');
+      setCodechefUsername(user.codechefUsername || '');
+      setKaggleUsername(user.kaggleUsername || '');
+      setGfgUsername(user.gfgUsername || '');
     }
   }, [user]);
 
@@ -105,6 +113,10 @@ export default function SettingsPage() {
     if (githubUsername) data.githubUsername = githubUsername;
     if (leetcodeUsername) data.leetcodeUsername = leetcodeUsername;
     if (codeforcesUsername) data.codeforcesUsername = codeforcesUsername;
+    if (hackerrankUsername) data.hackerrankUsername = hackerrankUsername;
+    if (codechefUsername) data.codechefUsername = codechefUsername;
+    if (kaggleUsername) data.kaggleUsername = kaggleUsername;
+    if (gfgUsername) data.gfgUsername = gfgUsername;
     if (Object.keys(data).length > 0) {
       connectPlatformsMutation.mutate(data);
     }
@@ -219,6 +231,66 @@ export default function SettingsPage() {
                     placeholder="e.g. tourist"
                     value={codeforcesUsername}
                     onChange={(e) => setCodeforcesUsername(e.target.value)}
+                  />
+                </div>
+
+                {/* HackerRank */}
+                <div className="p-4 border border-border rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">HackerRank</h4>
+                    {user?.hackerrankUsername && (
+                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
+                    )}
+                  </div>
+                  <Input 
+                    placeholder="e.g. hackerrank_user"
+                    value={hackerrankUsername}
+                    onChange={(e) => setHackerrankUsername(e.target.value)}
+                  />
+                </div>
+
+                {/* CodeChef */}
+                <div className="p-4 border border-border rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">CodeChef</h4>
+                    {user?.codechefUsername && (
+                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
+                    )}
+                  </div>
+                  <Input 
+                    placeholder="e.g. chef_user"
+                    value={codechefUsername}
+                    onChange={(e) => setCodechefUsername(e.target.value)}
+                  />
+                </div>
+
+                {/* Kaggle */}
+                <div className="p-4 border border-border rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Kaggle</h4>
+                    {user?.kaggleUsername && (
+                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
+                    )}
+                  </div>
+                  <Input 
+                    placeholder="e.g. kaggle_user"
+                    value={kaggleUsername}
+                    onChange={(e) => setKaggleUsername(e.target.value)}
+                  />
+                </div>
+
+                {/* GeeksforGeeks */}
+                <div className="p-4 border border-border rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">GeeksforGeeks</h4>
+                    {user?.gfgUsername && (
+                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
+                    )}
+                  </div>
+                  <Input 
+                    placeholder="e.g. gfg_user"
+                    value={gfgUsername}
+                    onChange={(e) => setGfgUsername(e.target.value)}
                   />
                 </div>
               </CardContent>

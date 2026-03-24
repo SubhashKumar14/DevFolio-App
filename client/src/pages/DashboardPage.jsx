@@ -9,10 +9,13 @@ import { QuickStats } from '@/components/dashboard/QuickStats';
 import { PlatformCard } from '@/components/dashboard/PlatformCard';
 import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap';
 import ProfileCompleteness from '@/components/dashboard/ProfileCompleteness';
+import StreakCounter from '@/components/dashboard/StreakCounter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, ExternalLink, FileCode, FileText } from 'lucide-react';
+import { RefreshCw, ExternalLink, FileCode, FileText, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import apiClient from '@/lib/apiClient';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -50,6 +53,12 @@ export default function DashboardPage() {
     enabled: !!userId, retry: false,
   });
 
+  const { data: platformStats } = useQuery({
+    queryKey: ['platformStats', userId],
+    queryFn: () => statsService.getPlatformStats(userId),
+    enabled: !!userId, retry: false,
+  });
+
   // ─── Sync mutation ──────────────────────
   const syncMutation = useMutation({
     mutationFn: () => statsService.syncStats(),
@@ -57,7 +66,10 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['githubStats'] });
       queryClient.invalidateQueries({ queryKey: ['dsaStats'] });
       queryClient.invalidateQueries({ queryKey: ['devScore'] });
+      queryClient.invalidateQueries({ queryKey: ['platformStats'] });
+      toast.success('All platforms synced!');
     },
+    onError: () => toast.error('Sync failed. Please try again.'),
   });
 
   // ─── Computed data ──────────────────────
@@ -95,8 +107,36 @@ export default function DashboardPage() {
         rating: dsaStats?.codeforces?.rank || 'unrated', breakdown: null,
       });
     }
+    if (user?.hackerrankUsername) {
+      list.push({
+        id: 'hackerrank', username: user.hackerrankUsername,
+        primaryStat: `${platformStats?.hackerrank?.totalBadges || 0} Badges`,
+        rating: `${platformStats?.hackerrank?.totalStars || 0}★`, breakdown: null,
+      });
+    }
+    if (user?.codechefUsername) {
+      list.push({
+        id: 'codechef', username: user.codechefUsername,
+        primaryStat: `${platformStats?.codechef?.currentRating || 0}`,
+        rating: platformStats?.codechef?.stars || '', breakdown: null,
+      });
+    }
+    if (user?.kaggleUsername) {
+      list.push({
+        id: 'kaggle', username: user.kaggleUsername,
+        primaryStat: platformStats?.kaggle?.tier || 'Unknown',
+        rating: `${platformStats?.kaggle?.totalMedals || 0} Medals`, breakdown: null,
+      });
+    }
+    if (user?.gfgUsername) {
+      list.push({
+        id: 'gfg', username: user.gfgUsername,
+        primaryStat: `${platformStats?.gfg?.totalProblemsSolved || 0} Solved`,
+        rating: `Score: ${platformStats?.gfg?.score || 0}`, breakdown: null,
+      });
+    }
     return list;
-  }, [user, dsaStats, githubStats]);
+  }, [user, dsaStats, githubStats, platformStats]);
 
   const breakdown = devScore?.breakdown;
   const scoreBreakdown = breakdown ? [
@@ -117,16 +157,39 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in p-2 md:p-0">
       {/* ─── Header ────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3 tracking-tight">Dashboard</h1>
-          <p className="text-muted mt-1">
-            Welcome back, <span className="text-foreground font-medium">{user?.displayName || 'Developer'}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3 tracking-tight">Dashboard</h1>
+            <p className="text-muted mt-1">
+              Welcome back, <span className="text-foreground font-medium">{user?.displayName || 'Developer'}</span>
+            </p>
+          </div>
+          <StreakCounter
+            githubCalendar={githubStats?.contributionCalendar || []}
+            dsaActivity={dsaStats?.dailyActivity || []}
+          />
         </div>
-        <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-          {syncMutation.isPending ? 'Syncing...' : 'Sync All'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline" size="sm"
+            onClick={async () => {
+              toast.promise(
+                apiClient.get('/user/export').then((res) => {
+                  const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = 'devfolio-export.json'; a.click();
+                }),
+                { loading: 'Exporting...', success: 'Data exported!', error: 'Export failed' }
+              );
+            }}
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? 'Syncing...' : 'Sync All'}
+          </Button>
+        </div>
       </div>
 
       {/* ─── Quick Stats Row ───────────────── */}
