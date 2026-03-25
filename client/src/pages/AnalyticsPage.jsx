@@ -122,7 +122,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent className="h-64">
             {trendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="100%">
                 <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
             <CardDescription>Your relative strength across all platforms</CardDescription>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="var(--border)" />
                 <PolarAngleAxis dataKey="metric" stroke="var(--muted-foreground)" fontSize={11} />
@@ -168,7 +168,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent className="h-56">
             {problemData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="100%">
                 <BarChart data={problemData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="difficulty" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent className="h-56">
             {cfRatingData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="100%">
                 <LineChart data={cfRatingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
@@ -215,7 +215,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent className="h-56">
             {langData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="100%">
                 <PieChart>
                   <Pie data={langData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
                     {langData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}

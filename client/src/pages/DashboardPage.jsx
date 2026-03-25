@@ -167,7 +167,12 @@ export default function DashboardPage() {
           </div>
           <StreakCounter
             githubCalendar={githubStats?.contributionCalendar || []}
-            dsaActivity={dsaStats?.dailyActivity || []}
+            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
+            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
+            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
+            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
+            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
+            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
           />
         </div>
         <div className="flex gap-2">
@@ -207,16 +212,58 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ─── Activity Heatmap (full width) ─── */}
-      <ActivityHeatmap
-        githubCalendar={githubStats?.contributionCalendar || []}
-        dsaActivity={dsaStats?.dailyActivity || []}
-      />
+      {/* ─── Bento Grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8">
+          <ActivityHeatmap
+            githubCalendar={githubStats?.contributionCalendar || []}
+            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
+            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
+            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
+            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
+            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
+            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
+          />
+        </div>
 
-      {/* ─── Main Grid: Platforms + DevScore + Completeness ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Connected Platforms */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-4 rounded-xl border border-border bg-card p-6 text-center animate-slide-up" style={{ animationDelay: '200ms' }}>
+          <h2 className="text-lg font-semibold tracking-tight mb-4">DevScore</h2>
+          <div className="relative inline-flex items-center justify-center">
+            <svg className="w-36 h-36 transform -rotate-90">
+              <circle cx="72" cy="72" r="60" stroke="var(--border)" strokeWidth="10" fill="none" />
+              <circle cx="72" cy="72" r="60" stroke="url(#scoreGrad)" strokeWidth="10" fill="none"
+                strokeDasharray="377" strokeDashoffset={377 - (377 * (devScore?.overallScore || 0) / 100)}
+                strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+              <defs>
+                <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#06b6d4" />
+                  <stop offset="50%" stopColor="#8b5cf6" />
+                  <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-devscore">
+                {devScore?.overallScore || 0}
+              </span>
+              <span className="text-xs text-muted font-medium">/ 100</span>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2.5 text-left">
+            {scoreBreakdown.map(stat => (
+              <div key={stat.label}>
+                <div className="flex justify-between text-xs font-semibold mb-1">
+                  <span>{stat.label}</span><span>{stat.value}/100</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-card-elevated overflow-hidden">
+                  <div className="h-full bg-accent-purple rounded-full transition-all duration-700" style={{ width: `${stat.value}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="lg:col-span-7 space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Connected Platforms</h2>
           {platforms.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -239,95 +286,61 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Right: DevScore + Completeness */}
-        <div className="space-y-4">
-          {/* DevScore Ring */}
-          <div className="rounded-xl border border-border bg-card p-6 text-center animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <h2 className="text-lg font-semibold tracking-tight mb-4">DevScore</h2>
-            <div className="relative inline-flex items-center justify-center">
-              <svg className="w-36 h-36 transform -rotate-90">
-                <circle cx="72" cy="72" r="60" stroke="var(--border)" strokeWidth="10" fill="none" />
-                <circle cx="72" cy="72" r="60" stroke="url(#scoreGrad)" strokeWidth="10" fill="none"
-                  strokeDasharray="377" strokeDashoffset={377 - (377 * (devScore?.overallScore || 0) / 100)}
-                  strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                <defs>
-                  <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#06b6d4" />
-                    <stop offset="50%" stopColor="#8b5cf6" />
-                    <stop offset="100%" stopColor="#ec4899" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-devscore">
-                  {devScore?.overallScore || 0}
-                </span>
-                <span className="text-xs text-muted font-medium">/ 100</span>
-              </div>
-            </div>
-            <div className="mt-4 space-y-2.5 text-left">
-              {scoreBreakdown.map(stat => (
-                <div key={stat.label}>
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span>{stat.label}</span><span>{stat.value}/100</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-card-elevated overflow-hidden">
-                    <div className="h-full bg-accent-purple rounded-full transition-all duration-700" style={{ width: `${stat.value}%` }} />
-                  </div>
-                </div>
-              ))}
+        <div className="lg:col-span-5 rounded-xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+              <FileCode className="h-5 w-5 text-accent-cyan" /> Portfolio
+            </h2>
+            <div className="flex gap-2">
+              {profile?.socialLinks?.resumeUrl && (
+                <Button variant="outline" size="sm" asChild className="gap-1.5">
+                  <a href={profile.socialLinks.resumeUrl} target="_blank" rel="noreferrer">
+                    <FileText className="h-3.5 w-3.5" /> Resume
+                  </a>
+                </Button>
+              )}
+              {user?.displayName && (
+                <Button variant="outline" size="sm" asChild className="gap-1.5">
+                  <Link to={`/portfolio/${encodeURIComponent(user.displayName)}`} target="_blank">
+                    <ExternalLink className="h-3.5 w-3.5" /> View Live
+                  </Link>
+                </Button>
+              )}
+              {user?.role !== 'recruiter' && (
+                <Button variant="outline" size="sm" asChild className="gap-1.5">
+                  <Link to="/portfolio/editor">
+                    <FileText className="h-3.5 w-3.5" /> Edit Code
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
+          {portfolioSrcdoc ? (
+            <div className="h-[300px] bg-white">
+              <iframe
+                srcDoc={portfolioSrcdoc}
+                title="Portfolio Preview"
+                sandbox="allow-scripts"
+                className="w-full h-full border-0"
+              />
+            </div>
+          ) : (
+            <CardContent className="py-12 text-center text-muted">
+              <FileCode className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="font-medium">No portfolio yet</p>
+              <p className="text-sm mt-1">Create your portfolio in the editor</p>
+              {user?.role !== 'recruiter' && (
+                <Button asChild size="sm" className="mt-4">
+                  <Link to="/portfolio/editor">Create Portfolio</Link>
+                </Button>
+              )}
+            </CardContent>
+          )}
+        </div>
 
-          {/* Profile Completeness */}
+        <div className="lg:col-span-12">
           <ProfileCompleteness user={user} profile={profile} hasPortfolio={!!portfolio} />
         </div>
-      </div>
-
-      {/* ─── Portfolio Preview + Actions ──── */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-            <FileCode className="h-5 w-5 text-accent-cyan" /> Portfolio
-          </h2>
-          <div className="flex gap-2">
-            {user?.displayName && (
-              <Button variant="outline" size="sm" asChild className="gap-1.5">
-                <Link to={`/portfolio/preview/${encodeURIComponent(user.displayName)}`} target="_blank">
-                  <ExternalLink className="h-3.5 w-3.5" /> View Live
-                </Link>
-              </Button>
-            )}
-            {user?.role !== 'recruiter' && (
-              <Button variant="outline" size="sm" asChild className="gap-1.5">
-                <Link to="/portfolio/editor">
-                  <FileText className="h-3.5 w-3.5" /> Edit Code
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-        {portfolioSrcdoc ? (
-          <div className="h-[280px] bg-white">
-            <iframe
-              srcDoc={portfolioSrcdoc}
-              title="Portfolio Preview"
-              sandbox="allow-scripts"
-              className="w-full h-full border-0"
-            />
-          </div>
-        ) : (
-          <CardContent className="py-12 text-center text-muted">
-            <FileCode className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="font-medium">No portfolio yet</p>
-            <p className="text-sm mt-1">Create your portfolio in the editor</p>
-            {user?.role !== 'recruiter' && (
-              <Button asChild size="sm" className="mt-4">
-                <Link to="/portfolio/editor">Create Portfolio</Link>
-              </Button>
-            )}
-          </CardContent>
-        )}
       </div>
     </div>
   );
