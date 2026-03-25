@@ -154,7 +154,7 @@ export default function ComparePage() {
             <CardDescription>Multi-dimensional profile comparison</CardDescription>
           </CardHeader>
           <CardContent className="h-96">
-            <ResponsiveContainer width="99%" height="100%">
+            <ResponsiveContainer width="100%" height={300}>
               <RadarChart data={comparison.radarData}>
                 <PolarGrid stroke="var(--border)" />
                 <PolarAngleAxis dataKey="metric" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} />
