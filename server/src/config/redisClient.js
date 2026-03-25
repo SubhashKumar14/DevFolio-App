@@ -1,19 +1,34 @@
 import Redis from 'ioredis';
 
 let redis = null;
+let redisDisabledLogged = false;
 
-try {
-  redis = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+const redisUrl = process.env.REDIS_URL?.trim();
+const isProduction = process.env.NODE_ENV === 'production';
+
+// On production hosts (e.g. Render), only enable Redis if REDIS_URL is provided.
+const shouldEnableRedis = Boolean(redisUrl) || !isProduction;
+
+if (!shouldEnableRedis) {
+  console.log('ℹ️  Redis disabled (set REDIS_URL to enable caching)');
+} else {
+  try {
+    redis = new Redis(redisUrl || 'redis://127.0.0.1:6379', {
     maxRetriesPerRequest: 1,
     retryStrategy(times) {
-      if (times > 3) return null;
+      if (times > 1) return null;
       return Math.min(times * 200, 2000);
     },
     lazyConnect: true,
   });
 
   redis.on('error', (err) => {
+    if (redisDisabledLogged) return;
+    redisDisabledLogged = true;
     console.warn('⚠️  Redis connection error (caching disabled):', err.message);
+
+    // Stop reconnect attempts to avoid noisy logs.
+    redis?.disconnect();
     redis = null;
   });
 
@@ -22,13 +37,19 @@ try {
   });
 
   // Background connect — don't block app startup
-  redis.connect().catch(() => {
-    console.warn('⚠️  Redis unavailable — running without cache');
+  redis.connect().catch((err) => {
+    if (!redisDisabledLogged) {
+      redisDisabledLogged = true;
+      console.warn('⚠️  Redis unavailable — running without cache', err?.message ? `(${err.message})` : '');
+    }
+
+    redis?.disconnect();
     redis = null;
   });
-} catch {
-  console.warn('⚠️  Redis not configured — running without cache');
-  redis = null;
+  } catch {
+    console.warn('⚠️  Redis not configured — running without cache');
+    redis = null;
+  }
 }
 
 /**
