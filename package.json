@@ -1,9 +1,0 @@
-{
-  "name": "devfolio-app",
-  "private": true,
-  "version": "1.0.0",
-  "description": "Monorepo root for DevFolio deployment workflows",
-  "scripts": {
-    "build": "npm --prefix client run build"
-  }
-}
