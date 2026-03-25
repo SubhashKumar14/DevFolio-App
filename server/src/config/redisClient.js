@@ -4,7 +4,8 @@ let redis = null;
 let redisDisabledLogged = false;
 
 const redisUrl = process.env.REDIS_URL?.trim();
-const isProduction = process.env.NODE_ENV === 'production';
+const isCloudHost = Boolean(process.env.RENDER || process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === 'production' || isCloudHost;
 
 // On production hosts (e.g. Render), only enable Redis if REDIS_URL is provided.
 const shouldEnableRedis = Boolean(redisUrl) || !isProduction;
