@@ -153,17 +153,19 @@ export default function ComparePage() {
             <CardTitle>Comparison Radar</CardTitle>
             <CardDescription>Multi-dimensional profile comparison</CardDescription>
           </CardHeader>
-          <CardContent className="h-96">
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={comparison.radarData}>
-                <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis dataKey="metric" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }} />
-                <Radar name={comparison.user1?.displayName || 'You'} dataKey="user1" stroke="var(--accent-cyan)" fill="var(--accent-cyan)" fillOpacity={0.3} />
-                <Radar name={comparison.user2?.displayName || 'Opponent'} dataKey="user2" stroke="var(--accent-purple)" fill="var(--accent-purple)" fillOpacity={0.3} />
-                <Legend />
-              </RadarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-96 min-w-0">
+            <div className="h-full w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <RadarChart data={comparison.radarData}>
+                  <PolarGrid stroke="var(--border)" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }} />
+                  <Radar name={comparison.user1?.displayName || 'You'} dataKey="user1" stroke="var(--accent-cyan)" fill="var(--accent-cyan)" fillOpacity={0.3} />
+                  <Radar name={comparison.user2?.displayName || 'Opponent'} dataKey="user2" stroke="var(--accent-purple)" fill="var(--accent-purple)" fillOpacity={0.3} />
+                  <Legend />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       )}

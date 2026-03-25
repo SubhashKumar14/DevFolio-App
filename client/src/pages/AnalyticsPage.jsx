@@ -146,15 +146,17 @@ export default function AnalyticsPage() {
             <CardTitle className="flex items-center gap-2"><Star className="h-4 w-4" /> Platform Strength</CardTitle>
             <CardDescription>Your relative strength across all platforms</CardDescription>
           </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height={250}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis dataKey="metric" stroke="var(--muted-foreground)" fontSize={11} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                <Radar name="You" dataKey="value" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.3} />
-              </RadarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-64 min-w-0">
+            <div className="h-full w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="var(--border)" />
+                  <PolarAngleAxis dataKey="metric" stroke="var(--muted-foreground)" fontSize={11} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar name="You" dataKey="value" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.3} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
