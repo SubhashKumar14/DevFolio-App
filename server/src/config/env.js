@@ -18,7 +18,9 @@ for (const varName of requiredVars) {
 const explicitEncryptionKey = process.env.ENCRYPTION_KEY || '';
 const encryptionKeySource = explicitEncryptionKey || process.env.JWT_SECRET || '';
 const resolvedEncryptionKey = explicitEncryptionKey
-  ? explicitEncryptionKey
+  ? (explicitEncryptionKey.length >= 32
+    ? explicitEncryptionKey
+    : createHash('sha256').update(explicitEncryptionKey).digest('hex'))
   : createHash('sha256').update(encryptionKeySource).digest('hex');
 
 if (process.env.NODE_ENV === 'production' && !explicitEncryptionKey) {
@@ -30,8 +32,7 @@ if (process.env.NODE_ENV === 'production' && String(process.env.JWT_SECRET).leng
 }
 
 if (process.env.NODE_ENV === 'production' && explicitEncryptionKey && String(explicitEncryptionKey).length < 32) {
-  console.error('❌ ENCRYPTION_KEY must be at least 32 characters in production when explicitly set');
-  process.exit(1);
+  console.warn('⚠️ ENCRYPTION_KEY is shorter than 32 characters. Using a derived SHA-256 key for runtime compatibility. Rotate ENCRYPTION_KEY to a dedicated 32+ character value.');
 }
 
 const env = {
