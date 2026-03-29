@@ -1,435 +1,266 @@
-# DevFolio — Database Schema
-
-> Complete MongoDB schema definitions — every collection, field, index, and relationship.
-
----
-
-## Overview
-
-DevFolio uses **MongoDB** (via Mongoose ODM) with the following collections:
-
-| Collection | Purpose |
-|---|---|
-| `users` | Account info, auth credentials, roles, GitHub IDs |
-| `profiles` | Bio, avatar, tech stack, social links |
-| `githubStats` | Synchronized GitHub activity metrics |
-| `dsaStats` | LeetCode + Codeforces data |
-| `projects` | User's personal projects |
-| `devScores` | Computed DevScore snapshots |
-| `portfolioCodes` | Raw + sanitized portfolio code |
-
----
-
-## 1. Users Collection
-
-**Mongoose Model:** `User`
-
-```javascript
-const userSchema = new Schema({
-  // ─── Core Identity ─────────────────────
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  password: {
-    type: String,
-    required: true,
-    select: false  // Never returned in queries by default
-  },
-  displayName: {
-    type: String,
-    required: true,
-    trim: true
-  },
-
-  // ─── Role ───────────────────────────────
-  role: {
-    type: String,
-    enum: ['developer', 'recruiter', 'mentor', 'admin'],
-    default: 'developer'
-  },
-
-  // ─── GitHub OAuth ───────────────────────
-  githubId: { type: String, default: null },
-  githubUsername: { type: String, default: null },
-  githubAccessToken: { type: String, select: false },
-
-  // ─── DSA Platform Handles ───────────────
-  leetcodeUsername: { type: String, default: null },
-  codeforcesUsername: { type: String, default: null },
-
-  // ─── Auth ───────────────────────────────
-  refreshToken: { type: String, select: false }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ githubId: 1 }, { sparse: true });
-userSchema.index({ role: 1 });
-```
-
-### Hooks
-
-```javascript
-// Hash password on save
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
-
-// Compare password method
-userSchema.methods.comparePassword = async function(candidate) {
-  return bcrypt.compare(candidate, this.password);
-};
-```
-
----
-
-## 2. Profiles Collection
-
-**Mongoose Model:** `Profile`
-
-```javascript
-const profileSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-
-  // ─── Profile Info ──────────────────────
-  bio: { type: String, maxlength: 500, default: '' },
-  avatarUrl: { type: String, default: null },
-
-  // ─── Tech Stack ────────────────────────
-  techStack: [{
-    type: String,
-    trim: true
-  }],
-  // Example: ["React", "Node.js", "Python", "MongoDB"]
-
-  // ─── Social Links ──────────────────────
-  socialLinks: {
-    linkedin: { type: String, default: '' },
-    website: { type: String, default: '' }
-  },
-
-  // ─── College (for leaderboard filtering)
-  college: { type: String, default: '' },
-
-  // ─── Visibility ────────────────────────
-  isPublic: { type: Boolean, default: true }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-profileSchema.index({ userId: 1 }, { unique: true });
-profileSchema.index({ college: 1 });
-profileSchema.index({ isPublic: 1 });
-```
-
----
-
-## 3. GithubStats Collection
-
-**Mongoose Model:** `GithubStats`
-
-```javascript
-const githubStatsSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-
-  // ─── GitHub Metrics ────────────────────
-  totalCommits: { type: Number, default: 0 },
-  publicRepos: { type: Number, default: 0 },
-  starsReceived: { type: Number, default: 0 },
-  pullRequests: { type: Number, default: 0 },
-
-  // ─── Profile Info ──────────────────────
-  githubAvatarUrl: { type: String, default: null },
-  githubProfileUrl: { type: String, default: null },
-
-  // ─── Sync Metadata ─────────────────────
-  lastSyncedAt: { type: Date, default: null }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-githubStatsSchema.index({ userId: 1 }, { unique: true });
-```
-
----
-
-## 4. DsaStats Collection
-
-**Mongoose Model:** `DsaStats`
-
-```javascript
-const dsaStatsSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-
-  // ─── LeetCode Stats ───────────────────
-  leetcode: {
-    easySolved: { type: Number, default: 0 },
-    mediumSolved: { type: Number, default: 0 },
-    hardSolved: { type: Number, default: 0 },
-    totalSolved: { type: Number, default: 0 }
-  },
-
-  // ─── Codeforces Stats ──────────────────
-  codeforces: {
-    currentRating: { type: Number, default: 0 },
-    maxRating: { type: Number, default: 0 },
-    rank: { type: String, default: '' }
-  },
-
-  // ─── Sync Metadata ─────────────────────
-  lastSyncedAt: { type: Date, default: null }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-dsaStatsSchema.index({ userId: 1 }, { unique: true });
-```
-
----
-
-## 5. Projects Collection
-
-**Mongoose Model:** `Project`
-
-```javascript
-const projectSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-
-  // ─── Project Info ──────────────────────
-  name: { type: String, required: true, trim: true },
-  description: { type: String, default: '' },
-  repoLink: { type: String, default: '' },
-  liveUrl: { type: String, default: '' },
-
-  // ─── Tech Tags ─────────────────────────
-  techStack: [{ type: String }],
-
-  // ─── Auto-Fetched ──────────────────────
-  githubStars: { type: Number, default: 0 },
-
-  // ─── Engagement ────────────────────────
-  likes: { type: Number, default: 0 },
-  views: { type: Number, default: 0 }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-projectSchema.index({ userId: 1 });
-```
-
----
-
-## 6. DevScores Collection
-
-**Mongoose Model:** `DevScore`
-
-```javascript
-const devScoreSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-
-  // ─── Overall Score ─────────────────────
-  overallScore: { type: Number, required: true, min: 0 },
-
-  // ─── Breakdown ──────────────────────────
-  breakdown: {
-    github: {
-      score: { type: Number, default: 0 },
-      weight: { type: Number, default: 40 }
-    },
-    dsa: {
-      score: { type: Number, default: 0 },
-      weight: { type: Number, default: 40 }
-    },
-    portfolio: {
-      score: { type: Number, default: 0 },
-      weight: { type: Number, default: 20 }
-    }
-  },
-
-  // ─── Metadata ──────────────────────────
-  computedAt: { type: Date, default: Date.now }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-// Leaderboard: rank by score
-devScoreSchema.index({ overallScore: -1 });
-
-// User score history
-devScoreSchema.index({ userId: 1, createdAt: -1 });
-```
-
----
-
-## 7. PortfolioCodes Collection
-
-**Mongoose Model:** `PortfolioCode`
-
-```javascript
-const portfolioCodeSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-
-  // ─── Raw Code (for editing) ────────────
-  rawHtml: { type: String, default: '' },
-
-  // ─── Sanitized Code (for public preview)
-  htmlContent: { type: String, default: '' },
-
-  // ─── CSS & JS ──────────────────────────
-  cssContent: { type: String, default: '' },
-  jsContent: { type: String, default: '' },
-
-  // ─── Visibility ────────────────────────
-  isPublic: { type: Boolean, default: false }
-
-}, {
-  timestamps: true
-});
-```
-
-### Indexes
-
-```javascript
-portfolioCodeSchema.index({ userId: 1 }, { unique: true });
-portfolioCodeSchema.index({ isPublic: 1 });
-```
-
----
-
-## Entity Relationship Diagram
-
-```
-┌────────────┐        ┌──────────────┐
-│   Users     │───1:1──│   Profiles   │
-│             │        │              │
-│ _id         │        │ userId (FK)  │
-│ email       │        │ bio          │
-│ password    │        │ techStack[]  │
-│ role        │        │ socialLinks  │
-│ githubId    │        │ college      │
-└──────┬──────┘        └──────────────┘
-       │
-       ├──1:1──┌──────────────┐
-       │       │  GithubStats  │
-       │       │ userId (FK)   │
-       │       │ commits       │
-       │       │ repos, stars  │
-       │       └──────────────┘
-       │
-       ├──1:1──┌──────────────┐
-       │       │   DsaStats   │
-       │       │ userId (FK)  │
-       │       │ leetcode {}  │
-       │       │ codeforces{} │
-       │       └──────────────┘
-       │
-       ├──1:N──┌──────────────┐
-       │       │   Projects   │
-       │       │ userId (FK)  │
-       │       │ name, desc   │
-       │       │ repoLink     │
-       │       └──────────────┘
-       │
-       ├──1:N──┌──────────────┐
-       │       │  DevScores   │
-       │       │ userId (FK)  │
-       │       │ overallScore │
-       │       │ breakdown    │
-       │       └──────────────┘
-       │
-       └──1:1──┌─────────────────┐
-               │ PortfolioCodes   │
-               │ userId (FK)      │
-               │ rawHtml          │
-               │ htmlContent      │
-               │ cssContent       │
-               │ jsContent        │
-               │ isPublic         │
-               └─────────────────┘
-```
-
----
-
-## Cascading Deletes
-
-When an admin deletes a user, the following cascade is triggered:
-
-```javascript
-// Delete all related documents
-await Profile.deleteMany({ userId });
-await GithubStats.deleteMany({ userId });
-await DsaStats.deleteMany({ userId });
-await Project.deleteMany({ userId });
-await DevScore.deleteMany({ userId });
-await PortfolioCode.deleteMany({ userId });
-await User.findByIdAndDelete(userId);
-```
-
----
-
-*All schemas use Mongoose's `timestamps: true` option which auto-manages `createdAt` and `updatedAt` fields.*
+﻿# Database Schema
+
+Last updated: 2026-03-29
+Database: MongoDB via Mongoose
+
+## Collection Overview
+
+| Collection | Cardinality to User | Primary Use |
+| --- | --- | --- |
+| users | 1:1 base | Identity, auth, role, archetypes, platform handles |
+| profiles | 1:1 | Public profile metadata + visibility |
+| githubstats | 1:1 | GitHub metrics + activity history |
+| dsastats | 1:1 | LeetCode + Codeforces metrics |
+| platformstats | 1:1 | HackerRank, CodeChef, Kaggle, Hugging Face metrics |
+| devscores | 1:N history | DevScore snapshots and diagnostics |
+| projects | 1:N | User project cards |
+| portfoliocodes | 1:1 | Portfolio code payload and visibility |
+
+## users
+
+Source: server/src/models/User.js
+
+Fields:
+
+- email: String, required, unique, lowercase, trimmed
+- password: String, required, minlength 6, select false
+- displayName: String, required
+- role: Enum {developer, recruiter, mentor, admin}, default developer
+- archetype: Enum {builder, problem_solver, ai_engineer, security_expert, open_source, competitor, null}
+- secondaryArchetype: same enum as archetype
+- githubId: String
+- githubUsername: String
+- githubAccessToken: String, select false
+- leetcodeUsername: String
+- codeforcesUsername: String
+- hackerrankUsername: String
+- codechefUsername: String
+- kaggleUsername: String
+- huggingfaceUsername: String
+- refreshToken: String, select false
+
+Indexes:
+
+- unique email
+- sparse githubId
+- role
+- archetype
+- secondaryArchetype
+
+Hooks/Methods:
+
+- pre-save bcrypt hash for password
+- comparePassword(candidate)
+- getPlatformData()
+
+## profiles
+
+Source: server/src/models/Profile.js
+
+Fields:
+
+- userId: ObjectId ref User, required, unique
+- bio: String, max 500
+- avatarUrl: String
+- techStack: [String]
+- socialLinks.linkedin: String
+- socialLinks.website: String
+- socialLinks.resumeUrl: String
+- socialLinks.twitter: String
+- college: String
+- isPublic: Boolean, default true
+
+Indexes:
+
+- college
+- isPublic
+
+## githubstats
+
+Source: server/src/models/GithubStats.js
+
+Key scalar fields:
+
+- totalCommits
+- totalContributionsLastYear
+- totalContributionsAllTime
+- publicRepos
+- starsReceived
+- pullRequests
+- pullRequestsMerged
+- pullRequestsTotal
+- issuesOpened
+- issuesClosed
+- forksCount
+- followers
+- currentStreak
+- longestStreak
+
+Nested arrays:
+
+- organizations: [String]
+- languageDistribution[]: {language, count, bytes}
+- contributionCalendar[]: {date, count}
+
+Metadata:
+
+- githubAvatarUrl
+- githubProfileUrl
+- lastSyncedAt
+
+Constraint:
+
+- userId unique
+
+## dsastats
+
+Source: server/src/models/DsaStats.js
+
+leetcode fields include:
+
+- easySolved, mediumSolved, hardSolved, totalSolved
+- contestRating, contestGlobalRanking
+- acceptanceRate
+- currentStreak, activeDays, maxStreak
+- topPercentage
+- contestsParticipated, badgesEarned, solutionCount, reputation
+- categoryWiseProblemCount[]
+- languagesUsed[]
+- dailyActivity[]
+
+codeforces fields include:
+
+- currentRating, maxRating, rank
+- totalSolved
+- contestsParticipated
+- recentContestResults[]
+- ratingHistory[]
+- tagsDistribution[]
+- dailySubmissions[]
+
+Metadata:
+
+- lastSyncedAt
+
+Constraint:
+
+- userId unique
+
+## platformstats
+
+Source: server/src/models/PlatformStats.js
+
+Flexible object buckets (mixed shape):
+
+- hackerrank: Object
+- codechef: Object
+- kaggle: Object
+- huggingface: Object
+- lastSyncedAt: Date
+
+Constraint:
+
+- userId unique
+
+Note:
+
+- schema intentionally uses Object for adapter flexibility.
+
+## devscores
+
+Source: server/src/models/DevScore.js
+
+Core fields:
+
+- userId: ObjectId ref User
+- score: Number (0-1000)
+- rawScore: Number (0-100)
+- weightedRawScore: Number (0-100)
+- archetype
+- secondaryArchetype
+
+Pillar breakdown object:
+
+- problemSolving {score, max, percentile, grade}
+- building {score, max, percentile, grade}
+- community {score, max, percentile, grade}
+- consistency {score, max, percentile, grade}
+- specialization {score, max, percentile, grade}
+
+Diagnostics and metadata:
+
+- domain
+- domainLabel
+- connectedPlatforms
+- platformScores (mixed)
+- strengths [String]
+- improvements [String]
+- diagnostics (mixed)
+- computedAt
+
+Indexes:
+
+- score descending
+- compound {userId, createdAt desc}
+
+Retention policy (service/controller level):
+
+- latest 30 entries retained per user
+
+## projects
+
+Source: server/src/models/Project.js
+
+Fields:
+
+- userId: ObjectId ref User
+- name: String, required
+- description: String
+- repoLink: String
+- liveUrl: String
+- techStack: [String]
+- githubStars: Number
+- likes: Number
+- views: Number
+
+Indexes:
+
+- userId
+
+## portfoliocodes
+
+Source: server/src/models/PortfolioCode.js
+
+Fields:
+
+- userId: ObjectId ref User, unique
+- rawHtml: String max 100000
+- htmlContent: String max 100000 (sanitized)
+- cssContent: String max 100000
+- jsContent: String max 100000
+- isPublic: Boolean
+
+Indexes:
+
+- userId unique
+- isPublic
+
+## Relationship Notes
+
+- User to Profile: one-to-one
+- User to Stats documents: one-to-one per stats collection
+- User to DevScore: one-to-many time-series history
+- User to Projects: one-to-many
+- User to PortfolioCode: one-to-one
+
+## Data Access Patterns
+
+- Leaderboard and recruiter flows aggregate latest DevScore per user
+- Profile and stats are usually read by either userId or displayName resolution
+- Portfolio preview resolves ObjectId or displayName and enforces visibility checks
+
+## Integrity and Validation Notes
+
+- Many fields rely on application-level validation, especially mixed platformstats payloads
+- URL fields (profile social links, project links) are not strongly schema-constrained yet
+- Privacy enforcement for profile visibility exists in profile and portfolio routes; broader consistency hardening is tracked in tasks

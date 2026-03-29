@@ -1,115 +1,121 @@
-# DevFolio — Developer Identity & Analytics Platform
+﻿# DevFolio Documentation Hub
 
-> **A developer-centric platform to track identity, synchronize coding statistics (GitHub, DSA), compute a representative DevScore, and rank developers on global and college-specific leaderboards — with a custom portfolio showcase feature.**
+Last updated: 2026-03-29
+Status: Documentation synchronized with current codebase (frontend + backend + ops)
 
----
+## Start Here
 
-## What Is DevFolio?
+If this is your first time in the project, read in this order:
 
-DevFolio is a full-stack MERN web application that helps developers consolidate their coding identity into one platform. Users register, link their GitHub and DSA platform accounts (LeetCode, Codeforces), and instantly see their synchronized stats, a computed DevScore, and their ranking on leaderboards. The platform also includes a portfolio code editor where developers can showcase their work with live HTML/CSS/JS previews.
+1. [summary.md](./summary.md) - one-page project snapshot
+2. [ARCHITECTURE.md](./ARCHITECTURE.md) - system design and data flow
+3. [FEATURES.md](./FEATURES.md) - everything the product does today
+4. [API_REFERENCE.md](./API_REFERENCE.md) - endpoint-level contract
+5. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - model-level persistence contract
 
-Think of it as:
-- **A unified developer identity** — GitHub + DSA stats in one place
-- **A scoring engine** — DevScore ranks your overall developer profile
-- **A portfolio playground** — write and preview HTML/CSS/JS directly on your profile
+## Fast Navigation By Persona
 
----
+| Persona | Read First | Then |
+| --- | --- | --- |
+| Frontend engineer | [FEATURES.md](./FEATURES.md) | [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md), [platform_analytics_catalog.md](./platform_analytics_catalog.md) |
+| Backend engineer | [ARCHITECTURE.md](./ARCHITECTURE.md) | [API_REFERENCE.md](./API_REFERENCE.md), [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md), [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md) |
+| Product owner | [summary.md](./summary.md) | [ROADMAP.md](./ROADMAP.md), [implementation_plan_status.md](./implementation_plan_status.md) |
+| QA / release | [devfolio_project_audit.md](./devfolio_project_audit.md) | [WORKFLOW.md](./WORKFLOW.md), [task.md](./task.md), [fixes.md](./fixes.md) |
+| Recruiter module stakeholder | [all_recruiter_platforms.md](./all_recruiter_platforms.md) | [FEATURES.md](./FEATURES.md), [API_REFERENCE.md](./API_REFERENCE.md) |
 
-## The Problem It Solves
+## Current Product Snapshot
 
-Developers today have their activity scattered across GitHub, LeetCode, Codeforces, and more. There is no single place to:
-- See combined GitHub and DSA statistics
-- Get a single numeric score representing developer strength
-- Compare yourself against peers on leaderboards
-- Showcase a live portfolio without deploying a separate site
+DevFolio is a full-stack developer identity platform with:
 
-DevFolio solves this by syncing data from GitHub and DSA platforms, computing a normalized DevScore, and presenting everything in a clean dashboard with leaderboards, project management, and a portfolio editor.
+- 7 core connected platforms: GitHub, LeetCode, Codeforces, HackerRank, CodeChef, Kaggle, Hugging Face
+- DevScore v2 (0-1000), 5-pillar breakdown, archetype-weighted scoring
+- Public profile pages, portfolio editor/preview, leaderboard, compare, recruiter search, admin panel
+- Role model: developer, recruiter, mentor, admin
+- Scheduled sync + manual sync pipeline for external platform stats
 
----
+## Verified Engineering Status (2026-03-29)
 
-## Who Is It For?
+Validation checks executed against current workspace:
 
-### Developers
-- View combined GitHub + DSA stats in one dashboard
-- Track DevScore and ranking over time
-- Manage projects with auto-fetched GitHub stars
-- Build and preview portfolios with live code editor
+- Frontend lint: pass
+- Frontend production build: pass
+- Backend tests: pass (smoke suite)
+- Client production dependency audit: 0 vulnerabilities
+- Server production dependency audit: 0 vulnerabilities
 
-### Recruiters
-- Search and view developer profiles
-- See DevScore at a glance for quick evaluation
-- View portfolio previews directly on profiles
+See [devfolio_project_audit.md](./devfolio_project_audit.md) for full findings and risk classification.
 
-### Mentors
-- Track student progress across GitHub and DSA
-- Use college-specific leaderboards to monitor batch performance
+## Documentation Map
 
-### Admins
-- Manage users and platform data
-- Cascading delete operations for user removal
+| File | Purpose |
+| --- | --- |
+| [summary.md](./summary.md) | Executive summary and readiness snapshot |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Runtime architecture, boundaries, and data flow |
+| [API_REFERENCE.md](./API_REFERENCE.md) | Complete API route, auth, request, response details |
+| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Mongo schema fields, indexes, constraints |
+| [FEATURES.md](./FEATURES.md) | Feature inventory by role and surface area |
+| [TECH_STACK.md](./TECH_STACK.md) | Dependency and tooling catalog |
+| [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md) | Source tree and ownership map |
+| [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md) | Tokens, layout patterns, accessibility considerations |
+| [WORKFLOW.md](./WORKFLOW.md) | End-user and backend workflow sequences |
+| [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) | Local setup, env vars, runbook |
+| [CONCEPTS_AND_IMPLEMENTATION.md](./CONCEPTS_AND_IMPLEMENTATION.md) | Core product concepts and implementation notes |
+| [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md) | External platform integration adapter details |
+| [platform_analytics_catalog.md](./platform_analytics_catalog.md) | Platform analytics dimensions and visualizations |
+| [all_recruiter_platforms.md](./all_recruiter_platforms.md) | Recruiter search data model and platform signals |
+| [ROADMAP.md](./ROADMAP.md) | Product and engineering roadmap |
+| [implementation_plan.md](./implementation_plan.md) | Delivery plan for remaining work |
+| [implementation_plan_status.md](./implementation_plan_status.md) | Progress tracking against implementation plan |
+| [task.md](./task.md) | Actionable engineering task board |
+| [devfolio_project_audit.md](./devfolio_project_audit.md) | Deep pre-deployment audit report |
+| [fixes.md](./fixes.md) | Applied fixes and open fix backlog |
 
----
+## Visual Documentation Navigation
 
-## Core Features
+```mermaid
+flowchart TD
+	A[summary.md] --> B[ARCHITECTURE.md]
+	A --> C[FEATURES.md]
+	B --> D[API_REFERENCE.md]
+	B --> E[DATABASE_SCHEMA.md]
+	C --> F[UI_UX_DESIGN_SYSTEM.md]
+	C --> G[platform_analytics_catalog.md]
+	D --> H[PLATFORM_ADAPTERS.md]
+	D --> I[WORKFLOW.md]
+	E --> I
+	H --> J[CONCEPTS_AND_IMPLEMENTATION.md]
+	A --> K[ROADMAP.md]
+	K --> L[implementation_plan.md]
+	L --> M[implementation_plan_status.md]
+	M --> N[task.md]
+	N --> O[fixes.md]
+	A --> P[devfolio_project_audit.md]
+	P --> O
+	L --> Q[ENVIRONMENT_SETUP.md]
+	C --> R[all_recruiter_platforms.md]
+```
 
-| Feature | Description |
-|---|---|
-| **Authentication** | Email/password + GitHub OAuth 2.0 with multi-role support (developer, recruiter, mentor, admin) |
-| **Developer Profiles** | Dynamic bios, tech stack chips, social links, avatar fallback chain |
-| **GitHub Stats Sync** | Commits, public repos, stars received, PR counts via GitHub API |
-| **DSA Stats Sync** | LeetCode (easy/medium/hard counts), Codeforces (rating) |
-| **DevScore** | Normalized scoring: GitHub 40% + DSA 40% + Portfolio 20% |
-| **Projects** | CRUD for personal projects with repo links and auto-fetched GitHub stars |
-| **Leaderboards** | Global and college-specific rankings using cached database queries |
-| **Portfolio Editor** | Multi-tab HTML/CSS/JS editor with live preview via sandboxed iframe |
-| **Developer Comparison** | Radar chart comparison of two developers with shared repo detection |
-| **Portfolio Pills** | "Portfolio" indicators on leaderboard, recruiter search, and profiles |
+## Practical Reading Paths
 
----
+### Path A - Understand project in one go (30-45 min)
 
-## Tech Stack Summary
+1. summary
+2. architecture
+3. features
+4. api reference
+5. database schema
 
-| Layer | Technology |
-|---|---|
-| Frontend | React JS + Vite + Tailwind CSS |
-| Charts | Recharts |
-| Icons | Lucide React |
-| HTTP Client | Axios |
-| Notifications | React-Hot-Toast / React-Toastify |
-| Routing | React Router Dom |
-| Backend | Node.js + Express.js |
-| Database | MongoDB (Mongoose) |
-| Auth | JWT + bcryptjs + GitHub OAuth 2.0 |
-| File Uploads | Multer |
-| Scheduled Jobs | node-cron |
-| Security | Helmet, CORS, express-rate-limit, DOMPurify, validator |
-| Testing | Jest + Supertest + Playwright |
+### Path B - Ship safely (release path)
 
----
+1. audit
+2. fixes
+3. tasks
+4. implementation plan status
+5. environment setup
 
-## Quick Links to Documentation
+### Path C - Extend a platform integration
 
-| Document | Description |
-|---|---|
-| [TECH_STACK.md](./TECH_STACK.md) | Every library and tool — what it does and why we use it |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, data flow, design patterns |
-| [CONCEPTS_AND_IMPLEMENTATION.md](./CONCEPTS_AND_IMPLEMENTATION.md) | Key concepts, patterns, and implementation details |
-| [API_REFERENCE.md](./API_REFERENCE.md) | All REST API endpoints with request/response schemas |
-| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | MongoDB collections, fields, indexes, relationships |
-| [INTEGRATIONS.md](./PLATFORM_ADAPTERS.md) | GitHub and DSA platform integrations |
-| [FEATURES.md](./FEATURES.md) | Complete feature specifications |
-| [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md) | Design principles, color palette, typography, components |
-| [WORKFLOW.md](./WORKFLOW.md) | Git strategy, branching, CI/CD, code review process |
-| [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) | How to set up local development from scratch |
-| [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md) | Complete project directory structure |
-| [ROADMAP.md](./ROADMAP.md) | Development roadmap with phased tasks |
-
----
-
-## License
-
-MIT License — open source, free to use, modify, and distribute.
-
----
-
-*Built with ❤️ for the developer community.*
+1. platform adapters
+2. concepts and implementation
+3. api reference (stats + score + integrations)
+4. workflow

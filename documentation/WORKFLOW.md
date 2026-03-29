@@ -1,256 +1,152 @@
-# DevFolio — Development Workflow
+﻿# Workflow
 
-> Git strategy, branching model, PR process, CI/CD pipeline, code review checklist, and release process.
+Last updated: 2026-03-29
 
----
+## Workflow Index
 
-## Git Branching Model
+- User onboarding and authentication
+- Platform connection and sync
+- DevScore lifecycle
+- Portfolio lifecycle
+- Recruiter discovery flow
+- Admin operations flow
+- Release validation workflow
 
-We use a simplified **GitFlow** with 3 branch tiers:
+## 1. User Onboarding and Authentication
 
-```
-main (production)
- └── develop (staging / integration)
-      ├── feature/auth-login
-      ├── feature/github-oauth
-      ├── feature/portfolio-editor
-      ├── fix/token-refresh-loop
-      └── chore/eslint-setup
-```
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant C as Client
+  participant A as API
+  participant DB as MongoDB
 
-| Branch | Purpose | Merges Into | Protected |
-|---|---|---|---|
-| `main` | Production-ready code | — | Yes (PR only) |
-| `develop` | Integration branch for all features | `main` | Yes (PR only) |
-| `feature/*` | New features | `develop` | No |
-| `fix/*` | Bug fixes | `develop` | No |
-| `chore/*` | Non-code changes (config, docs, deps) | `develop` | No |
-| `hotfix/*` | Emergency production fixes | `main` + `develop` | No |
-
----
-
-## Branch Naming Convention
-
-```
-<type>/<short-description>
-
-feature/github-oauth
-feature/portfolio-editor
-feature/leaderboard-college
-feature/devscore-algorithm
-fix/cors-headers
-fix/token-refresh-loop
-chore/eslint-prettier-setup
-hotfix/xss-vulnerability
+  U->>C: Register with email/password/role
+  C->>A: POST /api/auth/register
+  A->>DB: create User + Profile
+  A-->>C: accessToken + refreshToken + user
+  C->>C: store auth state and route by role
 ```
 
----
+Login path:
 
-## Commit Message Convention
+1. user submits credentials
+2. API validates password hash
+3. API issues access+refresh token pair
+4. client stores tokens in auth store/localStorage strategy
+5. protected routes call /api/user/me when needed
 
-Follow **Conventional Commits**:
+Refresh path:
 
-```
-<type>(<scope>): <short description>
+1. request returns 401
+2. axios interceptor requests /api/auth/refresh with stored refresh token
+3. API verifies token and rotates
+4. request retries with new access token
 
-feat(auth): add GitHub OAuth callback endpoint
-feat(portfolio): implement live preview with iframe sandbox
-fix(auth): handle expired refresh token edge case
-docs(readme): update tech stack section
-style(dashboard): align stat cards on mobile
-refactor(api): extract validation middleware
-test(auth): add login/register integration tests
-chore(deps): bump express to 4.19.2
-```
+## 2. Platform Connection and Sync
 
-| Type | When |
-|---|---|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation changes |
-| `style` | Formatting, no code change |
-| `refactor` | Code restructure, no behavior change |
-| `test` | Adding or updating tests |
-| `chore` | Build, deps, config changes |
-
----
-
-## Pull Request Process
-
-### 1. Create Feature Branch
-
-```bash
-git checkout develop
-git pull origin develop
-git checkout -b feature/portfolio-editor
+```mermaid
+flowchart TD
+  S1[User enters handles in settings/onboarding] --> S2[POST /api/integrations/dsa/connect]
+  S2 --> S3[Handles normalized and saved on User]
+  S3 --> S4[POST /api/stats/sync]
+  S4 --> S5[Platform adapters fetch external data]
+  S5 --> S6[Persist GithubStats/DsaStats/PlatformStats]
+  S6 --> S7[Recompute and store DevScore]
+  S7 --> S8[Dashboard and analytics queries refresh]
 ```
 
-### 2. Develop & Commit
+## 3. DevScore Lifecycle
 
-```bash
-# Make changes...
-git add .
-git commit -m "feat(portfolio): implement multi-tab code editor"
+Primary computation triggers:
 
-# Push to remote
-git push -u origin feature/portfolio-editor
+- manual: POST /api/score/recompute
+- sync-linked: POST /api/stats/sync
+- scheduled: nightly cron job
+
+Lifecycle steps:
+
+1. build platformData from stats collections
+2. apply archetype and secondary archetype context
+3. compute normalized platform signals
+4. compute 5 pillar outputs
+5. derive overall score + diagnostics
+6. persist DevScore history (retention cap 30)
+
+Consumption paths:
+
+- dashboard score card and diagnostics
+- leaderboard ranking modes
+- compare view radar data
+- public profile score section
+
+## 4. Portfolio Lifecycle
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant C as Client Editor
+  participant A as API
+  participant DB as MongoDB
+
+  U->>C: Edit HTML/CSS/JS
+  C->>C: Render live iframe preview
+  U->>C: Save
+  C->>A: POST /api/portfolio
+  A->>A: sanitize raw HTML
+  A->>DB: upsert PortfolioCode
+  U->>C: Toggle visibility
+  C->>A: PATCH /api/portfolio/visibility
+  A->>DB: update isPublic
 ```
 
-### 3. Open PR on GitHub
+Public preview lifecycle:
 
-- **Title:** `feat(portfolio): multi-tab code editor with live preview`
-- **Description template:**
+1. route resolves identifier as ObjectId or displayName
+2. portfolio fetched by userId
+3. visibility check enforced (owner can always view)
+4. html/css/js assembled into sandboxed iframe
 
-```markdown
-## What
-Implements the portfolio code editor with HTML/CSS/JS tabs and live preview.
+## 5. Recruiter Discovery Workflow
 
-## Why
-Users need to create and preview their portfolios directly on DevFolio.
+1. recruiter opens recruiter dashboard
+2. enters filters (name, stack, college, score, archetype)
+3. API route /api/recruiter/search applies profile and user filters
+4. latest DevScore per candidate is attached
+5. client renders candidate grid/list with score and portfolio availability
 
-## Changes
-- Added `CodePanel.jsx`, `LivePreview.jsx`, `EditorHeader.jsx`
-- Added `combineCode()` utility
-- Implemented 300ms debouncing
-- Added `useBeforeUnload` for dirty form detection
+## 6. Admin Operations Workflow
 
-## Testing
-- [ ] Unit tests for combineCode utility
-- [ ] Manual test: create portfolio, save, preview
-- [ ] Test iframe sandboxing
+1. admin loads /api/admin/stats and /api/admin/users
+2. admin can:
+   - change roles
+   - delete users (cascade)
+   - trigger global sync
+3. global sync loops through connected users and updates stats/scores
 
-## Screenshots
-(attach screenshots)
-```
+## 7. Contest Feed Workflow
 
-### 4. Code Review
+1. client requests /api/contests/upcoming
+2. server cacheGet checks Redis cache
+3. on miss, fetch Codeforces + LeetCode upcoming contests
+4. merge and sort by start time
+5. cache for 1 hour and return
 
-At least 1 approval required. Reviewer checks:
+## 8. Release Validation Workflow
 
-- [ ] Code follows project patterns (Context API, service layer, middleware)
-- [ ] Error cases handled (API errors, network failures)
-- [ ] Tests included for new logic
-- [ ] No hardcoded secrets or URLs
-- [ ] Performance: unnecessary re-renders avoided
-- [ ] Accessibility: proper ARIA labels, keyboard navigation
+Recommended pre-deploy flow:
 
-### 5. Merge & Cleanup
+1. frontend lint
+2. frontend production build
+3. backend tests
+4. dependency audit
+5. documentation sync
+6. audit review and blocker closure
 
-```bash
-# Merge via GitHub "Squash and Merge" button
-# Then locally:
-git checkout develop
-git pull origin develop
-git branch -d feature/portfolio-editor
-```
+Detailed checklist: [devfolio_project_audit.md](./devfolio_project_audit.md) and [task.md](./task.md)
 
----
+## Workflow Gaps to Track
 
-## CI/CD Pipeline
-
-### On Every Push / PR
-
-```yaml
-# .github/workflows/ci.yml
-name: CI
-
-on:
-  push:
-    branches: [develop, main]
-  pull_request:
-    branches: [develop, main]
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run lint          # ESLint
-
-  test:
-    runs-on: ubuntu-latest
-    needs: lint
-    services:
-      mongo:
-        image: mongo:7
-        ports: ['27017:27017']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: cd server && npm test     # Jest backend tests
-      - run: cd client && npm test     # Client tests
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: cd client && npm run build
-```
-
-### On Merge to `main` (Deploy)
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-
-  deploy-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: railway up --service devfolio-api
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-```
-
----
-
-## Daily Development Workflow
-
-```
-Morning:
-  1. git checkout develop && git pull
-  2. Check GitHub Issues → pick one → assign to self
-  3. Create feature branch → start coding
-
-During Development:
-  4. Run dev servers: npm run dev (concurrently: client + server)
-  5. Write code → test manually → write tests
-  6. Commit frequently with conventional messages
-
-End of Work:
-  7. Push branch → Open PR if ready
-  8. Request review from teammate
-
-Weekly:
-  9. develop → main merge (release)
-  10. Tag release: git tag v0.1.0
-```
-
----
-
-*Following this workflow ensures code quality, prevents regressions, and maintains a clean git history throughout the project.*
+- privacy checks should be consistently enforced across all optional-auth read endpoints
+- token refresh architecture should migrate to httpOnly cookie flow
+- scheduler execution should be made safe for multi-instance deployments

@@ -1,299 +1,199 @@
-# DevFolio — Feature Specifications
+﻿# Features
 
-> Complete feature list organized by module — what each feature does, why it matters, and how it works.
+Last updated: 2026-03-29
 
----
+## Feature Inventory
 
-## Core Modules
+This document enumerates the features currently implemented in code, grouped by domain and role.
 
-| Module | Features |
-|---|---|
-| **Authentication** | Login, Register, GitHub OAuth, Roles |
-| **Profiles** | Developer identity, bio, tech stack, social links |
-| **GitHub Integration** | OAuth linking, stat syncing |
-| **DSA Integration** | LeetCode + Codeforces stat syncing |
-| **DevScore** | Normalized composite scoring |
-| **Projects** | CRUD, repo links, auto-fetch stars |
-| **Leaderboards** | Global + college-specific rankings |
-| **Portfolio Editor** | HTML/CSS/JS editor with live preview |
-| **Developer Comparison** | Radar chart side-by-side |
-| **Admin** | User management, cascading deletes |
-| **Recruiter** | Profile search, developer discovery |
+## Role Model
 
----
+- developer
+- recruiter
+- mentor
+- admin
 
-## F1 — Authentication & Authorization
+Current behavior notes:
 
-### F1.1 Email/Password Registration & Login
+- Most product functionality targets developer role.
+- Recruiter and admin have dedicated dashboard pages and protected backend routes.
+- Mentor role exists in auth model and route defaults but does not yet have a dedicated dashboard surface.
 
-**What:** Standard email/password authentication with JWT tokens.
+## Public Features
 
-**Acceptance Criteria:**
-- User can register with email, password, display name
-- Password hashed with bcryptjs before storage
-- User can login with email + password
-- JWT access token returned on login
-- Silent refresh mechanism for expired tokens
-- Logout clears tokens
+### Landing and Marketing
 
----
+- Interactive hero and visual storytelling
+- Platform-first messaging (7 core platform support)
+- Links to auth onboarding
 
-### F1.2 GitHub OAuth 2.0
+### Authentication Pages
 
-**What:** Connect GitHub account via OAuth for automated account linking and stat syncing.
+- Register with role selection
+- Login with role-based post-auth redirection
 
-**Acceptance Criteria:**
-- "Connect GitHub" button redirects to GitHub authorization
-- OAuth callback exchanges code for access token
-- GitHub user ID stored on User model
-- GitHub profile info (avatar, username) auto-populated
-- Used for GitHub stats synchronization
+### Public Profile
 
----
+- Route: /p/:handle
+- Displays profile bio/college/archetype summary
+- Shows score, heatmap, streak and platform cards
+- Share and contact actions
+- Links to public portfolio and optional resume URL
 
-### F1.3 Multi-Role Support
+### Public Portfolio Preview
 
-**What:** Users have role-based access control.
+- Route: /portfolio/:username and /portfolio/preview/:username
+- Renders saved HTML/CSS/JS in sandboxed iframe
 
-**Roles:**
-- `developer` — default role, full access to own profile and features
-- `recruiter` — can search and view developer profiles
-- `mentor` — can view student groups and leaderboards
-- `admin` — full system access, user management, cascading deletes
+### Public Contest Feed
 
----
+- Route: /dashboard/contests (app page)
+- Backend endpoint /api/contests/upcoming
+- Merged and sorted upcoming entries from Codeforces + LeetCode
 
-## F2 — Developer Profiles
+## Authenticated Developer Features
 
-### F2.1 Profile Management
+### Dashboard
 
-**What:** Rich developer profile with customizable fields.
+- Quick stats cards
+- Platform activity heatmap
+- Streak counter
+- Profile completeness card
+- DevScore pillar preview
+- Platform diagnostics blocks
+- Export user data action
+- Manual sync action
 
-**Fields:**
-- Display name, bio, avatar (with fallback chain)
-- Tech stack chips (e.g., React, Node.js, Python)
-- Social links (LinkedIn, personal website)
-- Profile visibility toggle
+### Onboarding
 
-**Avatar Fallback Chain:**
-1. Uploaded profile image
-2. GitHub avatar (if connected)
-3. Initials
-4. Color-coded circle
+- Select primary archetype
+- Connect platform usernames/handles
+- Structured platform field inputs
 
----
+### Settings
 
-## F3 — GitHub Stats Sync
+- Profile data edit
+- Platform handle updates and save/sync
+- Archetype + secondary archetype assignment
+- Privacy toggle for profile visibility
 
-### F3.1 GitHub Integration Pipeline
+### Profile Management
 
-**What:** Synchronize GitHub activity data via GitHub API.
+- Edit bio
+- Edit comma-based tech stack
+- Avatar and social metadata (via settings/profile)
 
-**Stats Tracked:**
-- Total commits
-- Public repositories count
-- Stars received
-- Pull request count
+### Project Management
 
-**Sync Schedule:**
-- Nightly cron job at 2am
-- Manual "Sync Now" button available
+- Create/update/delete projects
+- List projects in dashboard section
+- GitHub stars auto-fetch on create (best effort)
 
----
+### Portfolio Builder
 
-## F4 — DSA Stats Sync
+- Multi-tab editor (HTML/CSS/JS)
+- Live preview with optional console panel
+- Save and publish visibility controls
+- Sanitized HTML persistence for public render
 
-### F4.1 LeetCode Stats
+### Analytics
 
-**What:** Track LeetCode problem-solving progress.
+- Tab/query-parameter driven platform selection
+- Platform-specific metrics and chart sections
+- Multi-platform heatmap and trend rendering
+- Supports all 7 core connected platforms
 
-**Stats Tracked:**
-- Easy problems solved
-- Medium problems solved
-- Hard problems solved
-- Total count
+### Compare
 
----
+- Compare two users by score or platform mode
+- Radar chart visualization
+- Shared repository signal in backend compare payload
 
-### F4.2 Codeforces Stats
+### Leaderboard
 
-**What:** Track Codeforces competitive programming data.
+- Ranking modes: devscore + 7 platform modes
+- Filters: college, archetype, pagination
+- Public/optional-auth accessible backend data source
 
-**Stats Tracked:**
-- Current rating
-- Max rating
-- Rank title
+### Wrapped and Goals
 
----
+- Wrapped: yearly summary style insights
+- Goals: milestone and target progression display
 
-## F5 — DevScore Engine
+## Recruiter Features
 
-### F5.1 Scoring Algorithm
+### Recruiter Search Dashboard
 
-**What:** Composite score representing overall developer profile strength.
+- Filter by name
+- Filter by tech stack
+- Filter by college
+- Filter by minimum score
+- Filter by archetype
+- Sort by score or name
+- Returns profile + latest score + portfolio availability
 
-**Formula:**
+## Admin Features
 
-| Category | Weight | Source |
-|---|---|---|
-| GitHub Activity | 40% | Commits, repos, stars, PRs |
-| DSA Performance | 40% | LeetCode counts, Codeforces rating |
-| Portfolio | 20% | Published portfolio (has content, is public) |
+### Admin Dashboard
 
-**Acceptance Criteria:**
-- Score recomputed after every stat sync
-- Score history tracked for trend visualization
-- DevScore breakdown visible on profile
+- Platform usage totals
+- User listing
+- Role change controls
+- User delete with cascading cleanup
+- Global sync trigger
 
----
+## Backend Platform Operations
 
-## F6 — Projects
+### Manual Sync
 
-### F6.1 Project CRUD
+- Endpoint: POST /api/stats/sync
+- Pulls connected platform data for authenticated user
+- Persists stats documents
+- Recomputes and stores DevScore snapshot
 
-**What:** Manage personal projects with metadata.
+### Scheduled Sync
 
-**Acceptance Criteria:**
-- Create, read, update, delete projects
-- Fields: name, description, repo link, live URL, tech stack tags
-- Auto-fetch GitHub star count for linked repos
-- Display on developer profile
+- Nightly cron scheduler
+- Iterates users with connected handles
+- Fetches adapters in grouped manner
+- Persists stats and computes scores
 
----
+## Scoring Features
 
-## F7 — Leaderboards
+### DevScore v2
 
-### F7.1 Global Leaderboard
+- Score range 0-1000
+- 5 pillars with score, max, percentile, grade
+- Archetype and secondary archetype influenced weighting
+- Domain and domainFit diagnostics
+- platformScores map by connected platform
+- strengths and improvements recommendation arrays
 
-**What:** Rank all developers by DevScore.
+### Benchmark and History
 
-**Acceptance Criteria:**
-- Paginated table: rank, avatar, name, DevScore
-- Sort by overall score
-- Show user's own rank highlighted
+- Score history endpoint (up to latest 30 entries)
+- Domain benchmark endpoint with percentile-style comparison
 
----
+## Security and Reliability Features
 
-### F7.2 College-Specific Leaderboard
+- JWT authentication middleware
+- Role guard middleware for recruiter/admin routes
+- Rate limiting: API, auth, sync
+- CORS with configured origin
+- CSRF origin protection for unsafe methods
+- Centralized error handling middleware
+- HTML sanitization for stored portfolio output
 
-**What:** Filter leaderboard by college/institution.
+## Known Feature Gaps / Backlog
 
-**Acceptance Criteria:**
-- Users set their college in profile settings
-- Leaderboard filterable by college name
-- Cached database queries for performance
+- Mentor-specific dashboard is not implemented
+- Authorization and privacy consistency needs hardening across all read endpoints
+- Token storage model should migrate away from localStorage strategy
+- Automated tests need deeper integration/e2e coverage
 
----
+## Feature-to-Doc Cross-Links
 
-## F8 — Portfolio Editor
-
-### F8.1 Multi-Tab Code Editor
-
-**What:** Write HTML, CSS, and JavaScript in a tabbed editor interface.
-
-**Components:**
-- `EditorHeader.jsx` — tab navigation (HTML, CSS, JS) + Save button + Preview button
-- `CodePanel.jsx` — text input area for code
-- `LivePreview.jsx` — full-screen iframe rendering (used inside PortfolioPreview page, not inside editor)
-
-**Acceptance Criteria:**
-- Three tabs: HTML, CSS, JS
-- 300ms debouncing on input to prevent race conditions
-- Navigation blocked via `useBeforeUnload` if form is dirty (unsaved changes)
-
----
-
-### F8.2 Portfolio Preview (Separate Page)
-
-**What:** After saving code in the editor, users can navigate to a separate full-page portfolio preview that loads their saved code from the backend.
-
-**Flow:**
-1. User writes code in the editor (PortfolioEditor page — no inline preview)
-2. User clicks "Save" → code is stored in the backend (`POST /api/portfolio`)
-3. User clicks "Preview" → navigates to `/portfolio/preview/:userId`
-4. PortfolioPreview page fetches saved code from backend (`GET /api/portfolio/:userId`)
-5. `combineCode()` merges HTML + CSS + JS into a full document
-6. Rendered as a full-screen iframe via `LivePreview.jsx`
-7. Sandboxed: `sandbox="allow-scripts allow-forms allow-same-origin"`
-
-**Acceptance Criteria:**
-- No code editor is visible on the preview page — only the rendered portfolio
-- Portfolio is always loaded from the backend (not local state)
-- Public portfolios are accessible without authentication via `/portfolio/preview/:userId`
-
----
-
-### F8.3 Server-Side Sanitization
-
-**What:** Raw HTML sanitized with DOMPurify before public display.
-
-**Flow:**
-1. User writes code in editor
-2. On save, server receives `rawHtml`, `cssContent`, `jsContent`
-3. Server sanitizes `rawHtml` using DOMPurify → stores as `htmlContent`
-4. `rawHtml` preserved for editing, `htmlContent` used for public preview
-
----
-
-### F8.4 Portfolio Visibility
-
-**What:** Toggle portfolio between public and private.
-
-**Acceptance Criteria:**
-- `isPublic` boolean flag on PortfolioCode model
-- "Portfolio" pill indicators appear on profiles, leaderboard, and recruiter search when published
-- Private portfolios only visible to the owner
-
----
-
-## F9 — Developer Comparison
-
-### F9.1 Side-by-Side Comparison
-
-**What:** Compare two developers' profiles.
-
-**Acceptance Criteria:**
-- Select two developers to compare
-- Radar chart showing comparative metrics
-- Shared repository detection
-- Peer ranking display
-
----
-
-## F10 — Admin Features
-
-### F10.1 User Management
-
-**What:** Admin panel for managing users.
-
-**Acceptance Criteria:**
-- View all users
-- Delete users with cascading cleanup
-- When a user is deleted: `Portfolio.deleteMany({ userId })` is executed along with other related data cleanup
-
----
-
-## F11 — Recruiter Features
-
-### F11.1 Developer Search
-
-**What:** Recruiters can search and browse developer profiles.
-
-**Acceptance Criteria:**
-- Search by name, tech stack, college
-- View DevScore, stats, and portfolio preview
-- "Portfolio" pill indicates developers with published work
-
----
-
-## Sync Pipeline
-
-### Nightly Cron Job (2am)
-- Syncs GitHub stats for all users
-- Syncs DSA stats (LeetCode, Codeforces) for all users
-- **Explicitly excludes** PortfolioCode to avoid unnecessary compute on static content
-- Recomputes DevScore after sync
-
----
-
-*Each feature is designed to work within the MERN stack using React JS, TailwindCSS, and Vite on the frontend.*
+- API contracts: [API_REFERENCE.md](./API_REFERENCE.md)
+- Data model backing features: [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
+- Runtime flow detail: [WORKFLOW.md](./WORKFLOW.md)
+- Audit and production blockers: [devfolio_project_audit.md](./devfolio_project_audit.md)

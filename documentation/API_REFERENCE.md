@@ -1,746 +1,263 @@
-# DevFolio — API Reference
+﻿# API Reference
 
-> Complete REST API specification — every endpoint, request/response format, status codes, and authentication requirements.
+Last updated: 2026-03-29
+Base URL (dev): http://localhost:5000/api
 
----
+## Conventions
 
-## Base URL
+- Auth header: Authorization: Bearer <accessToken>
+- Success envelope: { success: true, data: ... }
+- Error envelope: { success: false, message: string }
+- JSON body limit: 10mb
 
-```
-Development: http://localhost:5000/api
-Production:  https://api.devfolio.dev/api
-```
+## Auth and Roles Matrix
 
-## Authentication
+| Scope | Requirement |
+| --- | --- |
+| Public | No token required |
+| Optional auth | Token may be provided; request still allowed without token |
+| User auth | Valid bearer token required |
+| Recruiter auth | Valid token + role in {recruiter, admin} |
+| Admin auth | Valid token + role=admin |
 
-Most endpoints require a JWT token in the `Authorization` header:
+## Route Groups
 
-```
-Authorization: Bearer <access_token>
-```
+### Health
 
----
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /health | Public | API liveness probe |
 
-## Table of Contents
+### Auth
 
-1. [Auth Endpoints](#1-auth-endpoints)
-2. [User Endpoints](#2-user-endpoints)
-3. [Profile Endpoints](#3-profile-endpoints)
-4. [Integration Endpoints](#4-integration-endpoints)
-5. [Stats Endpoints](#5-stats-endpoints)
-6. [DevScore Endpoints](#6-devscore-endpoints)
-7. [Project Endpoints](#7-project-endpoints)
-8. [Leaderboard Endpoints](#8-leaderboard-endpoints)
-9. [Portfolio Endpoints](#9-portfolio-endpoints)
-10. [Comparison Endpoints](#10-comparison-endpoints)
-11. [Admin Endpoints](#11-admin-endpoints)
-12. [Recruiter Endpoints](#12-recruiter-endpoints)
-13. [Change Log](#13-change-log)
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| POST | /auth/register | Public | Register user, create profile, issue access+refresh tokens |
+| POST | /auth/login | Public | Login and issue tokens |
+| POST | /auth/refresh | Public (rate limited) | Rotate access token using refresh token in body |
+| POST | /auth/logout | User | Clear persisted refresh token |
+| GET | /auth/github | Public | Redirect to GitHub OAuth authorize URL |
+| GET | /auth/github/callback | Public | OAuth callback exchange and redirect |
+| POST | /auth/github/link | User | Link GitHub account using OAuth code |
 
----
+Register request body:
 
-## 1. Auth Endpoints
-
-### POST `/api/auth/register`
-
-Create a new user account.
-
-**Auth:** None
-
-**Request Body:**
 ```json
 {
-  "email": "john@example.com",
-  "password": "securePassword123",
-  "displayName": "John Doe"
+  "email": "dev@example.com",
+  "password": "secret123",
+  "displayName": "subha",
+  "role": "developer"
 }
 ```
 
-**Response (201):**
+Login request body:
+
 ```json
 {
-  "success": true,
-  "data": {
-    "user": { "_id": "...", "email": "john@example.com", "displayName": "John Doe", "role": "developer" },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
+  "email": "dev@example.com",
+  "password": "secret123"
 }
 ```
 
----
+Refresh request body:
 
-### POST `/api/auth/login`
-
-Authenticate user with email and password.
-
-**Auth:** None
-
-**Request Body:**
 ```json
 {
-  "email": "john@example.com",
-  "password": "securePassword123"
+  "refreshToken": "<jwt-refresh-token>"
 }
 ```
 
-**Response (200):**
+### User
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /user/me | User | Return current user profile + platform handles |
+| PUT | /user/me | User | Update displayName/archetypes/platform handles |
+| GET | /user/search | Public | Search users by displayName prefix/contains |
+| GET | /user/export | User | Export current user data package |
+
+Update /user/me allowed fields:
+
+- displayName
+- archetype
+- secondaryArchetype
+- githubUsername
+- leetcodeUsername
+- codeforcesUsername
+- hackerrankUsername
+- codechefUsername
+- kaggleUsername
+- huggingfaceUsername
+
+### Profile
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /profile/:userId | Optional auth | Fetch profile by ObjectId or displayName |
+| PUT | /profile/me | User | Update profile fields and visibility |
+
+PUT /profile/me allowed fields:
+
+- bio
+- avatarUrl
+- techStack
+- socialLinks
+- college
+- isPublic
+
+### Integrations
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| POST | /integrations/dsa/connect | User | Connect/update all supported platform handles |
+| POST | /integrations/github/connect | User | GitHub connect path (delegates to auth/link flow) |
+
+### Stats
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /stats/github/:userId | Optional auth | Return GithubStats document |
+| GET | /stats/dsa/:userId | Optional auth | Return DsaStats document |
+| GET | /stats/platforms/:userId | Optional auth | Return PlatformStats document |
+| POST | /stats/sync | User (sync limiter) | Manual platform sync + devscore recompute |
+
+### Score
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /score/:userId | Optional auth | Get latest score or compute ephemeral if missing |
+| GET | /score/:userId/history | Optional auth | Get recent score history (max 30) |
+| GET | /score/:userId/benchmark | Optional auth | Get domain benchmark percentile summary |
+| POST | /score/recompute | User | Force recompute and persist new score |
+
+### Projects
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /projects/:userId | User | Fetch projects for userId (current behavior) |
+| POST | /projects | User | Create project for authenticated user |
+| PUT | /projects/:projectId | User | Update own project |
+| DELETE | /projects/:projectId | User | Delete own project |
+
+POST /projects body:
+
 ```json
 {
-  "success": true,
-  "data": {
-    "user": { "_id": "...", "email": "john@example.com", "displayName": "John Doe", "role": "developer" },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
+  "name": "DevFolio",
+  "description": "Portfolio scoring app",
+  "repoLink": "https://github.com/org/repo",
+  "liveUrl": "https://devfolio.app",
+  "techStack": ["React", "Node.js", "MongoDB"]
 }
 ```
 
----
+### Portfolio
 
-### POST `/api/auth/refresh`
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /portfolio/:identifier | Optional auth | Fetch portfolio by user ObjectId or displayName |
+| POST | /portfolio | User | Save/update rawHtml + sanitized html + css + js |
+| PATCH | /portfolio/visibility | User | Toggle public/private visibility |
 
-Refresh the access token using a refresh token.
+POST /portfolio body:
 
-**Auth:** None (refresh token is sent in request body)
-
-**Request Body:**
-```json
-{
-  "refreshToken": "<refresh_jwt>"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "<rotated_refresh_jwt>"
-  }
-}
-```
-
----
-
-### POST `/api/auth/logout`
-
-Logout and invalidate refresh token.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{ "success": true, "message": "Logged out successfully" }
-```
-
----
-
-### GET `/api/auth/github`
-
-Redirect to GitHub OAuth authorization page.
-
-**Auth:** None
-
-**Response:** 302 redirect to `https://github.com/login/oauth/authorize?client_id=...`
-
----
-
-### GET `/api/auth/github/callback`
-
-GitHub OAuth callback — exchange code for access token and link account.
-
-**Auth:** None
-
-**Query Params:** `?code=...`
-
-**Response:** Redirects to frontend dashboard; JWT access token is appended in URL fragment (`#token=...`) instead of query string.
-
----
-
-## 2. User Endpoints
-
-### GET `/api/user/me`
-
-Get the current authenticated user's data.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "_id": "...",
-    "email": "john@example.com",
-    "displayName": "John Doe",
-    "role": "developer",
-    "githubUsername": "johndoe",
-    "leetcodeUsername": "john_lc",
-    "codeforcesUsername": "john_cf"
-  }
-}
-```
-
----
-
-### PUT `/api/user/me`
-
-Update user profile settings.
-
-**Auth:** Bearer Token
-
-**Request Body:**
-```json
-{
-  "displayName": "John D.",
-  "leetcodeUsername": "john_leetcode",
-  "codeforcesUsername": "john_cf"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": { ...updatedUser }
-}
-```
-
----
-
-## 3. Profile Endpoints
-
-### GET `/api/profile/:userId`
-
-Get a user's profile (bio, tech stack, social links).
-
-**Auth:** Optional (public profiles accessible without auth)
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "userId": "...",
-    "bio": "Full-stack developer passionate about React",
-    "techStack": ["React", "Node.js", "MongoDB"],
-    "socialLinks": { "linkedin": "https://linkedin.com/in/john", "website": "https://john.dev" },
-    "college": "IIT Delhi",
-    "avatarUrl": "https://...",
-    "isPublic": true
-  }
-}
-```
-
----
-
-### PUT `/api/profile/me`
-
-Update own profile.
-
-**Auth:** Bearer Token
-
-**Request Body:**
-```json
-{
-  "bio": "Updated bio",
-  "techStack": ["React", "Node.js", "Python"],
-  "socialLinks": { "linkedin": "https://linkedin.com/in/john" },
-  "college": "IIT Delhi"
-}
-```
-
-**Response (200):**
-```json
-{ "success": true, "data": { ...updatedProfile } }
-```
-
----
-
-## 4. Integration Endpoints
-
-### POST `/api/integrations/github/connect`
-
-Link GitHub account via OAuth token (after OAuth callback).
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "GitHub account connected",
-  "data": { "githubUsername": "johndoe" }
-}
-```
-
----
-
-### POST `/api/integrations/dsa/connect`
-
-Link DSA platform usernames.
-
-**Auth:** Bearer Token
-
-**Request Body:**
-```json
-{
-  "leetcodeUsername": "john_leetcode",
-  "codeforcesUsername": "john_cf"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "DSA platforms connected"
-}
-```
-
----
-
-## 5. Stats Endpoints
-
-### GET `/api/stats/github/:userId`
-
-Get GitHub stats for a user.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "totalCommits": 1247,
-    "publicRepos": 42,
-    "starsReceived": 156,
-    "pullRequests": 89,
-    "lastSyncedAt": "2026-03-23T02:00:00Z"
-  }
-}
-```
-
----
-
-### GET `/api/stats/dsa/:userId`
-
-Get DSA stats for a user.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "leetcode": { "easySolved": 200, "mediumSolved": 350, "hardSolved": 97, "totalSolved": 647 },
-    "codeforces": { "currentRating": 1856, "maxRating": 1920, "rank": "Expert" },
-    "lastSyncedAt": "2026-03-23T02:00:00Z"
-  }
-}
-```
-
----
-
-### POST `/api/stats/sync`
-
-Trigger manual sync for all connected platforms.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Sync triggered for GitHub and DSA stats"
-}
-```
-
----
-
-## 6. DevScore Endpoints
-
-### GET `/api/score/:userId`
-
-Get current DevScore and breakdown.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "overallScore": 847,
-    "breakdown": {
-      "github": { "score": 85, "weight": 40 },
-      "dsa": { "score": 92, "weight": 40 },
-      "portfolio": { "score": 60, "weight": 20 }
-    },
-    "computedAt": "2026-03-23T02:15:00Z"
-  }
-}
-```
-
----
-
-### GET `/api/score/:userId/history`
-
-Get DevScore history for trend visualization.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": [
-    { "overallScore": 820, "computedAt": "2026-03-16T02:15:00Z" },
-    { "overallScore": 835, "computedAt": "2026-03-17T02:15:00Z" },
-    { "overallScore": 847, "computedAt": "2026-03-23T02:15:00Z" }
-  ]
-}
-```
-
----
-
-## 7. Project Endpoints
-
-### GET `/api/projects/:userId`
-
-Get all projects for a user.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "_id": "...",
-      "name": "DevFolio",
-      "description": "Developer analytics platform",
-      "repoLink": "https://github.com/john/devfolio",
-      "liveUrl": "https://devfolio.dev",
-      "techStack": ["React", "Node.js", "MongoDB"],
-      "githubStars": 23,
-      "likes": 5
-    }
-  ]
-}
-```
-
----
-
-### POST `/api/projects`
-
-Create a new project.
-
-**Auth:** Bearer Token
-
-**Request Body:**
-```json
-{
-  "name": "My Project",
-  "description": "A cool project",
-  "repoLink": "https://github.com/john/my-project",
-  "liveUrl": "https://my-project.dev",
-  "techStack": ["React", "Express"]
-}
-```
-
-**Response (201):**
-```json
-{ "success": true, "data": { ...createdProject } }
-```
-
----
-
-### PUT `/api/projects/:projectId`
-
-Update a project.
-
-**Auth:** Bearer Token (owner only)
-
----
-
-### DELETE `/api/projects/:projectId`
-
-Delete a project.
-
-**Auth:** Bearer Token (owner only)
-
-**Response (200):**
-```json
-{ "success": true, "message": "Project deleted" }
-```
-
----
-
-## 8. Leaderboard Endpoints
-
-### GET `/api/leaderboard`
-
-Get global leaderboard.
-
-**Auth:** Optional
-
-**Query Params:**
-- `page` — Page number (default: 1)
-- `limit` — Results per page (default: 20)
-- `college` — Filter by college name (optional)
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "rankings": [
-      { "rank": 1, "userId": "...", "displayName": "Alice", "overallScore": 920, "hasPortfolio": true },
-      { "rank": 2, "userId": "...", "displayName": "Bob", "overallScore": 890, "hasPortfolio": false }
-    ],
-    "totalPages": 5,
-    "currentPage": 1
-  }
-}
-```
-
----
-
-### GET `/api/leaderboard/college/:collegeName`
-
-Get college-specific leaderboard.
-
-**Auth:** Optional
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "college": "IIT Delhi",
-    "rankings": [ ...sameStructure ]
-  }
-}
-```
-
----
-
-## 9. Portfolio Endpoints
-
-### GET `/api/portfolio/:userId`
-
-Get a user's portfolio code.
-
-**Auth:** Optional (public portfolios only, or owner)
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "rawHtml": "<div>Hello</div>",
-    "htmlContent": "<div>Hello</div>",
-    "cssContent": "div { color: blue; }",
-    "jsContent": "console.log('hello');",
-    "isPublic": true
-  }
-}
-```
-
----
-
-### POST `/api/portfolio`
-
-Save or update portfolio code.
-
-**Auth:** Bearer Token
-
-**Request Body:**
 ```json
 {
   "rawHtml": "<div>Hello</div>",
-  "cssContent": "div { color: blue; }",
-  "jsContent": "console.log('hello');"
+  "cssContent": "body{font-family:sans-serif}",
+  "jsContent": "console.log('hello')"
 }
 ```
 
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Portfolio saved",
-  "data": {
-    "rawHtml": "<div>Hello</div>",
-    "htmlContent": "<div>Hello</div>",
-    "cssContent": "div { color: blue; }",
-    "jsContent": "console.log('hello');",
-    "isPublic": false
-  }
-}
-```
-
-> Note: `htmlContent` is auto-generated from `rawHtml` via DOMPurify sanitization on the server.
-
----
-
-### PATCH `/api/portfolio/visibility`
-
-Toggle portfolio public/private.
-
-**Auth:** Bearer Token
-
-**Request Body:**
-```json
-{ "isPublic": true }
-```
-
-**Response (200):**
-```json
-{ "success": true, "message": "Portfolio is now public" }
-```
-
----
-
-## 10. Comparison Endpoints
-
-### GET `/api/compare/:userId1/:userId2`
-
-Compare two developers.
-
-**Auth:** Bearer Token
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "user1": {
-      "displayName": "Alice",
-      "devScore": 920,
-      "githubStats": { ... },
-      "dsaStats": { ... },
-      "hasPortfolio": true
-    },
-    "user2": {
-      "displayName": "Bob",
-      "devScore": 890,
-      "githubStats": { ... },
-      "dsaStats": { ... },
-      "hasPortfolio": false
-    },
-    "sharedRepos": ["react-utils", "node-starter"],
-    "radarData": [
-      { "metric": "GitHub", "user1": 85, "user2": 72 },
-      { "metric": "DSA", "user1": 92, "user2": 88 },
-      { "metric": "Portfolio", "user1": 60, "user2": 0 },
-      { "metric": "Projects", "user1": 75, "user2": 80 },
-      { "metric": "Consistency", "user1": 70, "user2": 65 },
-      { "metric": "Breadth", "user1": 80, "user2": 55 }
-    ]
-  }
-}
-```
-
----
-
-## 11. Admin Endpoints
-
-### GET `/api/admin/users`
-
-List all users.
-
-**Auth:** Bearer Token (admin role only)
-
----
-
-### DELETE `/api/admin/users/:userId`
-
-Delete a user with cascading cleanup.
-
-**Auth:** Bearer Token (admin role only)
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "User and all related data deleted"
-}
-```
-
-Cascading deletes: Profile, GithubStats, DsaStats, Projects, DevScores, PortfolioCode
-
----
-
-## 12. Recruiter Endpoints
-
-### GET `/api/recruiter/search`
-
-Search developers by criteria.
-
-**Auth:** Bearer Token (recruiter role)
-
-**Query Params:**
-- `name` — Search by name
-- `techStack` — Filter by tech stack (comma-separated)
-- `college` — Filter by college
-- `minScore` — Minimum DevScore
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "userId": "...",
-      "displayName": "Alice",
-      "devScore": 920,
-      "techStack": ["React", "Node.js"],
-      "college": "IIT Delhi",
-      "hasPortfolio": true
-    }
-  ]
-}
-```
-
----
-
-## 13. Change Log
-
-### 2026-03-29
-
-- `POST /api/auth/refresh` now documented with body-based refresh token and rotated refresh token response.
-- GitHub OAuth callback behavior updated: token is returned in URL fragment (`#token=...`) instead of query parameter.
-
----
-
-## Error Response Format
-
-All errors follow this format:
+PATCH /portfolio/visibility body:
 
 ```json
 {
-  "success": false,
-  "message": "Error description"
+  "isPublic": true
 }
 ```
 
-### Common Status Codes
+### Leaderboard
 
-| Code | Meaning |
-|---|---|
-| `200` | Success |
-| `201` | Created |
-| `400` | Bad Request (invalid input) |
-| `401` | Unauthorized (invalid or missing token) |
-| `403` | Forbidden (insufficient role) |
-| `404` | Not Found |
-| `429` | Too Many Requests (rate limited) |
-| `500` | Internal Server Error |
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /leaderboard | Optional auth | Multi-mode leaderboard with filters + pagination |
+| GET | /leaderboard/college/:collegeName | Optional auth | College-scoped leaderboard |
 
----
+Query params:
 
-*All endpoints return JSON and accept JSON request bodies where applicable.*
+- page (default 1)
+- limit (default 20)
+- mode in {devscore, github, leetcode, codeforces, hackerrank, codechef, kaggle, huggingface}
+- college (optional)
+- archetype (optional)
+
+### Compare
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /compare/:userId1/:userId2 | User | Compare two developers and return radar-friendly payload |
+
+Query params:
+
+- platform (defaults devscore)
+
+### Recruiter
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /recruiter/search | Recruiter/Admin | Search public developers with scoring filters |
+
+Query params:
+
+- name
+- techStack (comma separated)
+- college
+- minScore
+- archetype
+- sortBy (devScore or name)
+
+### Admin
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /admin/stats | Admin | Platform totals and archetype distribution |
+| GET | /admin/users | Admin | Paginated users list |
+| PATCH | /admin/users/:userId/role | Admin | Change user role |
+| DELETE | /admin/users/:userId | Admin | Delete user and cascaded records |
+| POST | /admin/trigger-sync | Admin | Trigger global sync and recompute loop |
+
+### Contests
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | /contests/upcoming | Public | Cached merged upcoming contest feed |
+
+## Common Error Statuses
+
+| Status | Meaning |
+| --- | --- |
+| 400 | Validation/business rule error |
+| 401 | Missing/invalid token or bad credentials |
+| 403 | Forbidden by role/privacy/csrf origin |
+| 404 | Resource not found |
+| 409 | Duplicate key conflict |
+| 429 | Rate limit exceeded |
+| 500 | Unexpected server error |
+
+## Security and Middleware Notes
+
+- apiLimiter applies to /api/*
+- authLimiter applies to auth route handlers
+- syncLimiter applies to /stats/sync
+- csrfOriginProtection blocks non-safe requests from disallowed origins
+- helmet and cors are globally enabled
+
+## Known Caveats (Current Behavior)
+
+- Some optional-auth read endpoints can expose data that may need tighter privacy checks.
+- Refresh token currently travels in request body and is stored client-side.
+- Projects read endpoint currently uses route userId rather than strict owner self-scope.
+
+Track remediation in [task.md](./task.md) and [fixes.md](./fixes.md).
