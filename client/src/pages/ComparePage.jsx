@@ -8,12 +8,91 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { GitCompare, Search, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer as RechartsResponsiveContainer, Legend } from 'recharts';
 
 const COMPARE_MODES = [
   { value: 'devscore', label: 'DevFolio Ranking' },
   ...Object.values(PLATFORMS).map((platform) => ({ value: platform.id, label: `${platform.name} Ranking` })),
 ];
+
+function ResponsiveContainer({
+  width = '100%',
+  height = '100%',
+  minWidth = 0,
+  minHeight = 1,
+  debounce = 80,
+  className,
+  style,
+  children,
+  ...props
+}) {
+  const hostRef = useRef(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = hostRef.current;
+    if (!node) return undefined;
+
+    let frameId = 0;
+    const measure = () => {
+      const { width: nextWidth, height: nextHeight } = node.getBoundingClientRect();
+      const safeWidth = Math.max(Number(minWidth) || 0, Math.floor(nextWidth));
+      const safeHeight = Math.max(Number(minHeight) || 1, Math.floor(nextHeight));
+
+      setContainerSize((prev) => (
+        prev.width === safeWidth && prev.height === safeHeight
+          ? prev
+          : { width: safeWidth, height: safeHeight }
+      ));
+    };
+
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleMeasure);
+      return () => {
+        cancelAnimationFrame(frameId);
+        window.removeEventListener('resize', scheduleMeasure);
+      };
+    }
+
+    const observer = new ResizeObserver(scheduleMeasure);
+    observer.observe(node);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [minHeight, minWidth]);
+
+  const isReady = containerSize.width > 0 && containerSize.height > 0;
+
+  return (
+    <div
+      ref={hostRef}
+      className={className}
+      style={{ width, height, minWidth, minHeight, ...style }}
+    >
+      {isReady ? (
+        <RechartsResponsiveContainer
+          {...props}
+          width={containerSize.width}
+          height={containerSize.height}
+          minWidth={minWidth}
+          minHeight={minHeight}
+          debounce={debounce}
+        >
+          {children}
+        </RechartsResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
 
 function toNumber(value, fallback = 0) {
   const numeric = Number(value);

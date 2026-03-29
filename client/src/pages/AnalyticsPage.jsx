@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -26,7 +26,7 @@ import {
   PolarRadiusAxis,
   Radar,
   RadarChart,
-  ResponsiveContainer,
+  ResponsiveContainer as RechartsResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -57,6 +57,85 @@ const LANGUAGE_COLORS = {
   Shell: '#89e051',
   Jupyter: '#DA5B0B',
 };
+
+function ResponsiveContainer({
+  width = '100%',
+  height = '100%',
+  minWidth = 0,
+  minHeight = 1,
+  debounce = 80,
+  className,
+  style,
+  children,
+  ...props
+}) {
+  const hostRef = useRef(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = hostRef.current;
+    if (!node) return undefined;
+
+    let frameId = 0;
+    const measure = () => {
+      const { width: nextWidth, height: nextHeight } = node.getBoundingClientRect();
+      const safeWidth = Math.max(Number(minWidth) || 0, Math.floor(nextWidth));
+      const safeHeight = Math.max(Number(minHeight) || 1, Math.floor(nextHeight));
+
+      setContainerSize((prev) => (
+        prev.width === safeWidth && prev.height === safeHeight
+          ? prev
+          : { width: safeWidth, height: safeHeight }
+      ));
+    };
+
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleMeasure);
+      return () => {
+        cancelAnimationFrame(frameId);
+        window.removeEventListener('resize', scheduleMeasure);
+      };
+    }
+
+    const observer = new ResizeObserver(scheduleMeasure);
+    observer.observe(node);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [minHeight, minWidth]);
+
+  const isReady = containerSize.width > 0 && containerSize.height > 0;
+
+  return (
+    <div
+      ref={hostRef}
+      className={className}
+      style={{ width, height, minWidth, minHeight, ...style }}
+    >
+      {isReady ? (
+        <RechartsResponsiveContainer
+          {...props}
+          width={containerSize.width}
+          height={containerSize.height}
+          minWidth={minWidth}
+          minHeight={minHeight}
+          debounce={debounce}
+        >
+          {children}
+        </RechartsResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -657,14 +736,14 @@ function PlatformSection({
       </div>
 
       <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
-        <div>
+        <div className="min-w-0">
           <p className="mb-2 text-[11px] font-medium text-muted">{leftTitle}</p>
-          <div className="h-40">{leftChart}</div>
+          <div className="h-40 min-w-0">{leftChart}</div>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <p className="mb-2 text-[11px] font-medium text-muted">{rightTitle}</p>
-          <div className="h-40">{rightChart}</div>
+          <div className="h-40 min-w-0">{rightChart}</div>
         </div>
       </div>
 
@@ -1897,17 +1976,17 @@ export default function AnalyticsPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <Card className="bg-card/60 backdrop-blur">
-            <CardHeader>
-              <CardTitle>Activity Heatmap</CardTitle>
-              <CardDescription>Daily activity intensity for this platform</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ActivityHeatmap {...selectedHeatmapProps} />
-            </CardContent>
-          </Card>
+        <Card className="bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Activity Heatmap</CardTitle>
+            <CardDescription>Daily activity intensity for this platform</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActivityHeatmap {...selectedHeatmapProps} />
+          </CardContent>
+        </Card>
 
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card className="bg-card/60 backdrop-blur">
             <CardHeader>
               <CardTitle>All Metrics</CardTitle>
@@ -1928,9 +2007,7 @@ export default function AnalyticsPage() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card className="bg-card/60 backdrop-blur">
             <CardHeader>
               <CardTitle>Trend Over Time</CardTitle>
@@ -1953,16 +2030,17 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/60 backdrop-blur">
-            <CardHeader>
-              <CardTitle>Platform-Specific Breakdown</CardTitle>
-              <CardDescription>Custom chart by platform capabilities</CardDescription>
-            </CardHeader>
-            <CardContent className="h-72">
-              <PlatformBreakdown platformId={activePlatformId} platformData={selectedPlatformData} />
-            </CardContent>
-          </Card>
         </div>
+
+        <Card className="bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Platform-Specific Breakdown</CardTitle>
+            <CardDescription>Custom chart by platform capabilities</CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            <PlatformBreakdown platformId={activePlatformId} platformData={selectedPlatformData} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -2034,16 +2112,20 @@ export default function AnalyticsPage() {
             <CardTitle className="text-base">Domain strength</CardTitle>
             <CardDescription>Across 6 competency axes</CardDescription>
           </CardHeader>
-          <CardContent className="h-52">
+          <CardContent className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData}>
+              <RadarChart data={radarData} outerRadius="68%">
                 <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis dataKey="axis" stroke="var(--muted-foreground)" fontSize={10} />
+                <PolarAngleAxis
+                  dataKey="axis"
+                  stroke="var(--muted-foreground)"
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12, fontWeight: 500 }}
+                />
                 <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                <Radar dataKey="value" stroke="#7f77dd" fill="#7f77dd" fillOpacity={0.22} />
+                <Radar dataKey="value" stroke="#7f77dd" fill="#7f77dd" fillOpacity={0.28} />
               </RadarChart>
             </ResponsiveContainer>
-            <p className="mt-3 text-center text-[11px] text-muted">
+            <p className="mt-4 text-center text-[11px] text-muted">
               Strongest in {strongestAxis?.axis || 'N/A'}.
               {' '}Weakest in {weakestAxis?.axis || 'N/A'}.
             </p>

@@ -2,84 +2,79 @@
 
 # DevFolio
 
-Build, showcase, compare, and discover developer portfolios powered by real GitHub activity.
+Unified developer identity platform for building, scoring, comparing, and showcasing real work across coding and AI platforms.
 
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-0ea5e9?style=for-the-badge)](client/)
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-22c55e?style=for-the-badge)](server/)
 [![Database](https://img.shields.io/badge/Database-MongoDB-10b981?style=for-the-badge)](documentation/DATABASE_SCHEMA.md)
 [![Cache](https://img.shields.io/badge/Cache-Redis-f97316?style=for-the-badge)](server/src/config/redisClient.js)
 
-[Live Features](#live-features) • [Product Flow](#product-flow) • [Quick Start](#quick-start) • [Deployment](#deployment-guide) • [Architecture](#architecture)
+[Project Overview](#project-overview) • [Core Capabilities](#core-capabilities) • [Architecture](#architecture-snapshot) • [Quick Start](#quick-start) • [Documentation](#documentation-map)
 
 </div>
 
----
-
-## Why DevFolio Exists
-
-DevFolio helps developers present proof of work, not just claims.
-
-Instead of manually curating portfolio pages, users connect GitHub once and get:
-- Automated portfolio building
-- Analytics on language, activity, and project depth
-- Public profile sharing
-- Competitive comparison and leaderboard ranking
-- Recruiter-friendly discovery and evaluation
+Last updated: 2026-03-29
 
 ---
 
-## Live Features
+## Project Overview
 
-### For Developers
-- GitHub OAuth login and profile onboarding
-- Auto-sync repositories, stars, commits, and contribution signals
-- Portfolio editor with customizable content and public preview
-- Analytics pages for goals, score trends, and productivity metrics
-- Side-by-side profile comparison
-- Contest participation and ranking
+DevFolio converts fragmented developer activity into a single, credible profile with measurable signals.
 
-### For Recruiters and Admins
-- Recruiter-focused profile discovery interface
-- Candidate signal surface: project quality, consistency, open-source participation
-- Leaderboard views and profile filters
-- Admin-level monitoring and platform operations views
+It combines platform stats, scoring, portfolio publishing, and recruiter discovery in one product:
 
----
+- Developer onboarding and profile management
+- Multi-platform sync for coding and open-source signals
+- DevScore v2 with diagnostics and benchmark context
+- Public profile + portfolio publishing
+- Leaderboard, compare, recruiter search, and admin operations
 
-## Product Flow
+Current platform coverage (core 7):
 
-```mermaid
-flowchart TD
-    A[Landing Page] --> B{Auth}
-    B -->|GitHub OAuth| C[Onboarding]
-    B -->|Email/Password| C
-    C --> D[Dashboard]
-    D --> E[Sync GitHub Data]
-    E --> F[Portfolio Editor]
-    E --> G[Analytics + Scores]
-    E --> H[Leaderboard]
-    E --> I[Compare Profiles]
-    F --> J[Public Portfolio URL]
-    J --> K[Recruiter Discovery]
-```
-
-### User Journey in 6 Steps
-1. Sign in and connect identity.
-2. Sync GitHub repositories and activity.
-3. Configure portfolio appearance and showcased projects.
-4. Track goals and analytics from the dashboard.
-5. Compare progress with peers and climb leaderboard positions.
-6. Share public portfolio URL for recruiter visibility.
+- GitHub
+- LeetCode
+- Codeforces
+- HackerRank
+- CodeChef
+- Kaggle
+- Hugging Face
 
 ---
 
-## Architecture
+## Core Capabilities
+
+### Developer Experience
+
+- Authentication (email/password + GitHub OAuth)
+- Guided onboarding and handle linking
+- Unified dashboard with score, streaks, and recent activity
+- Analytics deep dive with platform-specific visualizations
+- Portfolio editor, save flow, visibility toggle, and public preview
+- Peer comparison and leaderboard positioning
+
+### Recruiter and Admin Experience
+
+- Recruiter search with score and profile filters
+- Candidate profile evaluation with platform signals
+- Admin user management and global sync controls
+- Contest feed for upcoming events
+
+### Scoring Model
+
+- DevScore v2 in range 0-1000
+- 5 pillars: problem solving, building, community, consistency, specialization
+- Primary + secondary archetype blending
+- Diagnostics payload for strengths, improvements, and platform contribution
+
+---
+
+## Architecture Snapshot
 
 ```mermaid
 flowchart LR
-    subgraph Client[Client - Vite + React]
-      UI[Pages + Components]
-      ST[Zustand Stores]
+    subgraph Client[Client - React + Vite]
+      UI[Pages and Components]
+      ST[Zustand and Query State]
       API[Axios API Client]
     end
 
@@ -90,40 +85,60 @@ flowchart LR
       MW[Middleware]
     end
 
-    subgraph Infra[Infrastructure]
+    subgraph DataInfra[Data and Integrations]
       MDB[(MongoDB)]
-      RDS[(Redis)]
-      GH[GitHub API/OAuth]
+      RDS[(Redis Optional)]
+      EXT[Platform APIs]
     end
 
     UI --> ST --> API --> RT --> CT --> SV
     RT --> MW
     SV --> MDB
     SV --> RDS
-    SV --> GH
+    SV --> EXT
 ```
 
-### Tech Stack
+Tech stack at a glance:
 
 | Layer | Stack |
-|---|---|
-| Frontend | React 19, Vite, React Router, Tailwind CSS |
-| State | Zustand |
-| API | Axios with token refresh interceptors |
-| Backend | Node.js, Express, MVC architecture |
-| Data | MongoDB + Mongoose |
-| Cache | Redis |
+| --- | --- |
+| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS |
+| Data Fetching and State | TanStack Query, Zustand, Axios |
+| Backend | Node.js, Express 5 |
+| Persistence | MongoDB + Mongoose |
+| Cache | Redis via ioredis (optional, environment-driven) |
 | Security | Helmet, CORS, CSRF origin checks, rate limiting |
 | Auth | JWT access/refresh + GitHub OAuth |
+
+---
+
+## Product Flow
+
+```mermaid
+flowchart TD
+    A[Landing] --> B{Authentication}
+    B -->|Email Password| C[Onboarding]
+    B -->|GitHub OAuth| C
+    C --> D[Dashboard]
+    D --> E[Sync Platform Stats]
+    E --> F[DevScore v2 Compute]
+    F --> G[Analytics and Leaderboard]
+    F --> H[Compare]
+    E --> I[Portfolio Editor]
+    I --> J[Public Profile and Portfolio]
+    J --> K[Recruiter Discovery]
+```
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- MongoDB (local or Atlas)
-- Redis (local or managed)
+
+- Node.js 20+
+- npm 10+
+- MongoDB local or cloud instance
+- Redis optional for cache-backed paths
 
 ### 1) Clone
 
@@ -132,117 +147,96 @@ git clone https://github.com/SubhashKumar14/DevFolio-App.git
 cd DevFolio-App
 ```
 
-### 2) Install Dependencies
+### 2) Install dependencies
 
 ```bash
-cd server
-npm install
-cd ../client
-npm install
+npm --prefix server install
+npm --prefix client install
 ```
 
-### 3) Configure Environment Variables
+### 3) Configure environment files
 
-Create these files:
-- `server/.env`
-- `client/.env`
+Create:
 
-Server template:
+- server/.env
+- client/.env
+
+Minimum server variables:
 
 ```env
 NODE_ENV=development
 PORT=5000
-
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_access_secret
-JWT_REFRESH_SECRET=your_refresh_secret
-
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
-
+MONGODB_URI=mongodb://127.0.0.1:27017/devfolio
+JWT_SECRET=replace_with_strong_secret
+JWT_REFRESH_SECRET=replace_with_strong_refresh_secret
 CLIENT_URL=http://localhost:5173
 ```
 
-Client template:
+Client variable:
 
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-### 4) Run Development Servers
+For full environment guidance, see [documentation/ENVIRONMENT_SETUP.md](documentation/ENVIRONMENT_SETUP.md).
 
-Terminal 1:
-
-```bash
-cd server
-npm run dev
-```
-
-Terminal 2:
+### 4) Start development servers
 
 ```bash
-cd client
-npm run dev
+npm --prefix server run dev
+npm --prefix client run dev
 ```
 
 ---
 
-## Deployment Guide
+## Quality Checks
 
-DevFolio is already structured for frontend + backend deployment separation.
-
-### Frontend (Vite)
-- Build command: `npm run build`
-- Output: `client/dist`
-- Required env: `VITE_API_URL=https://your-backend-domain/api`
-
-### Backend (Express)
-- Start command: `npm start`
-- Required envs: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`
-- CORS origin should match deployed frontend URL via `CLIENT_URL`
-
-### Production Checklist
-- Set GitHub OAuth callback to deployed backend callback endpoint
-- Set secure secrets for JWT keys
-- Enable HTTPS in deployment platform
-- Verify CSRF/CORS behavior with production domain
-- Confirm Redis connectivity for caching paths
+```bash
+npm --prefix client run lint
+npm --prefix client run build
+npm --prefix server test
+npm --prefix client audit --omit=dev
+npm --prefix server audit --omit=dev
+```
 
 ---
 
-## Available Scripts
+## Deployment Notes
 
-### Client
+- Frontend and backend are deployed separately.
+- Frontend API target is controlled by VITE_API_URL.
+- Backend allowed origin is controlled by CLIENT_URL.
+- Scheduler currently runs from server startup path.
 
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Build production assets |
-| `npm run preview` | Preview production build |
+Production hardening status:
 
-### Server
+- Feature breadth: high
+- Security/privacy hardening: in progress
+- Reliability hardening: in progress
 
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Start server with nodemon |
-| `npm start` | Start server in production mode |
-| `npm test` | Run backend tests |
+For full readiness and blockers, see [documentation/devfolio_project_audit.md](documentation/devfolio_project_audit.md) and [documentation/implementation_plan_status.md](documentation/implementation_plan_status.md).
 
 ---
 
-## API Surface (High-Level)
+## Documentation Map
 
-Core domains in the backend:
-- Auth and OAuth
-- Portfolio generation and management
-- Profiles and public portfolio views
-- Compare and leaderboard
-- Contests and scoring
-- Integrations and stats
+Root docs entrypoint: [documentation/README.md](documentation/README.md)
 
-For deeper endpoint details, use:
-- `documentation/API_REFERENCE.md`
+Recommended reading order:
+
+1. [documentation/summary.md](documentation/summary.md)
+2. [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md)
+3. [documentation/FEATURES.md](documentation/FEATURES.md)
+4. [documentation/API_REFERENCE.md](documentation/API_REFERENCE.md)
+5. [documentation/DATABASE_SCHEMA.md](documentation/DATABASE_SCHEMA.md)
+
+Planning and delivery docs:
+
+- [documentation/ROADMAP.md](documentation/ROADMAP.md)
+- [documentation/implementation_plan.md](documentation/implementation_plan.md)
+- [documentation/implementation_plan_status.md](documentation/implementation_plan_status.md)
+- [documentation/task.md](documentation/task.md)
+- [documentation/fixes.md](documentation/fixes.md)
 
 ---
 
@@ -256,8 +250,8 @@ DevFolio/
 |  |  |- pages/
 |  |  |- services/
 |  |  |- stores/
-|  |  |- lib/
 |  |  |- hooks/
+|  |  |- lib/
 |  |  |- App.jsx
 |  |  `- main.jsx
 |  `- vite.config.js
@@ -276,28 +270,12 @@ DevFolio/
 
 ---
 
-<details>
-<summary><strong>Interactive FAQ</strong></summary>
-
-### Is this deployable as separate frontend/backend services?
-Yes. The frontend uses `VITE_API_URL` and the backend uses runtime env variables like `PORT` and `CLIENT_URL`.
-
-### Can I run without GitHub OAuth?
-Core auth paths can still work, but portfolio auto-sync and recruiter signal quality are strongest with GitHub connected.
-
-### Where should I start exploring in code?
-Start with `client/src/App.jsx` for routing and `server/src/app.js` for backend middleware and route mounting.
-
-</details>
-
----
-
 ## Contributing
 
 1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/your-feature-name`.
-3. Commit with clear messages.
-4. Push and open a pull request.
+2. Create a branch from main.
+3. Make focused changes with clear commit messages.
+4. Open a pull request with validation notes.
 
 ---
 

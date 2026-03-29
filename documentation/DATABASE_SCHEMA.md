@@ -16,6 +16,33 @@ Database: MongoDB via Mongoose
 | projects | 1:N | User project cards |
 | portfoliocodes | 1:1 | Portfolio code payload and visibility |
 
+## Schema Relationship Diagram
+
+```mermaid
+flowchart LR
+	U[users] --> P[profiles]
+	U --> GS[githubstats]
+	U --> DS[dsastats]
+	U --> PS[platformstats]
+	U --> DV[devscores]
+	U --> PR[projects]
+	U --> PC[portfoliocodes]
+```
+
+## Key Field Lineage
+
+```mermaid
+flowchart TD
+	UH[users: githubUsername, leetcodeUsername, codeforcesUsername, ...] --> AD[adapter fetch layer]
+	AD --> GSF[githubstats: contributions, repos, stars, streaks]
+	AD --> DSF[dsastats: leetcode/codeforces aggregates + daily series]
+	AD --> PSF[platformstats: hackerrank/codechef/kaggle/huggingface objects]
+	GSF --> SCORE[devscores: score, rawScore, weightedRawScore, pillars, diagnostics]
+	DSF --> SCORE
+	PSF --> SCORE
+	SCORE --> READS[leaderboard, compare, recruiter, analytics]
+```
+
 ## users
 
 Source: server/src/models/User.js

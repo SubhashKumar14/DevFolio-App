@@ -54,7 +54,7 @@ export default function ContestsPage() {
   const filtered = filter === 'all' ? contests : contests.filter((c) => c.platform === filter);
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto p-2 md:p-0">
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto p-2 pb-4 md:p-0 md:pb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">

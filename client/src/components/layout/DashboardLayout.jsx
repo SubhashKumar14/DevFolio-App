@@ -69,12 +69,14 @@ export function DashboardLayout() {
           </div>
         )}
 
-        <main className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
-          <div className="container mx-auto flex-1 p-4 sm:p-6 lg:p-8">
-            <Outlet />
+        <main className="flex min-h-[calc(100vh-4rem)] w-full min-w-0 flex-col">
+          <div className="container mx-auto flex w-full min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8">
+            <div className="min-w-0 flex-1">
+              <Outlet />
+            </div>
           </div>
 
-          <footer className="border-t border-border bg-card/35 px-4 py-4 sm:px-6 lg:px-8">
+          <footer className="mt-auto shrink-0 border-t border-border bg-card/35 px-4 py-4 sm:px-6 lg:px-8">
             <div className="container mx-auto flex flex-col gap-2 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-accent-cyan" />

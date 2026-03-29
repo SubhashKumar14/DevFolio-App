@@ -11,6 +11,7 @@
     --card-elevated: #f8fbff;
     --border: #dbe3ec;
     --muted: #475569;
+    --muted-foreground: #475569;
     --foreground: #0f172a;
     --foreground-bright: #020617;
 
@@ -32,6 +33,7 @@
     --card-elevated: #172133;
     --border: #2a3850;
     --muted: #a4b1c8;
+    --muted-foreground: #a4b1c8;
     --foreground: #e6edf7;
     --foreground-bright: #f8fbff;
 

@@ -20,6 +20,54 @@ Base URL (dev): http://localhost:5000/api
 | Recruiter auth | Valid token + role in {recruiter, admin} |
 | Admin auth | Valid token + role=admin |
 
+## API Lifecycle and Field Flows
+
+### Authentication Token Flow
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant A as API
+  participant DB as MongoDB
+
+  C->>A: POST /auth/login (email,password)
+  A->>DB: verify user + password hash
+  A-->>C: accessToken + refreshToken + user payload
+  C->>A: protected request with access token
+  A-->>C: 401 if access token expired
+  C->>A: POST /auth/refresh (refreshToken)
+  A->>DB: validate stored refresh token
+  A-->>C: rotated access token
+  C->>A: retry original request
+```
+
+### Stats Sync to DevScore Flow
+
+```mermaid
+flowchart TD
+  H[User handles on User document] --> I[POST /integrations/dsa/connect]
+  I --> S[POST /stats/sync]
+  S --> G[GitHub adapter fetch]
+  S --> D[DSA adapters fetch]
+  S --> P[Platform adapters fetch]
+  G --> GS[Persist GithubStats]
+  D --> DS[Persist DsaStats]
+  P --> PS[Persist PlatformStats]
+  GS --> R[DevScore recompute]
+  DS --> R
+  PS --> R
+  R --> DV[Persist DevScore snapshot]
+  DV --> L[Leaderboard and Recruiter reads]
+  DV --> A1[Analytics and Dashboard reads]
+```
+
+### Field Propagation Notes
+
+- `User` platform handles drive adapter request identity.
+- Adapter responses map into `GithubStats`, `DsaStats`, and `PlatformStats`.
+- Scoring consumes those 3 stats collections and writes a new `DevScore` snapshot.
+- Leaderboard, compare, and recruiter endpoints consume the latest score and selected profile fields.
+
 ## Route Groups
 
 ### Health

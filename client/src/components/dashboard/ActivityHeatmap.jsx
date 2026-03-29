@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PLATFORMS } from '@/lib/constants';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -272,6 +273,7 @@ export default function ActivityHeatmap({
 }) {
   const [tooltip, setTooltip] = useState(null);
   const [selectedYear, setSelectedYear] = useState(ALL_TIME);
+  const tooltipRoot = typeof document !== 'undefined' ? document.body : null;
 
   const platformCalendars = useMemo(
     () => ({
@@ -430,9 +432,9 @@ export default function ActivityHeatmap({
         </div>
       </div>
 
-      {tooltip && (
+      {tooltip && tooltipRoot && createPortal(
         <div
-          className="pointer-events-none fixed z-50 rounded-lg border border-border glass-card px-4 py-3 text-sm text-foreground shadow-xl transition-all"
+          className="pointer-events-none fixed z-[9999] rounded-lg border border-border glass-card px-4 py-3 text-sm text-foreground shadow-xl transition-all"
           style={{ left: tooltip.x, top: tooltip.y - 12, transform: 'translate(-50%, -100%)' }}
         >
           <div className="mb-2 font-bold text-foreground">
@@ -468,7 +470,8 @@ export default function ActivityHeatmap({
               })}
             </div>
           )}
-        </div>
+        </div>,
+        tooltipRoot
       )}
     </div>
   );
