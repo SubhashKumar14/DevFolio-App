@@ -7,10 +7,6 @@ const requiredVars = [
   'JWT_REFRESH_SECRET',
 ];
 
-if (process.env.NODE_ENV === 'production') {
-  requiredVars.push('ENCRYPTION_KEY');
-}
-
 for (const varName of requiredVars) {
   if (!process.env[varName]) {
     console.error(`❌ Missing required environment variable: ${varName}`);
@@ -18,8 +14,14 @@ for (const varName of requiredVars) {
   }
 }
 
-if (process.env.NODE_ENV === 'production' && String(process.env.ENCRYPTION_KEY).length < 32) {
-  console.error('❌ ENCRYPTION_KEY must be at least 32 characters in production');
+const resolvedEncryptionKey = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || '';
+
+if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+  console.warn('⚠️ ENCRYPTION_KEY is not set in production. Falling back to JWT_SECRET. Set ENCRYPTION_KEY to a dedicated 32+ character value.');
+}
+
+if (process.env.NODE_ENV === 'production' && String(resolvedEncryptionKey).length < 32) {
+  console.error('❌ ENCRYPTION_KEY (or fallback JWT_SECRET) must be at least 32 characters in production');
   process.exit(1);
 }
 
@@ -40,7 +42,7 @@ const env = {
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
 
   // Encryption
-  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || '',
+  ENCRYPTION_KEY: resolvedEncryptionKey,
 
   // GitHub OAuth
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || '',
