@@ -12,11 +12,20 @@ const githubStatsSchema = new Schema({
 
   // ─── GitHub Metrics ────────────────────
   totalCommits: { type: Number, default: 0 },
+  totalContributionsLastYear: { type: Number, default: 0 },
+  totalContributionsAllTime: { type: Number, default: 0 },
   publicRepos: { type: Number, default: 0 },
   starsReceived: { type: Number, default: 0 },
   pullRequests: { type: Number, default: 0 },
+  pullRequestsMerged: { type: Number, default: 0 },
+  pullRequestsTotal: { type: Number, default: 0 },
+  issuesOpened: { type: Number, default: 0 },
+  issuesClosed: { type: Number, default: 0 },
   forksCount: { type: Number, default: 0 },
   followers: { type: Number, default: 0 },
+  currentStreak: { type: Number, default: 0 },
+  longestStreak: { type: Number, default: 0 },
+  organizations: [{ type: String }],
 
   // ─── Profile Info ──────────────────────
   githubAvatarUrl: { type: String, default: null },
@@ -26,6 +35,7 @@ const githubStatsSchema = new Schema({
   languageDistribution: [{
     language: { type: String },
     count: { type: Number, default: 0 },
+    bytes: { type: Number, default: 0 },
     _id: false,
   }],
 

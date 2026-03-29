@@ -3,33 +3,46 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import {
   LayoutDashboard, LineChart, Calendar, Trophy, Settings,
-  Target, GitCompare, Sparkles, Eye, PenTool,
+  Target, GitCompare, Sparkles, Eye, PenTool, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-function NavGroup({ label, items, badge, pathname }) {
+function NavGroup({ label, items, badge, pathname, collapsed, onNavigate }) {
+  if (!items.length) return null;
+
   return (
-    <div className="px-3 py-2">
-      <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted uppercase flex items-center gap-2">
-        {label}
-        {badge && (
-          <span className="bg-accent-purple/20 text-accent-purple text-[10px] px-1.5 py-0.5 rounded">
-            {badge}
-          </span>
-        )}
-      </h2>
+    <div className={cn('py-2', collapsed ? 'px-1' : 'px-3')}>
+      {collapsed ? (
+        <div className="mb-2 px-2">
+          <div className="h-px w-full bg-border/70" />
+          <span className="sr-only">{label}</span>
+        </div>
+      ) : (
+        <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted uppercase flex items-center gap-2">
+          {label}
+          {badge && (
+            <span className="bg-accent-purple/20 text-accent-purple text-[10px] px-1.5 py-0.5 rounded">
+              {badge}
+            </span>
+          )}
+        </h2>
+      )}
+
       <div className="space-y-1">
         {items.map((item) => (
-          <Link key={item.href} to={item.href}>
+          <Link key={item.href} to={item.href} onClick={onNavigate}>
             <Button
               variant={pathname === item.href ? 'secondary' : 'ghost'}
               className={cn(
-                'w-full justify-start gap-2',
+                'w-full',
+                collapsed ? 'justify-center px-0 h-10' : 'justify-start gap-2',
                 pathname === item.href && 'bg-card-elevated text-foreground'
               )}
+              title={collapsed ? item.name : undefined}
+              aria-label={item.name}
             >
               <item.icon className="h-4 w-4" />
-              {item.name}
+              {!collapsed && item.name}
             </Button>
           </Link>
         ))}
@@ -38,7 +51,7 @@ function NavGroup({ label, items, badge, pathname }) {
   );
 }
 
-export function Sidebar({ className }) {
+export function Sidebar({ className, collapsed = false, onNavigate, onToggleCollapse }) {
   const location = useLocation();
   const { user } = useAuthStore();
   const isRecruiter = user?.role === 'recruiter';
@@ -65,11 +78,46 @@ export function Sidebar({ className }) {
   ];
 
   return (
-    <div className={cn("pb-12 min-h-screen", className)}>
+    <div className={cn('pb-12 min-h-screen', className)}>
       <div className="space-y-4 py-4">
-        <NavGroup label="Main" items={mainNav} pathname={location.pathname} />
-        <NavGroup label="Portfolio" items={portfolioNav} pathname={location.pathname} />
-        <NavGroup label="Tools" items={toolsNav} badge="Beta" pathname={location.pathname} />
+        {onToggleCollapse && (
+          <div className={cn('pb-2', collapsed ? 'px-1' : 'px-3')}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn('w-full', collapsed ? 'justify-center px-0 h-10' : 'justify-between gap-2')}
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={collapsed ? 'Expand sidebar' : undefined}
+            >
+              {!collapsed && <span className="text-xs uppercase tracking-tight text-muted">Navigation</span>}
+              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
+          </div>
+        )}
+
+        <NavGroup
+          label="Main"
+          items={mainNav}
+          pathname={location.pathname}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
+        <NavGroup
+          label="Portfolio"
+          items={portfolioNav}
+          pathname={location.pathname}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
+        <NavGroup
+          label="Tools"
+          items={toolsNav}
+          badge="Beta"
+          pathname={location.pathname}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
       </div>
     </div>
   );

@@ -49,32 +49,16 @@ const userSchema = new Schema({
   githubUsername: { type: String, default: null },
   githubAccessToken: { type: String, select: false },
 
-  // ─── Platform Handles (15 platforms) ────
-  // DSA / Competitive Programming
+  // ─── Platform Handles (7 platforms) ─────
+  // Core coding platforms
   leetcodeUsername: { type: String, default: null },
   codeforcesUsername: { type: String, default: null },
   hackerrankUsername: { type: String, default: null },
   codechefUsername: { type: String, default: null },
-  gfgUsername: { type: String, default: null },
-  atcoderUsername: { type: String, default: null },
-  hackerEarthUsername: { type: String, default: null },
 
   // AI / ML
   kaggleUsername: { type: String, default: null },
   huggingfaceUsername: { type: String, default: null },
-
-  // Community / Knowledge
-  stackoverflowUserId: { type: String, default: null },
-  devtoUsername: { type: String, default: null },
-
-  // Open Source
-  gitlabUsername: { type: String, default: null },
-
-  // Security
-  tryhackmeUsername: { type: String, default: null },
-
-  // Interview / Assessment
-  codesignalUsername: { type: String, default: null },
 
   // ─── Auth ───────────────────────────────
   refreshToken: { type: String, select: false },
@@ -108,16 +92,8 @@ userSchema.methods.getPlatformData = function () {
     codeforcesUsername: this.codeforcesUsername,
     hackerrankUsername: this.hackerrankUsername,
     codechefUsername: this.codechefUsername,
-    gfgUsername: this.gfgUsername,
     kaggleUsername: this.kaggleUsername,
-    atcoderUsername: this.atcoderUsername,
-    hackerEarthUsername: this.hackerEarthUsername,
     huggingfaceUsername: this.huggingfaceUsername,
-    stackoverflowUserId: this.stackoverflowUserId,
-    devtoUsername: this.devtoUsername,
-    gitlabUsername: this.gitlabUsername,
-    tryhackmeUsername: this.tryhackmeUsername,
-    codesignalUsername: this.codesignalUsername,
   };
 };
 

@@ -46,13 +46,6 @@ export default function GoalsPage() {
     retry: false,
   });
 
-  const { data: platformStats } = useQuery({
-    queryKey: ['platformStats', userId],
-    queryFn: () => statsService.getPlatformStats(userId),
-    enabled: !!userId,
-    retry: false,
-  });
-
   const syncMutation = useMutation({
     mutationFn: () => statsService.syncStats(),
     onSuccess: () => {
@@ -70,9 +63,7 @@ export default function GoalsPage() {
   const goalCards = useMemo(() => {
     const totalProblemsSolved =
       (dsaStats?.leetcode?.totalSolved || 0) +
-      (dsaStats?.codeforces?.totalSolved || 0) +
-      (platformStats?.gfg?.totalProblemsSolved || 0) +
-      (platformStats?.hackerearth?.problemsSolved || 0);
+      (dsaStats?.codeforces?.totalSolved || 0);
 
     const currentScore = scoreData?.overallScore || 0;
     const commits = githubStats?.totalCommits || 0;
@@ -110,8 +101,8 @@ export default function GoalsPage() {
         label: 'Connected Platforms',
         description: 'Increase domain coverage and fairness',
         current: activePlatforms,
-        target: Math.min(15, Math.max(3, activePlatforms + 2)),
-        suffix: '/15',
+        target: Math.min(7, Math.max(3, activePlatforms + 2)),
+        suffix: '/7',
       },
       {
         id: 'codeforces',
@@ -130,7 +121,7 @@ export default function GoalsPage() {
         suffix: ' days',
       },
     ];
-  }, [dsaStats, githubStats, platformStats, scoreData, user]);
+  }, [dsaStats, githubStats, scoreData, user]);
 
   const recommendations = useMemo(() => {
     const recs = [];

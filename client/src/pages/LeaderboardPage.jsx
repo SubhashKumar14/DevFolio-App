@@ -7,19 +7,34 @@ import { Trophy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
+const RANKING_MODES = [
+  { value: 'devscore', label: 'DevFolio Ranking', subtitle: 'Overall DevScore across all connected platforms', metricColumn: 'DevScore' },
+  { value: 'github', label: 'GitHub Ranking', subtitle: 'Ranks by GitHub contribution signal', metricColumn: 'GitHub Signal' },
+  { value: 'leetcode', label: 'LeetCode Ranking', subtitle: 'Ranks by LeetCode contest/global standing', metricColumn: 'LeetCode Signal' },
+  { value: 'codeforces', label: 'Codeforces Ranking', subtitle: 'Ranks by Codeforces contest performance', metricColumn: 'Codeforces Signal' },
+  { value: 'hackerrank', label: 'HackerRank Ranking', subtitle: 'Ranks by HackerRank contest and skill signal', metricColumn: 'HackerRank Signal' },
+  { value: 'codechef', label: 'CodeChef Ranking', subtitle: 'Ranks by CodeChef global/rating signal', metricColumn: 'CodeChef Signal' },
+  { value: 'kaggle', label: 'Kaggle Ranking', subtitle: 'Ranks by Kaggle rank and medal impact', metricColumn: 'Kaggle Signal' },
+  { value: 'huggingface', label: 'Hugging Face Ranking', subtitle: 'Ranks by downloads and community impact', metricColumn: 'Hugging Face Signal' },
+];
+
 export default function LeaderboardPage() {
   const { user } = useAuthStore();
   const [page, setPage] = useState(1);
   const [college, setCollege] = useState('');
   const [archetypeFilter, setArchetypeFilter] = useState('');
+  const [rankingMode, setRankingMode] = useState('devscore');
+
+  const modeMeta = RANKING_MODES.find((mode) => mode.value === rankingMode) || RANKING_MODES[0];
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leaderboard', page, college, archetypeFilter],
+    queryKey: ['leaderboard', page, college, archetypeFilter, rankingMode],
     queryFn: () => leaderboardService.getLeaderboard({ 
       page, 
       limit: 20, 
       college: college || undefined,
-      archetype: archetypeFilter || undefined
+      archetype: archetypeFilter || undefined,
+      mode: rankingMode,
     }),
   });
 
@@ -32,12 +47,22 @@ export default function LeaderboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Trophy className="h-8 w-8 text-accent-orange" />
-            Global Leaderboard
+            Leaderboard
           </h1>
-          <p className="text-muted mt-1">See how you rank globally across all integrated platforms.</p>
+          <p className="text-muted mt-1">{modeMeta.subtitle}</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-56">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <select
+            className="h-10 px-3 rounded-md border border-border bg-card-elevated text-sm focus:outline-none focus:ring-2 focus:ring-accent-cyan min-w-[220px]"
+            value={rankingMode}
+            onChange={(e) => { setRankingMode(e.target.value); setPage(1); }}
+          >
+            {RANKING_MODES.map((mode) => (
+              <option key={mode.value} value={mode.value}>{mode.label}</option>
+            ))}
+          </select>
+
+          <div className="relative flex-1 md:w-56 min-w-[190px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
             <Input 
               placeholder="Filter by college..." 
@@ -46,6 +71,7 @@ export default function LeaderboardPage() {
               onChange={(e) => { setCollege(e.target.value); setPage(1); }}
             />
           </div>
+
           <select
             className="h-10 px-3 rounded-md border border-border bg-card-elevated text-sm focus:outline-none focus:ring-2 focus:ring-accent-cyan"
             value={archetypeFilter}
@@ -74,7 +100,7 @@ export default function LeaderboardPage() {
                 <tr>
                   <th className="px-6 py-4 font-semibold">Rank</th>
                   <th className="px-6 py-4 font-semibold">Developer</th>
-                  <th className="px-6 py-4 font-semibold">DevScore</th>
+                  <th className="px-6 py-4 font-semibold">{modeMeta.metricColumn}</th>
                   <th className="px-6 py-4 font-semibold">Identity</th>
                   <th className="px-6 py-4 font-semibold">College</th>
                   <th className="px-6 py-4 font-semibold">Portfolio</th>
@@ -91,12 +117,35 @@ export default function LeaderboardPage() {
                       <td className="px-6 py-4 font-medium">
                         <span className="w-6">{entry.rank}</span>
                       </td>
-                      <td className="px-6 py-4 font-semibold">
-                        {entry.displayName}
-                        {isCurrentUser && <span className="text-xs bg-accent-cyan/20 text-accent-cyan py-0.5 px-2 rounded-full ml-2">You</span>}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {entry.avatarUrl ? (
+                            <img src={entry.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover border border-border" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full border border-border bg-card-elevated flex items-center justify-center text-sm font-semibold text-accent-cyan">
+                              {entry.displayName?.[0]?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">
+                              {entry.displayName}
+                              {isCurrentUser && <span className="text-xs bg-accent-cyan/20 text-accent-cyan py-0.5 px-2 rounded-full ml-2">You</span>}
+                            </p>
+                            {rankingMode !== 'devscore' && entry.metricSecondary && (
+                              <p className="text-xs text-muted truncate">{entry.metricSecondary}</p>
+                            )}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-transparent bg-clip-text bg-gradient-devscore">
-                        {entry.overallScore}
+                      <td className="px-6 py-4">
+                        {rankingMode === 'devscore' ? (
+                          <p className="font-bold text-transparent bg-clip-text bg-gradient-devscore">{entry.overallScore}</p>
+                        ) : (
+                          <div>
+                            <p className="font-semibold text-foreground">{entry.metricDisplay || 'N/A'}</p>
+                            <p className="text-xs text-muted">{entry.metricLabel || modeMeta.metricColumn}</p>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {entry.archetype && entry.archetype !== 'none' ? (
@@ -126,7 +175,11 @@ export default function LeaderboardPage() {
             </table>
           ) : (
             <div className="py-16 text-center text-muted">
-              <p>No developers found. Be the first to sync your platforms!</p>
+              <p>
+                {rankingMode === 'devscore'
+                  ? 'No developers found. Be the first to sync your platforms!'
+                  : 'No developers found for this platform ranking yet.'}
+              </p>
             </div>
           )}
         </CardContent>

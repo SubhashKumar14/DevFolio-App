@@ -4,26 +4,24 @@ import { PLATFORMS } from '@/lib/constants';
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ALL_TIME = 'all';
 const EMPTY_COLOR = 'var(--heatmap-empty)';
-const BASE_RGB = [40, 40, 40];
-const LEVEL_TINT = [0, 0.35, 0.6, 0.8, 1];
 const CELL_SIZE = 11;
 const CELL_GAP = 3;
 const ROUNDING = 3;
+const STRIPE_WIDTH = 2;
+const FALLBACK_HSL = [220, 12, 52];
 
-function tintRgb(rgb, level) {
-  const tint = LEVEL_TINT[level];
-  return [
-    BASE_RGB[0] + (rgb[0] - BASE_RGB[0]) * tint,
-    BASE_RGB[1] + (rgb[1] - BASE_RGB[1]) * tint,
-    BASE_RGB[2] + (rgb[2] - BASE_RGB[2]) * tint,
-  ];
-}
+const ACTION_LABELS = {
+  github: 'contributions',
+  leetcode: 'submissions',
+  codeforces: 'submissions',
+  hackerrank: 'challenges',
+  codechef: 'submissions',
+  kaggle: 'events',
+  huggingface: 'interactions',
+};
 
-function getActiveEntries(day, platformKeys) {
-  return platformKeys
-    .map((key) => ({ key, count: day[key] || 0 }))
-    .filter((entry) => entry.count > 0)
-    .sort((a, b) => b.count - a.count);
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function toSafeCount(value) {
@@ -46,9 +44,7 @@ function getYearFromDate(date) {
 
 function getAvailableYears(allDates = []) {
   const years = [...new Set(allDates.map((date) => getYearFromDate(date)))].sort((a, b) => b - a);
-  if (years.length) {
-    return years;
-  }
+  if (years.length) return years;
   return [new Date().getFullYear()];
 }
 
@@ -80,86 +76,102 @@ function getCalendarBounds(allDates, selectedYear) {
   return { start, end };
 }
 
-function toHex([r, g, b]) {
-  const hex = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
-  return `#${hex(r)}${hex(g)}${hex(b)}`;
-}
-
-function computeQuartiles(values) {
-  if (!values.length) return { q1: 0, q2: 0, q3: 0 };
+function computePercentile(values, p) {
+  if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
-  const pick = (p) => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p))];
-  return { q1: pick(0.25), q2: pick(0.5), q3: pick(0.75) };
+  const idx = Math.floor((sorted.length - 1) * p);
+  return sorted[Math.max(0, Math.min(sorted.length - 1, idx))];
 }
 
-function getLevel(total, quartiles) {
-  if (total <= 0) return 0;
-  if (total <= quartiles.q1) return 1;
-  if (total <= quartiles.q2) return 2;
-  if (total <= quartiles.q3) return 3;
-  return 4;
+function computeIntensityCeiling(values) {
+  if (!values.length) return 10;
+  const p99 = computePercentile(values, 0.99);
+  return Math.max(10, p99 || 10);
 }
 
-function blendColor(day, level, platformKeys) {
-  if (day.total <= 0 || level === 0) return EMPTY_COLOR;
+function getPlatformHsl(platformId) {
+  const hsl = PLATFORMS[platformId]?.hsl;
+  if (Array.isArray(hsl) && hsl.length === 3) return hsl;
+  return FALLBACK_HSL;
+}
 
-  let blendR = 0;
-  let blendG = 0;
-  let blendB = 0;
+function getActiveEntries(day, platformKeys) {
+  return platformKeys
+    .map((key) => ({ key, count: day[key] || 0 }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
 
-  for (const key of platformKeys) {
-    const count = day[key] || 0;
-    if (!count) continue;
-    const pRGB = PLATFORMS[key]?.rgb || [100, 100, 100];
-    blendR += pRGB[0] * count;
-    blendG += pRGB[1] * count;
-    blendB += pRGB[2] * count;
+function circularMeanHue(weightedHues) {
+  let x = 0;
+  let y = 0;
+
+  for (const entry of weightedHues) {
+    const radians = (entry.hue * Math.PI) / 180;
+    x += Math.cos(radians) * entry.weight;
+    y += Math.sin(radians) * entry.weight;
   }
 
-  const mixed = [blendR / day.total, blendG / day.total, blendB / day.total];
-  return toHex(tintRgb(mixed, level));
+  if (x === 0 && y === 0) return weightedHues[0]?.hue || FALLBACK_HSL[0];
+
+  let angle = (Math.atan2(y, x) * 180) / Math.PI;
+  if (angle < 0) angle += 360;
+  return angle;
 }
 
-function buildGradientStops(day, level, platformKeys) {
-  const activeEntries = getActiveEntries(day, platformKeys);
-  if (activeEntries.length < 2) {
-    return null;
-  }
+function mixActiveHsl(activeEntries) {
+  if (!activeEntries.length) return FALLBACK_HSL;
+  if (activeEntries.length === 1) return getPlatformHsl(activeEntries[0].key);
 
-  let acc = 0;
-  const stops = [];
+  const total = activeEntries.reduce((sum, entry) => sum + entry.count, 0);
+  const weightedHues = [];
+  let sat = 0;
+  let light = 0;
 
   for (const entry of activeEntries) {
-    const platform = PLATFORMS[entry.key];
-    if (!platform?.rgb) {
-      continue;
-    }
-
-    const start = (acc / day.total) * 100;
-    acc += entry.count;
-    const end = (acc / day.total) * 100;
-    const color = toHex(tintRgb(platform.rgb, level));
-
-    stops.push({ offset: start, color });
-    stops.push({ offset: end, color });
+    const weight = entry.count / Math.max(1, total);
+    const [h, s, l] = getPlatformHsl(entry.key);
+    weightedHues.push({ hue: h, weight });
+    sat += s * weight;
+    light += l * weight;
   }
 
-  return stops.length ? stops : null;
+  return [circularMeanHue(weightedHues), sat, light];
 }
 
-function getCellBackground(day, level, platformKeys) {
-  if (!day || day.total <= 0 || level === 0) {
-    return EMPTY_COLOR;
+function colorFromHslAndIntensity(hsl, intensity) {
+  const [h, s, l] = hsl;
+  const saturation = clamp(s * (0.5 + intensity * 0.5), 22, 98);
+  const lightness = clamp(90 - intensity * 52 + (50 - l) * 0.08, 28, 90);
+  return `hsl(${Math.round(h)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
+}
+
+function getCellBackground(day, intensity, platformKeys) {
+  if (!day || day.total <= 0 || intensity <= 0) {
+    return { background: EMPTY_COLOR, striped: false };
   }
 
-  const stops = buildGradientStops(day, level, platformKeys);
-  if (!stops) {
-    return blendColor(day, level, platformKeys);
+  const activeEntries = getActiveEntries(day, platformKeys);
+  if (!activeEntries.length) {
+    return { background: EMPTY_COLOR, striped: false };
   }
 
-  return `linear-gradient(90deg, ${stops
-    .map((stop) => `${stop.color} ${stop.offset.toFixed(2)}%`)
-    .join(', ')})`;
+  if (activeEntries.length >= 4) {
+    const [first, second] = activeEntries;
+    const color1 = colorFromHslAndIntensity(getPlatformHsl(first.key), intensity);
+    const color2 = colorFromHslAndIntensity(getPlatformHsl(second.key), intensity);
+
+    return {
+      background: `repeating-linear-gradient(45deg, ${color1} 0px, ${color1} ${STRIPE_WIDTH}px, ${color2} ${STRIPE_WIDTH}px, ${color2} ${STRIPE_WIDTH * 2}px)`,
+      striped: true,
+    };
+  }
+
+  const mixed = mixActiveHsl(activeEntries);
+  return {
+    background: colorFromHslAndIntensity(mixed, intensity),
+    striped: false,
+  };
 }
 
 function buildHeatmapData(platformCalendars, selectedYear = ALL_TIME) {
@@ -243,7 +255,7 @@ function buildHeatmapData(platformCalendars, selectedYear = ALL_TIME) {
 
   return {
     monthBlocks,
-    quartiles: computeQuartiles(totals),
+    intensityCeiling: computeIntensityCeiling(totals),
     platformKeys,
     years,
   };
@@ -256,15 +268,7 @@ export default function ActivityHeatmap({
   hackerrankCalendar = [],
   codechefCalendar = [],
   kaggleCalendar = [],
-  gfgCalendar = [],
-  atcoderCalendar = [],
-  stackoverflowCalendar = [],
-  hackerearthCalendar = [],
   huggingfaceCalendar = [],
-  tryhackmeCalendar = [],
-  codesignalCalendar = [],
-  devtoCalendar = [],
-  gitlabCalendar = [],
 }) {
   const [tooltip, setTooltip] = useState(null);
   const [selectedYear, setSelectedYear] = useState(ALL_TIME);
@@ -277,15 +281,7 @@ export default function ActivityHeatmap({
       hackerrank: hackerrankCalendar,
       codechef: codechefCalendar,
       kaggle: kaggleCalendar,
-      geeksforgeeks: gfgCalendar,
-      atcoder: atcoderCalendar,
-      stackoverflow: stackoverflowCalendar,
-      hackerearth: hackerearthCalendar,
       huggingface: huggingfaceCalendar,
-      tryhackme: tryhackmeCalendar,
-      codesignal: codesignalCalendar,
-      devto: devtoCalendar,
-      gitlab: gitlabCalendar,
     }),
     [
       githubCalendar,
@@ -294,19 +290,11 @@ export default function ActivityHeatmap({
       hackerrankCalendar,
       codechefCalendar,
       kaggleCalendar,
-      gfgCalendar,
-      atcoderCalendar,
-      stackoverflowCalendar,
-      hackerearthCalendar,
       huggingfaceCalendar,
-      tryhackmeCalendar,
-      codesignalCalendar,
-      devtoCalendar,
-      gitlabCalendar,
     ]
   );
 
-  const { monthBlocks, quartiles, platformKeys, years } = useMemo(
+  const { monthBlocks, intensityCeiling, platformKeys, years } = useMemo(
     () => buildHeatmapData(platformCalendars, selectedYear),
     [platformCalendars, selectedYear]
   );
@@ -393,9 +381,11 @@ export default function ActivityHeatmap({
                 }}
               >
                 {monthBlock.cells.map((day, index) => {
-                  const level = getLevel(day?.total || 0, quartiles);
-                  const background = getCellBackground(day, level, platformKeys);
                   const interactive = Boolean(day?.date);
+                  const intensity = interactive
+                    ? clamp((day.total || 0) / Math.max(1, intensityCeiling), 0, 1)
+                    : 0;
+                  const cellVisual = getCellBackground(day, intensity, platformKeys);
 
                   return (
                     <div
@@ -404,7 +394,7 @@ export default function ActivityHeatmap({
                         width: `${CELL_SIZE}px`,
                         height: `${CELL_SIZE}px`,
                         borderRadius: `${ROUNDING}px`,
-                        background,
+                        background: cellVisual.background,
                         border: '1px solid var(--border)',
                       }}
                       className={interactive ? 'cursor-pointer transition-all duration-200 hover:border-foreground' : ''}
@@ -426,16 +416,17 @@ export default function ActivityHeatmap({
           ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-end gap-2 text-[11px] text-muted dark:text-[#8b949e]">
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted dark:text-[#8b949e]">
           <span>Less</span>
-          {[1, 2, 3, 4].map((level) => (
+          {[0.2, 0.4, 0.6, 0.8, 1].map((intensityValue) => (
             <span
-              key={level}
+              key={intensityValue}
               className="inline-block h-2.5 w-2.5 rounded-[3px] border border-white/5"
-              style={{ backgroundColor: toHex(tintRgb([57, 211, 83], level)) }}
+              style={{ backgroundColor: colorFromHslAndIntensity([210, 13, 47], intensityValue) }}
             />
           ))}
           <span>More</span>
+          <span className="ml-2 rounded border border-border px-1.5 py-0.5">Striped = 4+ platforms</span>
         </div>
       </div>
 
@@ -451,20 +442,29 @@ export default function ActivityHeatmap({
               year: 'numeric',
             })}
           </div>
+
           {tooltip.day.total === 0 ? (
             <span className="text-muted">No activity</span>
           ) : (
             <div className="space-y-1.5">
               <div className="text-xs font-semibold text-accent-cyan">Total: {tooltip.day.total}</div>
-              {platformKeys.map((key) => {
-                const platform = PLATFORMS[key];
+              {getActiveEntries(tooltip.day, platformKeys).map((entry) => {
+                const platform = PLATFORMS[entry.key];
                 if (!platform) return null;
-                return tooltip.day[key] > 0 ? (
-                  <div key={key} className="flex items-center gap-2 font-medium">
+
+                const actionType = ACTION_LABELS[entry.key] || 'events';
+                const label = entry.count === 1 && actionType.endsWith('s')
+                  ? actionType.slice(0, -1)
+                  : actionType;
+
+                return (
+                  <div key={entry.key} className="flex items-center gap-2 font-medium">
                     <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: platform.color }} />
-                    {platform.name}: <span className="text-foreground">{tooltip.day[key]}</span>
+                    <span>
+                      {platform.name}: <span className="text-foreground">{entry.count} {label}</span>
+                    </span>
                   </div>
-                ) : null;
+                );
               })}
             </div>
           )}

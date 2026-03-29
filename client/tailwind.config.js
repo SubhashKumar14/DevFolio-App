@@ -14,7 +14,10 @@ export default {
           elevated: 'var(--card-elevated)',
         },
         border: 'var(--border)',
-        muted: 'var(--muted)',
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted)',
+        },
         foreground: {
           DEFAULT: 'var(--foreground)',
           bright: 'var(--foreground-bright)',

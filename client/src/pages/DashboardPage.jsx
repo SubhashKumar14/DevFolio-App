@@ -71,15 +71,18 @@ export default function DashboardPage() {
 
   // ─── Computed data ──────────────────────
   const activePlatformsCount = [
-    user?.githubUsername, user?.leetcodeUsername, user?.codeforcesUsername, user?.hackerrankUsername,
-    user?.codechefUsername, user?.kaggleUsername, user?.gfgUsername, user?.atcoderUsername,
-    user?.stackoverflowUserId, user?.hackerEarthUsername, user?.huggingfaceUsername,
-    user?.tryhackmeUsername, user?.codesignalUsername, user?.devtoUsername, user?.gitlabUsername
+    user?.githubUsername,
+    user?.leetcodeUsername,
+    user?.codeforcesUsername,
+    user?.hackerrankUsername,
+    user?.codechefUsername,
+    user?.kaggleUsername,
+    user?.huggingfaceUsername,
   ].filter(Boolean).length;
 
   const quickStats = {
     totalProblemsSolved: (dsaStats?.leetcode?.totalSolved || 0) + (dsaStats?.codeforces?.totalSolved || 0),
-    totalRepos: (githubStats?.publicRepos || 0) + (platformStats?.gitlab?.projectsCount || 0),
+    totalRepos: githubStats?.publicRepos || 0,
     activePlatforms: activePlatformsCount,
     currentStreak: githubStats?.currentStreak || 0,
   };
@@ -101,17 +104,7 @@ export default function DashboardPage() {
     add('hackerrank', user?.hackerrankUsername, `${platformStats?.hackerrank?.totalBadges || 0} Badges`, `${platformStats?.hackerrank?.totalStars || 0}★`);
     add('codechef', user?.codechefUsername, `Rating: ${platformStats?.codechef?.currentRating || 0}`, platformStats?.codechef?.stars || '');
     add('kaggle', user?.kaggleUsername, platformStats?.kaggle?.tier || 'Novice', `${platformStats?.kaggle?.totalMedals || 0} Medals`);
-    add('geeksforgeeks', user?.gfgUsername, `${platformStats?.gfg?.totalProblemsSolved || 0} Solved`, `Score: ${platformStats?.gfg?.score || 0}`);
-    
-    // New 8
-    add('atcoder', user?.atcoderUsername, `Rating: ${platformStats?.atcoder?.rating || 0}`, `${platformStats?.atcoder?.colorRank || 'grey'} Rank`);
-    add('stackoverflow', user?.stackoverflowUserId, `${platformStats?.stackoverflow?.reputation || 0} Rep`, `${platformStats?.stackoverflow?.totalBadges || 0} Badges`);
-    add('hackerearth', user?.hackerEarthUsername, `${platformStats?.hackerearth?.problemsSolved || 0} Solved`, `Rating: ${platformStats?.hackerearth?.rating || 0}`);
     add('huggingface', user?.huggingfaceUsername, `${platformStats?.huggingface?.modelsPublished || 0} Models`, `${platformStats?.huggingface?.totalLikes || 0} Likes`);
-    add('tryhackme', user?.tryhackmeUsername, `Level: ${platformStats?.tryhackme?.level || 0}`, `Rank: ${platformStats?.tryhackme?.rank || 0}`);
-    add('codesignal', user?.codesignalUsername, `GCA: ${platformStats?.codesignal?.gcaScore || 0}`, `Level: ${platformStats?.codesignal?.level || 0}`);
-    add('devto', user?.devtoUsername, `${platformStats?.devto?.articlesPublished || 0} Posts`, `${platformStats?.devto?.totalReactions || 0} Hits`);
-    add('gitlab', user?.gitlabUsername, `${platformStats?.gitlab?.projectsCount || 0} Projects`, `${platformStats?.gitlab?.totalStars || 0}★`);
 
     return list;
   }, [user, dsaStats, githubStats, platformStats]);
@@ -238,15 +231,7 @@ export default function DashboardPage() {
             hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
             codechefCalendar={platformStats?.codechef?.dailyActivity || []}
             kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-            atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
-            stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
-            hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
             huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
-            tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
-            codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
-            devtoCalendar={platformStats?.devto?.dailyActivity || []}
-            gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
           />
           <QuickStats stats={quickStats} />
           <ProfileCompleteness user={user} profile={profile} hasPortfolio={!!portfolio} />
@@ -263,15 +248,7 @@ export default function DashboardPage() {
             hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
             codechefCalendar={platformStats?.codechef?.dailyActivity || []}
             kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-            atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
-            stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
-            hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
             huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
-            tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
-            codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
-            devtoCalendar={platformStats?.devto?.dailyActivity || []}
-            gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
           />
         </div>
 
@@ -312,7 +289,7 @@ export default function DashboardPage() {
 
           <Button variant="ghost" size="sm" asChild className="mt-4 w-full justify-between group">
             <Link to="/dashboard/analytics">
-              View Detailed Analytics <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              View all stats <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </Button>
         </div>
@@ -424,7 +401,7 @@ export default function DashboardPage() {
           <Card className="border-dashed glass-card">
             <CardContent className="p-10 text-center text-muted">
               <p className="font-medium text-lg">No platforms active</p>
-              <p className="text-sm mt-1 mb-4">You have 15 available platforms to link.</p>
+              <p className="text-sm mt-1 mb-4">You have 7 available platforms to link.</p>
               <Button asChild size="sm">
                 <Link to="/dashboard/settings">Connect Platforms</Link>
               </Button>

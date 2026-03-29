@@ -10,21 +10,11 @@ const platformStatsSchema = new Schema({
     unique: true,
   },
 
-  // ─── Existing New/Arbitrary Platforms ───────
+  // ─── Supported Platform Stats ───────────────
   hackerrank: { type: Object, default: {} },
   codechef: { type: Object, default: {} },
   kaggle: { type: Object, default: {} },
-  gfg: { type: Object, default: {} },
-
-  // ─── Phase 4: 8 New Platforms ───────────────
-  atcoder: { type: Object, default: {} },
-  stackoverflow: { type: Object, default: {} },
-  hackerearth: { type: Object, default: {} },
   huggingface: { type: Object, default: {} },
-  tryhackme: { type: Object, default: {} },
-  codesignal: { type: Object, default: {} },
-  devto: { type: Object, default: {} },
-  gitlab: { type: Object, default: {} },
 
   // ─── Sync Metadata ─────────────────────
   lastSyncedAt: { type: Date, default: null },

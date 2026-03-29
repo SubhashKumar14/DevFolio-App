@@ -10,15 +10,7 @@ import { fetchCodeforcesStats } from '../services/codeforcesService.js';
 import { fetchHackerRankStats } from '../services/hackerrankService.js';
 import { fetchCodeChefStats } from '../services/codechefService.js';
 import { fetchKaggleStats } from '../services/kaggleService.js';
-import { fetchGfgStats } from '../services/gfgService.js';
-import { fetchAtcoderStats } from '../services/atcoderService.js';
-import { fetchStackoverflowStats } from '../services/stackoverflowService.js';
-import { fetchHackerearthStats } from '../services/hackerearthService.js';
 import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
-import { fetchTryhackmeStats } from '../services/tryhackmeService.js';
-import { fetchCodesignalStats } from '../services/codesignalService.js';
-import { fetchDevtoStats } from '../services/devtoService.js';
-import { fetchGitlabStats } from '../services/gitlabService.js';
 
 import { computeDevScore } from '../services/devscoreEngine.js';
 import DevScore from '../models/DevScore.js';
@@ -47,15 +39,23 @@ async function buildPlatformData(userId) {
 
   if (githubStats) {
     platformData.github = {
+      totalCommits: githubStats.totalCommits || 0,
+      totalContributionsLastYear: githubStats.totalContributionsLastYear || 0,
+      totalContributionsAllTime: githubStats.totalContributionsAllTime || 0,
       publicRepos: githubStats.publicRepos || 0,
       starsReceived: githubStats.starsReceived || 0,
-      totalCommits: githubStats.totalCommits || 0,
-      pullRequests: githubStats.pullRequests || 0,
-      followers: githubStats.followers || 0,
       forksCount: githubStats.forksCount || 0,
+      followers: githubStats.followers || 0,
+      pullRequestsTotal: githubStats.pullRequestsTotal || githubStats.pullRequests || 0,
+      pullRequestsMerged: githubStats.pullRequestsMerged || githubStats.pullRequests || 0,
+      issuesOpened: githubStats.issuesOpened || 0,
+      issuesClosed: githubStats.issuesClosed || 0,
+      organizations: Array.isArray(githubStats.organizations) ? githubStats.organizations : [],
       currentStreak: githubStats.currentStreak || 0,
+      longestStreak: githubStats.longestStreak || 0,
       contributionCalendar: Array.isArray(githubStats.contributionCalendar) ? githubStats.contributionCalendar : [],
       languageDistribution: Array.isArray(githubStats.languageDistribution) ? githubStats.languageDistribution : [],
+      lastSyncedAt: githubStats.updatedAt || null,
     };
   }
 
@@ -69,12 +69,15 @@ async function buildPlatformData(userId) {
     };
 
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestRating')) leetcodeData.contestRating = dsaStats.leetcode.contestRating;
+    if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestGlobalRanking')) leetcodeData.contestGlobalRanking = dsaStats.leetcode.contestGlobalRanking;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'acceptanceRate')) leetcodeData.acceptanceRate = dsaStats.leetcode.acceptanceRate;
+    if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'currentStreak')) leetcodeData.currentStreak = dsaStats.leetcode.currentStreak;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'activeDays')) leetcodeData.activeDays = dsaStats.leetcode.activeDays;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'maxStreak')) leetcodeData.maxStreak = dsaStats.leetcode.maxStreak;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'topPercentage')) leetcodeData.topPercentage = dsaStats.leetcode.topPercentage;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestsParticipated')) leetcodeData.contestsParticipated = dsaStats.leetcode.contestsParticipated;
     if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'badgesEarned')) leetcodeData.badgesEarned = dsaStats.leetcode.badgesEarned;
+    if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'solutionCount')) leetcodeData.solutionCount = dsaStats.leetcode.solutionCount;
 
     platformData.leetcode = leetcodeData;
   }
@@ -84,8 +87,12 @@ async function buildPlatformData(userId) {
       rating: dsaStats.codeforces.currentRating || dsaStats.codeforces.rating || 0,
       currentRating: dsaStats.codeforces.currentRating || dsaStats.codeforces.rating || 0,
       maxRating: dsaStats.codeforces.maxRating || 0,
+      rank: dsaStats.codeforces.rank || '',
       totalSolved: dsaStats.codeforces.totalSolved || 0,
+      recentContestResults: Array.isArray(dsaStats.codeforces.recentContestResults) ? dsaStats.codeforces.recentContestResults : [],
+      ratingHistory: Array.isArray(dsaStats.codeforces.ratingHistory) ? dsaStats.codeforces.ratingHistory : [],
       dailySubmissions: Array.isArray(dsaStats.codeforces.dailySubmissions) ? dsaStats.codeforces.dailySubmissions : [],
+      tagsDistribution: Array.isArray(dsaStats.codeforces.tagsDistribution) ? dsaStats.codeforces.tagsDistribution : [],
     };
 
     if (Object.prototype.hasOwnProperty.call(dsaStats.codeforces, 'contestsParticipated')) {
@@ -97,17 +104,11 @@ async function buildPlatformData(userId) {
 
   // Map PlatformStats fields
   if (platformStats) {
-    const mapping = [
-      'hackerrank', 'codechef', 'kaggle', 'gfg',
-      'atcoder', 'stackoverflow', 'hackerearth',
-      'huggingface', 'tryhackme', 'codesignal', 'devto', 'gitlab',
-    ];
+    const mapping = ['hackerrank', 'codechef', 'kaggle', 'huggingface'];
     for (const key of mapping) {
       const data = platformStats[key];
       if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-        // Map gfg → geeksforgeeks for devscoreEngine compatibility
-        const engineKey = key === 'gfg' ? 'geeksforgeeks' : key;
-        platformData[engineKey] = data;
+        platformData[key] = data;
       }
     }
   }
@@ -215,15 +216,7 @@ export const syncStats = asyncHandler(async (req, res) => {
     { field: 'hackerrankUsername', key: 'hackerrank', fn: fetchHackerRankStats },
     { field: 'codechefUsername', key: 'codechef', fn: fetchCodeChefStats },
     { field: 'kaggleUsername', key: 'kaggle', fn: fetchKaggleStats },
-    { field: 'gfgUsername', key: 'gfg', fn: fetchGfgStats },
-    { field: 'atcoderUsername', key: 'atcoder', fn: fetchAtcoderStats },
-    { field: 'stackoverflowUserId', key: 'stackoverflow', fn: fetchStackoverflowStats },
-    { field: 'hackerEarthUsername', key: 'hackerearth', fn: fetchHackerearthStats },
     { field: 'huggingfaceUsername', key: 'huggingface', fn: fetchHuggingfaceStats },
-    { field: 'tryhackmeUsername', key: 'tryhackme', fn: fetchTryhackmeStats },
-    { field: 'codesignalUsername', key: 'codesignal', fn: fetchCodesignalStats },
-    { field: 'devtoUsername', key: 'devto', fn: fetchDevtoStats },
-    { field: 'gitlabUsername', key: 'gitlab', fn: fetchGitlabStats },
   ];
 
   await Promise.allSettled(

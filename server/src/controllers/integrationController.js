@@ -14,15 +14,7 @@ function extractUsername(input, platform) {
     hackerrank: /^https?:\/\/(www\.)?hackerrank\.com\//i,
     codechef: /^https?:\/\/(www\.)?codechef\.com\/users\//i,
     kaggle: /^https?:\/\/(www\.)?kaggle\.com\//i,
-    gfg: /^https?:\/\/(www\.)?(geeksforgeeks\.org|auth\.geeksforgeeks\.org)\/user\//i,
-    atcoder: /^https?:\/\/(www\.)?atcoder\.jp\/users\//i,
-    stackoverflow: /^https?:\/\/(www\.)?stackoverflow\.com\/users\//i,
-    hackerEarth: /^https?:\/\/(www\.)?hackerearth\.com\/@/i,
     huggingface: /^https?:\/\/(www\.)?huggingface\.co\//i,
-    tryhackme: /^https?:\/\/(www\.)?tryhackme\.com\/p\//i,
-    codesignal: /^https?:\/\/(app\.)?codesignal\.com\/profile\//i,
-    devto: /^https?:\/\/(www\.)?dev\.to\//i,
-    gitlab: /^https?:\/\/(www\.)?gitlab\.com\//i,
   };
 
   if (urlPatterns[platform]) {
@@ -37,10 +29,8 @@ function extractUsername(input, platform) {
 export const connectDsa = asyncHandler(async (req, res) => {
   const {
     githubUsername, leetcodeUsername, codeforcesUsername,
-    hackerrankUsername, codechefUsername, kaggleUsername, gfgUsername,
-    atcoderUsername, stackoverflowUserId, hackerEarthUsername,
-    huggingfaceUsername, tryhackmeUsername, codesignalUsername,
-    devtoUsername, gitlabUsername,
+    hackerrankUsername, codechefUsername, kaggleUsername,
+    huggingfaceUsername,
   } = req.body;
 
   const fields = [
@@ -50,15 +40,7 @@ export const connectDsa = asyncHandler(async (req, res) => {
     ['hackerrankUsername', hackerrankUsername, 'hackerrank'],
     ['codechefUsername', codechefUsername, 'codechef'],
     ['kaggleUsername', kaggleUsername, 'kaggle'],
-    ['gfgUsername', gfgUsername, 'gfg'],
-    ['atcoderUsername', atcoderUsername, 'atcoder'],
-    ['stackoverflowUserId', stackoverflowUserId, 'stackoverflow'],
-    ['hackerEarthUsername', hackerEarthUsername, 'hackerEarth'],
     ['huggingfaceUsername', huggingfaceUsername, 'huggingface'],
-    ['tryhackmeUsername', tryhackmeUsername, 'tryhackme'],
-    ['codesignalUsername', codesignalUsername, 'codesignal'],
-    ['devtoUsername', devtoUsername, 'devto'],
-    ['gitlabUsername', gitlabUsername, 'gitlab'],
   ];
 
   const updates = {};
@@ -89,15 +71,7 @@ export const connectDsa = asyncHandler(async (req, res) => {
       hackerrankUsername: user.hackerrankUsername,
       codechefUsername: user.codechefUsername,
       kaggleUsername: user.kaggleUsername,
-      gfgUsername: user.gfgUsername,
-      atcoderUsername: user.atcoderUsername,
-      stackoverflowUserId: user.stackoverflowUserId,
-      hackerEarthUsername: user.hackerEarthUsername,
       huggingfaceUsername: user.huggingfaceUsername,
-      tryhackmeUsername: user.tryhackmeUsername,
-      codesignalUsername: user.codesignalUsername,
-      devtoUsername: user.devtoUsername,
-      gitlabUsername: user.gitlabUsername,
     },
   });
 });

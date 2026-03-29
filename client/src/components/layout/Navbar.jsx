@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { profileService } from '@/services/profileService';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Code2, Menu, Sparkles } from 'lucide-react';
@@ -9,6 +11,18 @@ export function Navbar({ onMenuClick }) {
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isLanding = location.pathname === '/';
+  const userId = user?._id;
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: () => profileService.getProfile(userId),
+    enabled: !!userId,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const avatarUrl = profile?.avatarUrl || null;
+  const avatarFallback = user?.displayName?.[0]?.toUpperCase() || 'U';
 
   return (
     <nav className={`fixed top-0 z-50 w-full border-b border-border ${isLanding ? 'bg-background/60' : 'bg-card/80'} backdrop-blur-xl supports-[backdrop-filter]:bg-card/60`}>
@@ -59,14 +73,29 @@ export function Navbar({ onMenuClick }) {
                     <Button variant="ghost" size="sm">Dashboard</Button>
                   </Link>
                 )}
-                {user?.displayName && (
-                  <Link to={`/p/${encodeURIComponent(user.displayName)}`} target="_blank">
-                    <Button variant="ghost" size="sm">Public Profile</Button>
-                  </Link>
-                )}
                 <Button variant="outline" size="sm" onClick={logout} className="rounded-full">
                   Logout
                 </Button>
+
+                {user?.displayName && (
+                  <Link
+                    to={`/p/${encodeURIComponent(user.displayName)}`}
+                    title="Open public profile"
+                    className="inline-flex"
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover border border-border hover:border-accent-cyan/60 transition-colors"
+                      />
+                    ) : (
+                      <span className="h-9 w-9 rounded-full border border-border bg-card-elevated flex items-center justify-center text-sm font-semibold text-accent-cyan hover:border-accent-cyan/60 transition-colors">
+                        {avatarFallback}
+                      </span>
+                    )}
+                  </Link>
+                )}
               </>
             )}
             <ThemeToggle />

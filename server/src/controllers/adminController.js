@@ -14,15 +14,7 @@ import { fetchCodeforcesStats } from '../services/codeforcesService.js';
 import { fetchHackerRankStats } from '../services/hackerrankService.js';
 import { fetchCodeChefStats } from '../services/codechefService.js';
 import { fetchKaggleStats } from '../services/kaggleService.js';
-import { fetchGfgStats } from '../services/gfgService.js';
-import { fetchAtcoderStats } from '../services/atcoderService.js';
-import { fetchStackoverflowStats } from '../services/stackoverflowService.js';
-import { fetchHackerearthStats } from '../services/hackerearthService.js';
 import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
-import { fetchTryhackmeStats } from '../services/tryhackmeService.js';
-import { fetchCodesignalStats } from '../services/codesignalService.js';
-import { fetchDevtoStats } from '../services/devtoService.js';
-import { fetchGitlabStats } from '../services/gitlabService.js';
 
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
@@ -107,7 +99,7 @@ export const getStats = asyncHandler(async (req, res) => {
   });
 });
 
-// ─── Trigger Global Sync (All 15 Platforms) ──────
+// ─── Trigger Global Sync ──────────────────────────
 export const triggerGlobalSync = asyncHandler(async (req, res) => {
   const users = await User.find({
     $or: [
@@ -117,15 +109,7 @@ export const triggerGlobalSync = asyncHandler(async (req, res) => {
       { hackerrankUsername: { $ne: null } },
       { codechefUsername: { $ne: null } },
       { kaggleUsername: { $ne: null } },
-      { gfgUsername: { $ne: null } },
-      { atcoderUsername: { $ne: null } },
-      { stackoverflowUserId: { $ne: null } },
-      { hackerEarthUsername: { $ne: null } },
       { huggingfaceUsername: { $ne: null } },
-      { tryhackmeUsername: { $ne: null } },
-      { codesignalUsername: { $ne: null } },
-      { devtoUsername: { $ne: null } },
-      { gitlabUsername: { $ne: null } },
     ],
   }).select('+githubAccessToken');
 
@@ -163,15 +147,7 @@ export const triggerGlobalSync = asyncHandler(async (req, res) => {
         { field: 'hackerrankUsername', key: 'hackerrank', fn: fetchHackerRankStats },
         { field: 'codechefUsername', key: 'codechef', fn: fetchCodeChefStats },
         { field: 'kaggleUsername', key: 'kaggle', fn: fetchKaggleStats },
-        { field: 'gfgUsername', key: 'gfg', fn: fetchGfgStats },
-        { field: 'atcoderUsername', key: 'atcoder', fn: fetchAtcoderStats },
-        { field: 'stackoverflowUserId', key: 'stackoverflow', fn: fetchStackoverflowStats },
-        { field: 'hackerEarthUsername', key: 'hackerearth', fn: fetchHackerearthStats },
         { field: 'huggingfaceUsername', key: 'huggingface', fn: fetchHuggingfaceStats },
-        { field: 'tryhackmeUsername', key: 'tryhackme', fn: fetchTryhackmeStats },
-        { field: 'codesignalUsername', key: 'codesignal', fn: fetchCodesignalStats },
-        { field: 'devtoUsername', key: 'devto', fn: fetchDevtoStats },
-        { field: 'gitlabUsername', key: 'gitlab', fn: fetchGitlabStats },
       ];
 
       const platformUpdates = {};
@@ -204,9 +180,9 @@ export const triggerGlobalSync = asyncHandler(async (req, res) => {
       if (dsaStats?.leetcode) platformData.leetcode = dsaStats.leetcode;
       if (dsaStats?.codeforces) platformData.codeforces = { rating: dsaStats.codeforces.currentRating, ...dsaStats.codeforces };
       if (platformStats) {
-        for (const key of ['hackerrank','codechef','kaggle','gfg','atcoder','stackoverflow','hackerearth','huggingface','tryhackme','codesignal','devto','gitlab']) {
+        for (const key of ['hackerrank', 'codechef', 'kaggle', 'huggingface']) {
           if (platformStats[key] && Object.keys(platformStats[key]).length > 0) {
-            platformData[key === 'gfg' ? 'geeksforgeeks' : key] = platformStats[key];
+            platformData[key] = platformStats[key];
           }
         }
       }

@@ -8,6 +8,12 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
+function percentileIndex(sortedValues, percentile) {
+  if (!sortedValues.length) return 0;
+  const idx = Math.floor((sortedValues.length - 1) * percentile);
+  return sortedValues[Math.max(0, Math.min(sortedValues.length - 1, idx))];
+}
+
 /**
  * Build platformData map from a user's stored stats
  */
@@ -18,19 +24,27 @@ async function buildPlatformData(userId) {
   const githubStats = await GithubStats.findOne({ userId }).lean();
   if (githubStats) {
     platformData.github = {
+      totalCommits: githubStats.totalCommits || 0,
+      totalContributionsLastYear: githubStats.totalContributionsLastYear || 0,
+      totalContributionsAllTime: githubStats.totalContributionsAllTime || 0,
       publicRepos: githubStats.publicRepos || 0,
       starsReceived: githubStats.starsReceived || 0,
-      totalCommits: githubStats.totalCommits || 0,
-      pullRequests: githubStats.pullRequests || 0,
-      followers: githubStats.followers || 0,
       forksCount: githubStats.forksCount || 0,
+      followers: githubStats.followers || 0,
+      pullRequestsTotal: githubStats.pullRequestsTotal || githubStats.pullRequests || 0,
+      pullRequestsMerged: githubStats.pullRequestsMerged || githubStats.pullRequests || 0,
+      issuesOpened: githubStats.issuesOpened || 0,
+      issuesClosed: githubStats.issuesClosed || 0,
+      organizations: Array.isArray(githubStats.organizations) ? githubStats.organizations : [],
       currentStreak: githubStats.currentStreak || 0,
+      longestStreak: githubStats.longestStreak || 0,
       contributionCalendar: Array.isArray(githubStats.contributionCalendar) ? githubStats.contributionCalendar : [],
       languageDistribution: Array.isArray(githubStats.languageDistribution) ? githubStats.languageDistribution : [],
+      lastSyncedAt: githubStats.updatedAt || null,
     };
   }
 
-  // Fetch DSA stats (LeetCode, Codeforces, HackerRank, CodeChef, GFG)
+  // Fetch DSA stats (LeetCode, Codeforces)
   const dsaStats = await DsaStats.findOne({ userId }).lean();
   if (dsaStats) {
     if (dsaStats.leetcode) {
@@ -43,12 +57,15 @@ async function buildPlatformData(userId) {
       };
 
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestRating')) leetcodeData.contestRating = dsaStats.leetcode.contestRating;
+      if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestGlobalRanking')) leetcodeData.contestGlobalRanking = dsaStats.leetcode.contestGlobalRanking;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'acceptanceRate')) leetcodeData.acceptanceRate = dsaStats.leetcode.acceptanceRate;
+      if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'currentStreak')) leetcodeData.currentStreak = dsaStats.leetcode.currentStreak;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'activeDays')) leetcodeData.activeDays = dsaStats.leetcode.activeDays;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'maxStreak')) leetcodeData.maxStreak = dsaStats.leetcode.maxStreak;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'topPercentage')) leetcodeData.topPercentage = dsaStats.leetcode.topPercentage;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'contestsParticipated')) leetcodeData.contestsParticipated = dsaStats.leetcode.contestsParticipated;
       if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'badgesEarned')) leetcodeData.badgesEarned = dsaStats.leetcode.badgesEarned;
+      if (Object.prototype.hasOwnProperty.call(dsaStats.leetcode, 'solutionCount')) leetcodeData.solutionCount = dsaStats.leetcode.solutionCount;
 
       platformData.leetcode = leetcodeData;
     }
@@ -57,8 +74,12 @@ async function buildPlatformData(userId) {
         rating: dsaStats.codeforces.currentRating || dsaStats.codeforces.rating || 0,
         currentRating: dsaStats.codeforces.currentRating || dsaStats.codeforces.rating || 0,
         maxRating: dsaStats.codeforces.maxRating || 0,
+        rank: dsaStats.codeforces.rank || '',
         totalSolved: dsaStats.codeforces.totalSolved || 0,
+        recentContestResults: Array.isArray(dsaStats.codeforces.recentContestResults) ? dsaStats.codeforces.recentContestResults : [],
+        ratingHistory: Array.isArray(dsaStats.codeforces.ratingHistory) ? dsaStats.codeforces.ratingHistory : [],
         dailySubmissions: Array.isArray(dsaStats.codeforces.dailySubmissions) ? dsaStats.codeforces.dailySubmissions : [],
+        tagsDistribution: Array.isArray(dsaStats.codeforces.tagsDistribution) ? dsaStats.codeforces.tagsDistribution : [],
       };
 
       if (Object.prototype.hasOwnProperty.call(dsaStats.codeforces, 'contestsParticipated')) {
@@ -67,47 +88,12 @@ async function buildPlatformData(userId) {
 
       platformData.codeforces = codeforcesData;
     }
-    if (dsaStats.hackerrank) {
-      platformData.hackerrank = {
-        totalBadges: dsaStats.hackerrank.totalBadges || 0,
-        totalStars: dsaStats.hackerrank.totalStars || 0,
-        level: dsaStats.hackerrank.level || 0,
-        certificates: dsaStats.hackerrank.certificates || 0,
-      };
-    }
-    if (dsaStats.codechef) {
-      platformData.codechef = {
-        currentRating: dsaStats.codechef.currentRating || 0,
-        problemsSolved: dsaStats.codechef.problemsSolved || 0,
-        globalRank: dsaStats.codechef.globalRank || 0,
-        stars: dsaStats.codechef.stars || 0,
-      };
-    }
-    if (dsaStats.geeksforgeeks) {
-      platformData.geeksforgeeks = {
-        totalProblemsSolved: dsaStats.geeksforgeeks.totalProblemsSolved || 0,
-        score: dsaStats.geeksforgeeks.score || 0,
-        streak: dsaStats.geeksforgeeks.streak || '0',
-        instituteRank: dsaStats.geeksforgeeks.instituteRank || 0,
-      };
-    }
-    if (dsaStats.kaggle) {
-      platformData.kaggle = {
-        tier: dsaStats.kaggle.tier || 'novice',
-        goldMedals: dsaStats.kaggle.goldMedals || 0,
-        silverMedals: dsaStats.kaggle.silverMedals || 0,
-        bronzeMedals: dsaStats.kaggle.bronzeMedals || 0,
-        notebooks: dsaStats.kaggle.notebooks || 0,
-        datasets: dsaStats.kaggle.datasets || 0,
-      };
-    }
   }
 
-  // Fetch new platform stats if available
+  // Fetch additional platform stats if available
   const platformStats = await PlatformStats.findOne({ userId }).lean();
   if (platformStats) {
-    // Map any additional platforms stored in PlatformStats
-    const newPlatforms = ['atcoder', 'stackoverflow', 'hackerearth', 'huggingface', 'tryhackme', 'codesignal', 'devto', 'gitlab'];
+    const newPlatforms = ['hackerrank', 'codechef', 'kaggle', 'huggingface'];
     for (const p of newPlatforms) {
       if (platformStats[p] && Object.keys(platformStats[p]).length > 0) {
         platformData[p] = platformStats[p];
@@ -225,5 +211,68 @@ export const getScoreHistory = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: history,
+  });
+});
+
+// ─── Get Domain Benchmark (anonymous aggregate) ──
+export const getScoreBenchmark = asyncHandler(async (req, res) => {
+  const userId = req.params.userId || req.user._id;
+
+  const latest = await DevScore.findOne({ userId }).sort({ createdAt: -1 }).lean();
+  if (!latest) {
+    return res.json({
+      success: true,
+      data: null,
+    });
+  }
+
+  const domain = latest.domain || 'all_rounder';
+  const domainLabel = latest.domainLabel || 'All Rounder';
+
+  const sample = await DevScore.find({ domain })
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .select('score')
+    .lean();
+
+  const scores = sample
+    .map((entry) => Number(entry?.score))
+    .filter((value) => Number.isFinite(value));
+
+  if (scores.length === 0) {
+    return res.json({
+      success: true,
+      data: {
+        domain,
+        domainLabel,
+        userScore: latest.score,
+        sampleSize: 0,
+        averageScore: latest.score,
+        medianScore: latest.score,
+        p75Score: latest.score,
+        percentile: 100,
+      },
+    });
+  }
+
+  const sortedScores = [...scores].sort((a, b) => a - b);
+  const sum = sortedScores.reduce((acc, value) => acc + value, 0);
+  const averageScore = Math.round(sum / sortedScores.length);
+  const medianScore = Math.round(percentileIndex(sortedScores, 0.5));
+  const p75Score = Math.round(percentileIndex(sortedScores, 0.75));
+  const percentile = Math.round((sortedScores.filter((value) => value <= latest.score).length / sortedScores.length) * 100);
+
+  res.json({
+    success: true,
+    data: {
+      domain,
+      domainLabel,
+      userScore: latest.score,
+      sampleSize: sortedScores.length,
+      averageScore,
+      medianScore,
+      p75Score,
+      percentile,
+    },
   });
 });

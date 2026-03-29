@@ -37,14 +37,33 @@ export async function fetchCodeforcesStats(username) {
 
   // Daily submission counts (for heatmap)
   let dailySubmissions = [];
+  let tagsDistribution = [];
   if (statusRes?.data?.status === 'OK') {
     const submissions = statusRes.data.result || [];
     const dayMap = {};
+    const solvedProblems = new Set();
+    const tagMap = {};
+
     submissions.forEach((sub) => {
       const date = new Date(sub.creationTimeSeconds * 1000).toISOString().split('T')[0];
       dayMap[date] = (dayMap[date] || 0) + 1;
+
+      if (sub?.verdict === 'OK' && sub?.problem) {
+        const problemKey = `${sub.problem.contestId}-${sub.problem.index}`;
+        if (!solvedProblems.has(problemKey)) {
+          solvedProblems.add(problemKey);
+          for (const tag of sub.problem.tags || []) {
+            tagMap[tag] = (tagMap[tag] || 0) + 1;
+          }
+        }
+      }
     });
     dailySubmissions = Object.entries(dayMap).map(([date, count]) => ({ date, count }));
+
+    tagsDistribution = Object.entries(tagMap)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 25);
   }
 
   // Total problems solved (unique accepted)
@@ -59,13 +78,17 @@ export async function fetchCodeforcesStats(username) {
     totalSolved = accepted.size;
   }
 
+  const recentContestResults = ratingHistory.slice(-10).reverse();
+
   return {
     currentRating,
     maxRating,
     rank,
     totalSolved,
     contestsParticipated: ratingHistory.length,
+    recentContestResults,
     ratingHistory,
     dailySubmissions,
+    tagsDistribution,
   };
 }

@@ -13,31 +13,23 @@ import { CheckCircle, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
 
 // ─── 6 Archetypes ─────────────────────────────────
 const ARCHETYPES = [
-  { id: 'builder', label: 'Full-Stack Builder', icon: '🔨', desc: 'Builds production apps, contributes to OSS, blogs', color: '#06b6d4', recommended: ['github', 'gitlab', 'stackoverflow', 'devto', 'leetcode'] },
-  { id: 'problem_solver', label: 'DSA Specialist', icon: '🧩', desc: 'Master of algorithms and data structures, contests', color: '#8b5cf6', recommended: ['leetcode', 'codeforces', 'codechef', 'atcoder', 'gfg', 'hackerrank'] },
-  { id: 'ai_engineer', label: 'AI/ML Engineer', icon: '🤖', desc: 'ML models, datasets, Kaggle competitions', color: '#f59e0b', recommended: ['kaggle', 'huggingface', 'github', 'leetcode', 'stackoverflow'] },
-  { id: 'security_expert', label: 'Security Researcher', icon: '🛡️', desc: 'CTF challenges, pen testing, security certs', color: '#ef4444', recommended: ['tryhackme', 'github', 'hackerrank', 'stackoverflow', 'codesignal'] },
-  { id: 'open_source', label: 'Open Source Contributor', icon: '🌐', desc: 'Max contributions, community reputation', color: '#22c55e', recommended: ['github', 'gitlab', 'stackoverflow', 'devto', 'leetcode'] },
-  { id: 'competitor', label: 'Competitive Programmer', icon: '⚔️', desc: 'Pure contest performance, ratings, speed-coding', color: '#ec4899', recommended: ['codeforces', 'atcoder', 'leetcode', 'codechef', 'hackerearth', 'gfg'] },
+  { id: 'builder', label: 'Full-Stack Builder', icon: '🔨', desc: 'Builds production apps, contributes to OSS, blogs', color: '#06b6d4', recommended: ['github', 'leetcode', 'codeforces', 'hackerrank'] },
+  { id: 'problem_solver', label: 'DSA Specialist', icon: '🧩', desc: 'Master of algorithms and data structures, contests', color: '#8b5cf6', recommended: ['leetcode', 'codeforces', 'codechef', 'hackerrank'] },
+  { id: 'ai_engineer', label: 'AI/ML Engineer', icon: '🤖', desc: 'ML models, datasets, Kaggle competitions', color: '#f59e0b', recommended: ['kaggle', 'huggingface', 'github', 'leetcode'] },
+  { id: 'security_expert', label: 'Security Researcher', icon: '🛡️', desc: 'Security-focused coding and disciplined problem solving', color: '#ef4444', recommended: ['github', 'hackerrank', 'leetcode', 'codeforces'] },
+  { id: 'open_source', label: 'Open Source Contributor', icon: '🌐', desc: 'Max contributions, community reputation', color: '#22c55e', recommended: ['github', 'leetcode', 'huggingface', 'kaggle'] },
+  { id: 'competitor', label: 'Competitive Programmer', icon: '⚔️', desc: 'Pure contest performance, ratings, speed-coding', color: '#ec4899', recommended: ['codeforces', 'leetcode', 'codechef', 'hackerrank'] },
 ];
 
-// ─── All 15 platforms ─────────────────────────────
+// ─── Supported platforms ─────────────────────────
 const ALL_PLATFORMS = [
-  { id: 'github', name: 'GitHub', field: 'githubUsername', placeholder: 'e.g. SubhashKumar14', color: '#39d353' },
-  { id: 'leetcode', name: 'LeetCode', field: 'leetcodeUsername', placeholder: 'e.g. Subhash_Kumar14', color: '#FFA116' },
-  { id: 'codeforces', name: 'Codeforces', field: 'codeforcesUsername', placeholder: 'e.g. tourist', color: '#3B82F6' },
-  { id: 'hackerrank', name: 'HackerRank', field: 'hackerrankUsername', placeholder: 'e.g. hr_user', color: '#00C38C' },
-  { id: 'codechef', name: 'CodeChef', field: 'codechefUsername', placeholder: 'e.g. chef_user', color: '#B57044' },
-  { id: 'kaggle', name: 'Kaggle', field: 'kaggleUsername', placeholder: 'e.g. kaggle_user', color: '#20BEFF' },
-  { id: 'gfg', name: 'GeeksforGeeks', field: 'gfgUsername', placeholder: 'e.g. gfg_user', color: '#1FA759' },
-  { id: 'atcoder', name: 'AtCoder', field: 'atcoderUsername', placeholder: 'e.g. atcoder_user', color: '#00BFFF' },
-  { id: 'stackoverflow', name: 'Stack Overflow', field: 'stackoverflowUserId', placeholder: 'e.g. 1234567', color: '#F48024' },
-  { id: 'hackerearth', name: 'HackerEarth', field: 'hackerEarthUsername', placeholder: 'e.g. @username', color: '#444CF7' },
-  { id: 'huggingface', name: 'Hugging Face', field: 'huggingfaceUsername', placeholder: 'e.g. hf_user', color: '#FFD533' },
-  { id: 'tryhackme', name: 'TryHackMe', field: 'tryhackmeUsername', placeholder: 'e.g. thm_user', color: '#D43232' },
-  { id: 'codesignal', name: 'CodeSignal', field: 'codesignalUsername', placeholder: 'e.g. cs_user', color: '#8149F3' },
-  { id: 'devto', name: 'Dev.to', field: 'devtoUsername', placeholder: 'e.g. devto_user', color: '#5A67D8' },
-  { id: 'gitlab', name: 'GitLab', field: 'gitlabUsername', placeholder: 'e.g. gitlab_user', color: '#FC6D26' },
+  { id: 'github', name: 'GitHub', field: 'githubUsername', placeholder: 'your_github_username', color: '#39d353' },
+  { id: 'leetcode', name: 'LeetCode', field: 'leetcodeUsername', placeholder: 'your_leetcode_username', color: '#FFA116' },
+  { id: 'codeforces', name: 'Codeforces', field: 'codeforcesUsername', placeholder: 'your_codeforces_username', color: '#3B82F6' },
+  { id: 'hackerrank', name: 'HackerRank', field: 'hackerrankUsername', placeholder: 'your_hackerrank_username', color: '#00C38C' },
+  { id: 'codechef', name: 'CodeChef', field: 'codechefUsername', placeholder: 'your_codechef_username', color: '#B57044' },
+  { id: 'kaggle', name: 'Kaggle', field: 'kaggleUsername', placeholder: 'your_kaggle_username', color: '#20BEFF' },
+  { id: 'huggingface', name: 'Hugging Face', field: 'huggingfaceUsername', placeholder: 'your_huggingface_username', color: '#FFD533' },
 ];
 
 export default function OnboardingPage() {
@@ -82,7 +74,9 @@ export default function OnboardingPage() {
       return integrationService.connectDsa(data);
     },
     onSuccess: async (response) => {
-      const updatedUser = response.data?.data || response.data;
+      const updatedUser = response?.data?._id
+        ? response.data
+        : (response?._id ? response : null);
       if (updatedUser?._id) setUser(updatedUser);
 
       setStep(4);

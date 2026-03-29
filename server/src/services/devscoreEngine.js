@@ -1,172 +1,164 @@
 /**
- * DevScore v3 — Fair quality-first scoring engine (0-1000)
+ * DevScore v2.0 - production-grade developer quality score
  *
- * Layer 1: Per-platform normalized signal scoring (0-100)
- * Layer 2: Domain weight matrix with connected-platform redistribution
- * Layer 3: Non-linear amplification from raw (0-100) to DevScore (0-1000)
- * Layer 4: Diagnostics and guidance
+ * Adapted from documentation/devscore.ts and integrated with this codebase's
+ * existing API contract and persistence shape.
  */
 
-const DOMAIN_WEIGHT_MATRIX = {
-  competitive_programming: {
-    leetcode: 35,
-    codeforces: 30,
-    codechef: 20,
-    github: 10,
-    hackerrank: 5,
-  },
-  open_source: {
-    github: 45,
-    gitlab: 20,
-    stackoverflow: 10,
-    devto: 10,
-    leetcode: 10,
-    huggingface: 5,
-  },
-  ai_ml: {
-    kaggle: 30,
-    huggingface: 30,
-    github: 20,
-    leetcode: 10,
-    stackoverflow: 5,
-    devto: 5,
-  },
-  full_stack: {
-    github: 30,
-    stackoverflow: 20,
-    leetcode: 15,
-    devto: 15,
-    gitlab: 10,
-    hackerrank: 10,
-  },
-  mobile: {
-    playstore: 40,
-    github: 25,
-    stackoverflow: 10,
-    leetcode: 10,
-    codeforces: 5,
-    devto: 10,
-  },
-  data_science: {
-    kaggle: 40,
-    github: 20,
-    stackoverflow: 15,
-    leetcode: 10,
-    huggingface: 10,
-    devto: 5,
-  },
-  security: {
-    tryhackme: 35,
-    github: 20,
-    stackoverflow: 15,
-    codeforces: 10,
-    hackerrank: 10,
-    devto: 10,
-  },
-  learner: {
-    leetcode: 20,
-    github: 20,
-    hackerrank: 15,
-    freecodecamp: 15,
-    codeforces: 10,
-    stackoverflow: 10,
-    devto: 10,
-  },
-  all_rounder: {},
+const SCORING_VERSION = '2.0.0';
+
+const ALL_PLATFORMS = [
+  'github',
+  'leetcode',
+  'codeforces',
+  'hackerrank',
+  'codechef',
+  'kaggle',
+  'huggingface',
+];
+
+const PLATFORM_LABELS = {
+  github: 'GitHub',
+  leetcode: 'LeetCode',
+  codeforces: 'Codeforces',
+  hackerrank: 'HackerRank',
+  codechef: 'CodeChef',
+  kaggle: 'Kaggle',
+  huggingface: 'Hugging Face',
 };
 
 const DOMAIN_LABELS = {
-  competitive_programming: 'Competitive Programming',
-  open_source: 'Open Source',
-  ai_ml: 'AI/ML',
-  full_stack: 'Full Stack',
-  mobile: 'Mobile',
-  data_science: 'Data Science',
-  security: 'Security',
-  learner: 'Learner',
+  competitive_programmer: 'Competitive Programmer',
+  open_source_developer: 'Open Source Developer',
+  ml_engineer: 'ML Engineer',
+  data_scientist: 'Data Scientist',
+  full_stack_developer: 'Full Stack Developer',
+  ai_researcher: 'AI Researcher',
   all_rounder: 'All Rounder',
 };
 
-const ARCHETYPE_DOMAIN_MAP = {
-  builder: 'full_stack',
-  problem_solver: 'competitive_programming',
-  ai_engineer: 'ai_ml',
-  security_expert: 'security',
-  open_source: 'open_source',
-  competitor: 'competitive_programming',
-  learner: 'learner',
+const ARCHETYPE_TO_DOMAIN = {
+  builder: 'full_stack_developer',
+  problem_solver: 'competitive_programmer',
+  ai_engineer: 'ml_engineer',
+  security_expert: 'competitive_programmer',
+  open_source: 'open_source_developer',
+  competitor: 'competitive_programmer',
+  learner: 'all_rounder',
 };
 
-const PLATFORM_LABELS = {
-  leetcode: 'LeetCode',
-  codeforces: 'Codeforces',
-  codechef: 'CodeChef',
-  github: 'GitHub',
-  gitlab: 'GitLab',
-  kaggle: 'Kaggle',
-  huggingface: 'Hugging Face',
-  hackerrank: 'HackerRank',
-  freecodecamp: 'freeCodeCamp',
-  stackoverflow: 'Stack Overflow',
-  devto: 'Dev.to',
-  replit: 'Replit',
-  codesandbox: 'CodeSandbox',
-  playstore: 'Play Store',
-  roboflow: 'Roboflow',
-  geeksforgeeks: 'GeeksforGeeks',
-  atcoder: 'AtCoder',
-  hackerearth: 'HackerEarth',
-  tryhackme: 'TryHackMe',
-  codesignal: 'CodeSignal',
+const LEGACY_DOMAIN_ALIASES = {
+  competitive_programming: 'competitive_programmer',
+  open_source: 'open_source_developer',
+  ai_ml: 'ml_engineer',
+  full_stack: 'full_stack_developer',
+  security: 'competitive_programmer',
+  learner: 'all_rounder',
+  all_rounder: 'all_rounder',
 };
 
-const PLATFORM_WEIGHT_ALIAS = {
-  atcoder: 'codeforces',
-  geeksforgeeks: 'leetcode',
-  hackerearth: 'hackerrank',
-  codesignal: 'hackerrank',
+const DOMAIN_AFFINITIES = {
+  competitive_programmer: {
+    leetcode: 1.0,
+    codeforces: 1.0,
+    codechef: 0.9,
+    hackerrank: 0.55,
+    github: 0.25,
+    kaggle: 0.05,
+    huggingface: 0.05,
+  },
+  open_source_developer: {
+    github: 1.0,
+    huggingface: 0.4,
+    leetcode: 0.35,
+    hackerrank: 0.2,
+    kaggle: 0.1,
+    codeforces: 0.1,
+    codechef: 0.1,
+  },
+  ml_engineer: {
+    huggingface: 1.0,
+    kaggle: 0.85,
+    github: 0.8,
+    leetcode: 0.45,
+    hackerrank: 0.15,
+    codeforces: 0.1,
+    codechef: 0.05,
+  },
+  data_scientist: {
+    kaggle: 1.0,
+    huggingface: 0.7,
+    github: 0.65,
+    leetcode: 0.35,
+    hackerrank: 0.15,
+    codeforces: 0.05,
+    codechef: 0.05,
+  },
+  full_stack_developer: {
+    github: 1.0,
+    leetcode: 0.55,
+    hackerrank: 0.45,
+    huggingface: 0.25,
+    codeforces: 0.15,
+    kaggle: 0.1,
+    codechef: 0.1,
+  },
+  ai_researcher: {
+    huggingface: 1.0,
+    kaggle: 0.8,
+    github: 0.75,
+    leetcode: 0.3,
+    codeforces: 0.1,
+    hackerrank: 0.1,
+    codechef: 0.05,
+  },
+  all_rounder: {
+    github: 0.8,
+    leetcode: 0.8,
+    codeforces: 0.7,
+    hackerrank: 0.6,
+    codechef: 0.6,
+    kaggle: 0.65,
+    huggingface: 0.65,
+  },
 };
 
-const PILLAR_WEIGHTS = {
-  problemSolving: {
-    leetcode: 28,
-    codeforces: 24,
-    codechef: 12,
-    atcoder: 12,
-    hackerrank: 8,
-    geeksforgeeks: 8,
-    hackerearth: 5,
-    codesignal: 3,
-  },
-  building: {
-    github: 35,
-    gitlab: 20,
-    huggingface: 12,
-    kaggle: 10,
-    playstore: 8,
-    replit: 8,
-    codesandbox: 7,
-  },
-  community: {
-    stackoverflow: 35,
-    devto: 25,
-    github: 15,
-    kaggle: 10,
-    huggingface: 8,
-    gitlab: 7,
-  },
-  consistency: {
-    github: 22,
-    leetcode: 18,
-    codeforces: 14,
-    hackerrank: 10,
-    devto: 9,
-    kaggle: 7,
-    gitlab: 7,
-    atcoder: 7,
-    tryhackme: 6,
-  },
-};
+const CF_TIERS = [
+  [0, 0.0],
+  [1200, 0.15],
+  [1400, 0.25],
+  [1600, 0.36],
+  [1900, 0.52],
+  [2100, 0.65],
+  [2300, 0.77],
+  [2400, 0.84],
+  [2600, 0.92],
+  [3000, 0.97],
+  [3500, 1.0],
+];
+
+const LC_RATING_TIERS = [
+  [0, 0.0],
+  [1400, 0.2],
+  [1600, 0.38],
+  [1800, 0.56],
+  [2000, 0.72],
+  [2200, 0.84],
+  [2400, 0.93],
+  [2600, 1.0],
+];
+
+const CC_RATING_TIERS = [
+  [0, 0.0],
+  [1000, 0.1],
+  [1400, 0.22],
+  [1600, 0.38],
+  [1800, 0.54],
+  [2000, 0.68],
+  [2200, 0.81],
+  [2500, 0.93],
+  [3000, 1.0],
+];
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -181,29 +173,92 @@ function hasOwn(data, key) {
   return !!data && Object.prototype.hasOwnProperty.call(data, key);
 }
 
-function hasAnyOwn(data, keys) {
-  return keys.some((key) => hasOwn(data, key));
+function logNorm(value, softCap) {
+  if (!value || value <= 0 || softCap <= 0) return 0;
+  return Math.min(1, Math.log(1 + value) / Math.log(1 + softCap));
 }
 
-function scaleLinear(value, min, max) {
-  const v = toNumber(value);
-  if (max <= min) return 0;
-  return clamp(((v - min) / (max - min)) * 100, 0, 100);
+function linearNorm(value, cap) {
+  if (value == null || value < 0 || cap <= 0) return 0;
+  return Math.min(1, value / cap);
 }
 
-function scaleInverse(value, best, worst) {
-  const v = toNumber(value);
-  if (worst <= best) return 0;
-  return clamp(((worst - v) / (worst - best)) * 100, 0, 100);
+function piecewiseNorm(value, tiers) {
+  if (value == null || !tiers.length) return 0;
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (value >= tiers[i][0]) {
+      if (i === tiers.length - 1) return tiers[i][1];
+      const r0 = tiers[i][0];
+      const n0 = tiers[i][1];
+      const r1 = tiers[i + 1][0];
+      const n1 = tiers[i + 1][1];
+      return n0 + ((value - r0) / (r1 - r0)) * (n1 - n0);
+    }
+  }
+  return 0;
 }
 
-function scaleLog(value, fullAt) {
-  const v = Math.max(0, toNumber(value));
-  const cap = Math.max(1, toNumber(fullAt, 1));
-  return clamp((Math.log1p(v) / Math.log1p(cap)) * 100, 0, 100);
+function geoMean(a, b) {
+  return Math.sqrt(Math.max(0, a) * Math.max(0, b));
 }
 
-function parseStarCount(value) {
+function recencyFactor(lastActiveDateStr, halfLifeDays = 180) {
+  if (!lastActiveDateStr) return 0.55;
+  const days = (Date.now() - new Date(lastActiveDateStr).getTime()) / 86400000;
+  if (Number.isNaN(days) || days < 0) return 0.8;
+  return Math.max(0.25, Math.pow(0.5, days / halfLifeDays));
+}
+
+function combineSignals(signals) {
+  const present = signals.filter((s) => s.value !== null && s.value !== undefined && !Number.isNaN(s.value));
+  if (!present.length) return { score: 0, confidence: 0 };
+
+  const totalWeight = present.reduce((sum, s) => sum + s.weight, 0);
+  const weightedScore = present.reduce((sum, s) => sum + s.value * s.weight, 0);
+
+  return {
+    score: clamp(weightedScore / Math.max(totalWeight, 1e-9), 0, 1),
+    confidence: present.length / Math.max(signals.length, 1),
+  };
+}
+
+function analyzeCalendar(calendar) {
+  const empty = { activeWeekRate: 0, consistency: 0, densityScore: 0 };
+  if (!Array.isArray(calendar) || calendar.length < 14) return empty;
+
+  const weekMap = new Map();
+  for (const day of calendar) {
+    const d = new Date(day.date);
+    if (Number.isNaN(d.getTime())) continue;
+
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    const dayOfYear = Math.floor((d.getTime() - startOfYear.getTime()) / 86400000);
+    const weekKey = `${d.getFullYear()}-W${String(Math.floor(dayOfYear / 7)).padStart(2, '0')}`;
+    weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + toNumber(day.count));
+  }
+
+  const allWeekCounts = Array.from(weekMap.values());
+  const activeWeeks = allWeekCounts.filter((c) => c > 0);
+  const activeWeekRate = allWeekCounts.length ? activeWeeks.length / allWeekCounts.length : 0;
+
+  const mean = activeWeeks.length
+    ? activeWeeks.reduce((a, b) => a + b, 0) / activeWeeks.length
+    : 0;
+  const variance = activeWeeks.length > 1
+    ? activeWeeks.reduce((a, b) => a + (b - mean) ** 2, 0) / activeWeeks.length
+    : 0;
+  const cv = mean > 0 ? Math.sqrt(variance) / mean : 1;
+  const consistency = Math.max(0, 1 - Math.min(1, cv / 2));
+
+  const totalContribs = calendar.reduce((sum, day) => sum + toNumber(day.count), 0);
+  const activeDays = calendar.filter((d) => toNumber(d.count) > 0).length;
+  const avgPerActiveDay = activeDays > 0 ? totalContribs / activeDays : 0;
+  const densityScore = logNorm(avgPerActiveDay, 5);
+
+  return { activeWeekRate, consistency, densityScore };
+}
+
+function parseStarsCount(value) {
   if (typeof value === 'number') return clamp(value, 0, 7);
   const str = String(value || '');
   const numeric = parseInt(str, 10);
@@ -212,857 +267,527 @@ function parseStarCount(value) {
   return clamp(stars, 0, 7);
 }
 
-function activityDaysInWindow(series = [], days = 90) {
-  if (!Array.isArray(series) || series.length === 0) return 0;
-  const cutoff = new Date();
-  cutoff.setUTCDate(cutoff.getUTCDate() - days + 1);
-  let count = 0;
-  for (const entry of series) {
-    const dateStr = entry?.date;
-    if (!dateStr) continue;
-    const day = new Date(`${dateStr}T00:00:00.000Z`);
-    if (Number.isNaN(day.getTime())) continue;
-    if (day >= cutoff && toNumber(entry?.count) > 0) count += 1;
+function medalBucketTotal(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return Math.max(0, value);
+  if (typeof value === 'object') {
+    return Math.max(
+      0,
+      toNumber(value.total)
+        || (toNumber(value.gold) + toNumber(value.silver) + toNumber(value.bronze))
+    );
   }
-  return count;
-}
-
-function makeSignal({ id, label, weight, score, available = true, rawValue = null }) {
-  return {
-    id,
-    label,
-    weight: toNumber(weight),
-    score: clamp(toNumber(score), 0, 100),
-    available: !!available,
-    rawValue,
-  };
-}
-
-function finalizePlatformScore(platform, signals) {
-  const availableSignals = signals.filter((s) => s.available && s.weight > 0);
-  const weightSum = availableSignals.reduce((sum, s) => sum + s.weight, 0);
-
-  if (weightSum <= 0) {
-    return {
-      platform,
-      score: 0,
-      coverage: 0,
-      signals: signals.map((s) => ({
-        ...s,
-        effectiveWeight: 0,
-      })),
-    };
-  }
-
-  let weighted = 0;
-  const normalizedSignals = signals.map((s) => {
-    const effectiveWeight = s.available ? (s.weight / weightSum) : 0;
-    weighted += s.score * effectiveWeight;
-    return {
-      ...s,
-      effectiveWeight,
-    };
-  });
-
-  return {
-    platform,
-    score: clamp(weighted, 0, 100),
-    coverage: availableSignals.length / Math.max(1, signals.length),
-    signals: normalizedSignals,
-  };
-}
-
-function codeforcesTierScore(rating) {
-  const r = toNumber(rating);
-  if (r >= 2400) return 100;
-  if (r >= 2100) return 90;
-  if (r >= 1900) return 80;
-  if (r >= 1600) return 65;
-  if (r >= 1400) return 50;
-  if (r >= 1200) return 35;
-  return 20;
-}
-
-function kaggleTierScore(tier) {
-  const t = String(tier || '').toLowerCase();
-  if (t.includes('grandmaster')) return 100;
-  if (t.includes('master')) return 90;
-  if (t.includes('expert')) return 75;
-  if (t.includes('contributor')) return 55;
-  if (t.includes('novice')) return 35;
-  return 15;
-}
-
-function scoreLeetcode(data = {}) {
-  const totalSolved = toNumber(data.totalSolved);
-  const easySolved = toNumber(data.easySolved);
-  const mediumSolved = toNumber(data.mediumSolved);
-  const hardSolved = toNumber(data.hardSolved);
-  const weightedSolved = easySolved * 0.5 + mediumSolved + hardSolved * 2;
-  const activeDays90 = activityDaysInWindow(data.dailyActivity, 90) || toNumber(data.activeDays);
-  const contestRating = toNumber(data.contestRating ?? data.rating);
-  const topPercentage = toNumber(data.topPercentage);
-  const contestsParticipated = toNumber(data.contestsParticipated);
-  const badges = toNumber(data.badgesEarned ?? data.badges);
-
-  const signals = [
-    makeSignal({
-      id: 'contest_rating',
-      label: 'Contest rating percentile',
-      weight: 0.18,
-      score: scaleLinear(contestRating, 1100, 2500),
-      available: hasAnyOwn(data, ['contestRating', 'rating']),
-      rawValue: contestRating,
-    }),
-    makeSignal({
-      id: 'problem_tier',
-      label: 'Problem solving depth',
-      weight: 0.24,
-      score: scaleLog(weightedSolved, 700),
-      available: hasAnyOwn(data, ['totalSolved', 'easySolved', 'mediumSolved', 'hardSolved']),
-      rawValue: { totalSolved, weightedSolved },
-    }),
-    makeSignal({
-      id: 'acceptance_rate',
-      label: 'Acceptance quality',
-      weight: 0.11,
-      score: scaleLinear(data.acceptanceRate, 25, 70),
-      available: hasOwn(data, 'acceptanceRate'),
-      rawValue: toNumber(data.acceptanceRate),
-    }),
-    makeSignal({
-      id: 'consistency_90d',
-      label: '90-day consistency',
-      weight: 0.14,
-      score: scaleLinear(activeDays90, 5, 90),
-      available: Array.isArray(data.dailyActivity) || hasOwn(data, 'activeDays'),
-      rawValue: activeDays90,
-    }),
-    makeSignal({
-      id: 'top_percentile_rank',
-      label: 'Global rank percentile',
-      weight: 0.1,
-      score: scaleInverse(topPercentage, 1, 60),
-      available: hasOwn(data, 'topPercentage'),
-      rawValue: topPercentage,
-    }),
-    makeSignal({
-      id: 'contest_attendance',
-      label: 'Contest attendance',
-      weight: 0.11,
-      score: scaleLog(contestsParticipated, 60),
-      available: hasOwn(data, 'contestsParticipated'),
-      rawValue: contestsParticipated,
-    }),
-    makeSignal({
-      id: 'badges',
-      label: 'Badges earned',
-      weight: 0.05,
-      score: scaleLog(badges, 20),
-      available: hasAnyOwn(data, ['badgesEarned', 'badges']),
-      rawValue: badges,
-    }),
-    makeSignal({
-      id: 'category_depth',
-      label: 'Category hard-problem depth',
-      weight: 0.07,
-      score: scaleLinear(hardSolved, 8, 120),
-      available: hasOwn(data, 'hardSolved'),
-      rawValue: hardSolved,
-    }),
-  ];
-
-  return finalizePlatformScore('leetcode', signals);
-}
-
-function scoreCodeforces(data = {}) {
-  const currentRating = toNumber(data.currentRating ?? data.rating);
-  const maxRating = toNumber(data.maxRating);
-  const contests = toNumber(data.contestsParticipated);
-  const solved = toNumber(data.totalSolved);
-  const recentActiveDays = activityDaysInWindow(data.dailySubmissions, 90);
-
-  const signals = [
-    makeSignal({
-      id: 'rating_tier',
-      label: 'Current rating tier',
-      weight: 0.34,
-      score: codeforcesTierScore(currentRating),
-      available: hasAnyOwn(data, ['currentRating', 'rating']),
-      rawValue: currentRating,
-    }),
-    makeSignal({
-      id: 'peak_rating',
-      label: 'Peak rating',
-      weight: 0.18,
-      score: codeforcesTierScore(maxRating),
-      available: hasOwn(data, 'maxRating'),
-      rawValue: maxRating,
-    }),
-    makeSignal({
-      id: 'contest_count',
-      label: 'Contest participation count',
-      weight: 0.2,
-      score: scaleLog(contests, 80),
-      available: hasOwn(data, 'contestsParticipated'),
-      rawValue: contests,
-    }),
-    makeSignal({
-      id: 'solve_count_quality',
-      label: 'Accepted solve volume',
-      weight: 0.16,
-      score: scaleLog(solved, 900),
-      available: hasOwn(data, 'totalSolved'),
-      rawValue: solved,
-    }),
-    makeSignal({
-      id: 'recent_activity',
-      label: 'Recent contest activity',
-      weight: 0.12,
-      score: scaleLinear(recentActiveDays, 5, 80),
-      available: Array.isArray(data.dailySubmissions),
-      rawValue: recentActiveDays,
-    }),
-  ];
-
-  return finalizePlatformScore('codeforces', signals);
-}
-
-function scoreGithub(data = {}) {
-  const publicRepos = toNumber(data.publicRepos);
-  const stars = toNumber(data.starsReceived ?? data.totalStars);
-  const forks = toNumber(data.forksCount ?? data.totalForks);
-  const watchers = toNumber(data.watchers ?? data.subscribers);
-  const pullRequests = toNumber(data.pullRequests ?? data.externalPullRequests);
-  const issues = toNumber(data.issuesCreated ?? data.issues);
-  const currentStreak = toNumber(data.currentStreak);
-  const longestStreak = toNumber(data.longestStreak);
-  const activeDays365 = activityDaysInWindow(data.contributionCalendar, 365);
-  const languageCount = Array.isArray(data.languageDistribution)
-    ? data.languageDistribution.length
-    : Array.isArray(data.languages)
-      ? data.languages.length
-      : 0;
-  const repoQualityRaw = stars * 3 + forks * 2 + watchers + publicRepos * 0.5;
-
-  const signals = [
-    makeSignal({
-      id: 'consistency_365d',
-      label: '365-day contribution consistency',
-      weight: 0.26,
-      score: scaleLinear(activeDays365, 30, 330),
-      available: Array.isArray(data.contributionCalendar),
-      rawValue: activeDays365,
-    }),
-    makeSignal({
-      id: 'repo_quality',
-      label: 'Repository quality signal',
-      weight: 0.24,
-      score: scaleLog(repoQualityRaw, 2500),
-      available: hasAnyOwn(data, ['starsReceived', 'totalStars', 'forksCount', 'totalForks', 'publicRepos']),
-      rawValue: repoQualityRaw,
-    }),
-    makeSignal({
-      id: 'language_breadth',
-      label: 'Language breadth',
-      weight: 0.14,
-      score: scaleLog(languageCount, 10),
-      available: Array.isArray(data.languageDistribution) || Array.isArray(data.languages),
-      rawValue: languageCount,
-    }),
-    makeSignal({
-      id: 'external_contrib',
-      label: 'External collaboration (PR/issues)',
-      weight: 0.18,
-      score: scaleLog(pullRequests + issues, 250),
-      available: hasAnyOwn(data, ['pullRequests', 'externalPullRequests', 'issuesCreated', 'issues']),
-      rawValue: pullRequests + issues,
-    }),
-    makeSignal({
-      id: 'streak_quality',
-      label: 'Contribution streak quality',
-      weight: 0.1,
-      score: scaleLinear(currentStreak * 0.7 + longestStreak * 0.3, 7, 180),
-      available: hasAnyOwn(data, ['currentStreak', 'longestStreak']),
-      rawValue: { currentStreak, longestStreak },
-    }),
-    makeSignal({
-      id: 'documentation_quality',
-      label: 'Documentation/README quality',
-      weight: 0.08,
-      score: scaleLinear(data.readmeQualityScore, 20, 90),
-      available: hasOwn(data, 'readmeQualityScore'),
-      rawValue: toNumber(data.readmeQualityScore),
-    }),
-  ];
-
-  return finalizePlatformScore('github', signals);
-}
-
-function scoreKaggle(data = {}) {
-  const medals = toNumber(data.goldMedals) * 3 + toNumber(data.silverMedals) * 2 + toNumber(data.bronzeMedals);
-  const notebookSignal = toNumber(data.notebookVotes ?? data.notebooks);
-  const datasetSignal = toNumber(data.datasetDownloads ?? data.datasets);
-
-  const signals = [
-    makeSignal({
-      id: 'tier',
-      label: 'Tier level',
-      weight: 0.35,
-      score: kaggleTierScore(data.tier),
-      available: hasOwn(data, 'tier'),
-      rawValue: data.tier,
-    }),
-    makeSignal({
-      id: 'competition_medals',
-      label: 'Competition medals',
-      weight: 0.3,
-      score: scaleLog(medals, 35),
-      available: hasAnyOwn(data, ['goldMedals', 'silverMedals', 'bronzeMedals']),
-      rawValue: medals,
-    }),
-    makeSignal({
-      id: 'notebook_impact',
-      label: 'Notebook impact',
-      weight: 0.2,
-      score: scaleLog(notebookSignal, 120),
-      available: hasAnyOwn(data, ['notebookVotes', 'notebooks']),
-      rawValue: notebookSignal,
-    }),
-    makeSignal({
-      id: 'dataset_impact',
-      label: 'Dataset impact',
-      weight: 0.15,
-      score: scaleLog(datasetSignal, 80),
-      available: hasAnyOwn(data, ['datasetDownloads', 'datasets']),
-      rawValue: datasetSignal,
-    }),
-  ];
-
-  return finalizePlatformScore('kaggle', signals);
-}
-
-function scoreStackoverflow(data = {}) {
-  const topTagDepth = Array.isArray(data.topTags)
-    ? data.topTags.reduce((sum, tag) => sum + Math.min(10, toNumber(tag.answerCount) * 0.6 + toNumber(tag.answerScore) * 0.04), 0)
-    : 0;
-
-  const signals = [
-    makeSignal({
-      id: 'reputation',
-      label: 'Reputation score',
-      weight: 0.4,
-      score: scaleLog(data.reputation, 70000),
-      available: hasOwn(data, 'reputation'),
-      rawValue: toNumber(data.reputation),
-    }),
-    makeSignal({
-      id: 'answers',
-      label: 'Answer contribution',
-      weight: 0.22,
-      score: scaleLog(data.answerCount, 600),
-      available: hasOwn(data, 'answerCount'),
-      rawValue: toNumber(data.answerCount),
-    }),
-    makeSignal({
-      id: 'gold_badges',
-      label: 'Gold badge quality',
-      weight: 0.18,
-      score: scaleLog(data.goldBadges, 30),
-      available: hasOwn(data, 'goldBadges'),
-      rawValue: toNumber(data.goldBadges),
-    }),
-    makeSignal({
-      id: 'top_tag_depth',
-      label: 'Top tag depth',
-      weight: 0.2,
-      score: scaleLinear(topTagDepth, 5, 60),
-      available: Array.isArray(data.topTags),
-      rawValue: topTagDepth,
-    }),
-  ];
-
-  return finalizePlatformScore('stackoverflow', signals);
-}
-
-function scoreCodechef(data = {}) {
-  const stars = parseStarCount(data.stars);
-
-  const signals = [
-    makeSignal({
-      id: 'rating',
-      label: 'Rating quality',
-      weight: 0.4,
-      score: scaleLinear(data.currentRating, 1100, 2400),
-      available: hasOwn(data, 'currentRating'),
-      rawValue: toNumber(data.currentRating),
-    }),
-    makeSignal({
-      id: 'solves',
-      label: 'Problem solved volume',
-      weight: 0.25,
-      score: scaleLog(data.problemsSolved, 500),
-      available: hasOwn(data, 'problemsSolved'),
-      rawValue: toNumber(data.problemsSolved),
-    }),
-    makeSignal({
-      id: 'stars',
-      label: 'Star tier',
-      weight: 0.2,
-      score: scaleLinear(stars, 1, 7),
-      available: hasOwn(data, 'stars'),
-      rawValue: stars,
-    }),
-    makeSignal({
-      id: 'global_rank',
-      label: 'Global rank percentile',
-      weight: 0.15,
-      score: scaleInverse(data.globalRank, 1, 150000),
-      available: hasOwn(data, 'globalRank'),
-      rawValue: toNumber(data.globalRank),
-    }),
-  ];
-
-  return finalizePlatformScore('codechef', signals);
-}
-
-function scoreHackerrank(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'stars',
-      label: 'Star accumulation',
-      weight: 0.35,
-      score: scaleLinear(data.totalStars, 5, 70),
-      available: hasOwn(data, 'totalStars'),
-      rawValue: toNumber(data.totalStars),
-    }),
-    makeSignal({
-      id: 'badges',
-      label: 'Badge quality',
-      weight: 0.25,
-      score: scaleLog(data.totalBadges, 35),
-      available: hasOwn(data, 'totalBadges'),
-      rawValue: toNumber(data.totalBadges),
-    }),
-    makeSignal({
-      id: 'level',
-      label: 'Level progression',
-      weight: 0.25,
-      score: scaleLinear(data.level, 1, 10),
-      available: hasOwn(data, 'level'),
-      rawValue: toNumber(data.level),
-    }),
-    makeSignal({
-      id: 'certificates',
-      label: 'Certificates earned',
-      weight: 0.15,
-      score: scaleLog(data.certificates, 12),
-      available: hasOwn(data, 'certificates'),
-      rawValue: toNumber(data.certificates),
-    }),
-  ];
-
-  return finalizePlatformScore('hackerrank', signals);
-}
-
-function scoreGeeksforgeeks(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'solves',
-      label: 'Problems solved',
-      weight: 0.3,
-      score: scaleLog(data.totalProblemsSolved, 650),
-      available: hasOwn(data, 'totalProblemsSolved'),
-      rawValue: toNumber(data.totalProblemsSolved),
-    }),
-    makeSignal({
-      id: 'coding_score',
-      label: 'Coding score',
-      weight: 0.3,
-      score: scaleLog(data.score, 1200),
-      available: hasOwn(data, 'score'),
-      rawValue: toNumber(data.score),
-    }),
-    makeSignal({
-      id: 'streak',
-      label: 'Daily streak',
-      weight: 0.2,
-      score: scaleLinear(data.streak, 5, 160),
-      available: hasOwn(data, 'streak'),
-      rawValue: toNumber(data.streak),
-    }),
-    makeSignal({
-      id: 'rank',
-      label: 'Institute rank percentile',
-      weight: 0.2,
-      score: scaleInverse(data.instituteRank, 1, 5000),
-      available: hasOwn(data, 'instituteRank'),
-      rawValue: toNumber(data.instituteRank),
-    }),
-  ];
-
-  return finalizePlatformScore('geeksforgeeks', signals);
-}
-
-function scoreAtcoder(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'rating',
-      label: 'Rating quality',
-      weight: 0.35,
-      score: scaleLinear(data.rating, 800, 2600),
-      available: hasOwn(data, 'rating'),
-      rawValue: toNumber(data.rating),
-    }),
-    makeSignal({
-      id: 'max_rating',
-      label: 'Peak rating',
-      weight: 0.2,
-      score: scaleLinear(data.maxRating, 1000, 2800),
-      available: hasOwn(data, 'maxRating'),
-      rawValue: toNumber(data.maxRating),
-    }),
-    makeSignal({
-      id: 'solves',
-      label: 'Solved count',
-      weight: 0.25,
-      score: scaleLog(data.problemsSolved, 500),
-      available: hasOwn(data, 'problemsSolved'),
-      rawValue: toNumber(data.problemsSolved),
-    }),
-    makeSignal({
-      id: 'contests',
-      label: 'Contest participation',
-      weight: 0.2,
-      score: scaleLog(data.contestsParticipated, 70),
-      available: hasOwn(data, 'contestsParticipated'),
-      rawValue: toNumber(data.contestsParticipated),
-    }),
-  ];
-
-  return finalizePlatformScore('atcoder', signals);
-}
-
-function scoreHackerearth(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'rating',
-      label: 'Rating quality',
-      weight: 0.4,
-      score: scaleLinear(data.rating, 900, 2200),
-      available: hasOwn(data, 'rating'),
-      rawValue: toNumber(data.rating),
-    }),
-    makeSignal({
-      id: 'solves',
-      label: 'Problems solved',
-      weight: 0.35,
-      score: scaleLog(data.problemsSolved, 350),
-      available: hasOwn(data, 'problemsSolved'),
-      rawValue: toNumber(data.problemsSolved),
-    }),
-    makeSignal({
-      id: 'contests',
-      label: 'Contests participated',
-      weight: 0.25,
-      score: scaleLog(data.contestsParticipated, 50),
-      available: hasOwn(data, 'contestsParticipated'),
-      rawValue: toNumber(data.contestsParticipated),
-    }),
-  ];
-
-  return finalizePlatformScore('hackerearth', signals);
-}
-
-function scoreHuggingface(data = {}) {
-  const projects = toNumber(data.modelsPublished) + toNumber(data.datasetsPublished) + toNumber(data.spacesCreated);
-  const signals = [
-    makeSignal({
-      id: 'published_assets',
-      label: 'Published assets',
-      weight: 0.35,
-      score: scaleLog(projects, 80),
-      available: hasAnyOwn(data, ['modelsPublished', 'datasetsPublished', 'spacesCreated']),
-      rawValue: projects,
-    }),
-    makeSignal({
-      id: 'downloads',
-      label: 'Download impact',
-      weight: 0.25,
-      score: scaleLog(data.totalDownloads, 500000),
-      available: hasOwn(data, 'totalDownloads'),
-      rawValue: toNumber(data.totalDownloads),
-    }),
-    makeSignal({
-      id: 'likes',
-      label: 'Community likes',
-      weight: 0.2,
-      score: scaleLog(data.totalLikes, 1200),
-      available: hasOwn(data, 'totalLikes'),
-      rawValue: toNumber(data.totalLikes),
-    }),
-    makeSignal({
-      id: 'model_depth',
-      label: 'Model publishing depth',
-      weight: 0.2,
-      score: scaleLog(data.modelsPublished, 40),
-      available: hasOwn(data, 'modelsPublished'),
-      rawValue: toNumber(data.modelsPublished),
-    }),
-  ];
-
-  return finalizePlatformScore('huggingface', signals);
-}
-
-function scoreTryhackme(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'points',
-      label: 'Points earned',
-      weight: 0.35,
-      score: scaleLog(data.points, 60000),
-      available: hasOwn(data, 'points'),
-      rawValue: toNumber(data.points),
-    }),
-    makeSignal({
-      id: 'rooms_completed',
-      label: 'Rooms completed',
-      weight: 0.25,
-      score: scaleLog(data.roomsCompleted, 350),
-      available: hasOwn(data, 'roomsCompleted'),
-      rawValue: toNumber(data.roomsCompleted),
-    }),
-    makeSignal({
-      id: 'rank',
-      label: 'Rank percentile',
-      weight: 0.25,
-      score: scaleInverse(data.rank, 1, 250000),
-      available: hasOwn(data, 'rank'),
-      rawValue: toNumber(data.rank),
-    }),
-    makeSignal({
-      id: 'streak',
-      label: 'Streak consistency',
-      weight: 0.15,
-      score: scaleLinear(data.streak, 2, 60),
-      available: hasOwn(data, 'streak'),
-      rawValue: toNumber(data.streak),
-    }),
-  ];
-
-  return finalizePlatformScore('tryhackme', signals);
-}
-
-function scoreCodesignal(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'gca_score',
-      label: 'GCA score',
-      weight: 0.45,
-      score: scaleLinear(data.gcaScore, 300, 850),
-      available: hasOwn(data, 'gcaScore'),
-      rawValue: toNumber(data.gcaScore),
-    }),
-    makeSignal({
-      id: 'coding_score',
-      label: 'Coding score',
-      weight: 0.3,
-      score: scaleLinear(data.codingScore, 300, 1000),
-      available: hasOwn(data, 'codingScore'),
-      rawValue: toNumber(data.codingScore),
-    }),
-    makeSignal({
-      id: 'challenges_completed',
-      label: 'Challenges completed',
-      weight: 0.25,
-      score: scaleLog(data.challengesCompleted, 220),
-      available: hasOwn(data, 'challengesCompleted'),
-      rawValue: toNumber(data.challengesCompleted),
-    }),
-  ];
-
-  return finalizePlatformScore('codesignal', signals);
-}
-
-function scoreDevto(data = {}) {
-  const signals = [
-    makeSignal({
-      id: 'articles',
-      label: 'Articles published',
-      weight: 0.35,
-      score: scaleLog(data.articlesPublished, 80),
-      available: hasOwn(data, 'articlesPublished'),
-      rawValue: toNumber(data.articlesPublished),
-    }),
-    makeSignal({
-      id: 'reactions',
-      label: 'Post reactions',
-      weight: 0.3,
-      score: scaleLog(data.totalReactions, 4000),
-      available: hasOwn(data, 'totalReactions'),
-      rawValue: toNumber(data.totalReactions),
-    }),
-    makeSignal({
-      id: 'followers',
-      label: 'Follower growth',
-      weight: 0.2,
-      score: scaleLog(data.followers, 1500),
-      available: hasOwn(data, 'followers'),
-      rawValue: toNumber(data.followers),
-    }),
-    makeSignal({
-      id: 'comments',
-      label: 'Comment engagement',
-      weight: 0.15,
-      score: scaleLog(data.totalComments, 1000),
-      available: hasOwn(data, 'totalComments'),
-      rawValue: toNumber(data.totalComments),
-    }),
-  ];
-
-  return finalizePlatformScore('devto', signals);
-}
-
-function scoreGitlab(data = {}) {
-  const quality = toNumber(data.totalStars) * 2 + toNumber(data.totalForks);
-  const languageCount = Array.isArray(data.languages) ? data.languages.length : 0;
-
-  const signals = [
-    makeSignal({
-      id: 'projects',
-      label: 'Projects published',
-      weight: 0.4,
-      score: scaleLog(data.projectsCount, 80),
-      available: hasOwn(data, 'projectsCount'),
-      rawValue: toNumber(data.projectsCount),
-    }),
-    makeSignal({
-      id: 'project_quality',
-      label: 'Project quality signal',
-      weight: 0.3,
-      score: scaleLog(quality, 250),
-      available: hasAnyOwn(data, ['totalStars', 'totalForks']),
-      rawValue: quality,
-    }),
-    makeSignal({
-      id: 'language_breadth',
-      label: 'Language breadth',
-      weight: 0.3,
-      score: scaleLog(languageCount, 10),
-      available: Array.isArray(data.languages),
-      rawValue: languageCount,
-    }),
-  ];
-
-  return finalizePlatformScore('gitlab', signals);
-}
-
-function scoreFallback(platform, data = {}) {
-  const numericValues = Object.values(data).filter((v) => typeof v === 'number');
-  const base = numericValues.reduce((sum, n) => sum + Math.max(0, n), 0);
-  const score = scaleLog(base, 500);
-
-  const signals = [
-    makeSignal({
-      id: 'general_activity',
-      label: 'General platform activity',
-      weight: 1,
-      score,
-      available: numericValues.length > 0,
-      rawValue: base,
-    }),
-  ];
-
-  return finalizePlatformScore(platform, signals);
-}
-
-const PLATFORM_SCORERS = {
-  leetcode: scoreLeetcode,
-  codeforces: scoreCodeforces,
-  github: scoreGithub,
-  kaggle: scoreKaggle,
-  stackoverflow: scoreStackoverflow,
-  codechef: scoreCodechef,
-  hackerrank: scoreHackerrank,
-  geeksforgeeks: scoreGeeksforgeeks,
-  atcoder: scoreAtcoder,
-  hackerearth: scoreHackerearth,
-  huggingface: scoreHuggingface,
-  tryhackme: scoreTryhackme,
-  codesignal: scoreCodesignal,
-  devto: scoreDevto,
-  gitlab: scoreGitlab,
-};
-
-function isConnectedPlatform(data) {
-  return !!data && typeof data === 'object' && Object.keys(data).length > 0;
-}
-
-function resolveDomainFromArchetype(archetype) {
-  const mapped = ARCHETYPE_DOMAIN_MAP[archetype];
-  return mapped || 'all_rounder';
-}
-
-function blendDomainWeights(primaryDomain, secondaryDomain) {
-  const primary = DOMAIN_WEIGHT_MATRIX[primaryDomain] || DOMAIN_WEIGHT_MATRIX.all_rounder;
-  if (!secondaryDomain || secondaryDomain === primaryDomain) {
-    return { ...primary };
-  }
-
-  const secondary = DOMAIN_WEIGHT_MATRIX[secondaryDomain] || DOMAIN_WEIGHT_MATRIX.all_rounder;
-  const keys = new Set([...Object.keys(primary), ...Object.keys(secondary)]);
-  const blended = {};
-  for (const key of keys) {
-    blended[key] = toNumber(primary[key]) * 0.7 + toNumber(secondary[key]) * 0.3;
-  }
-  return blended;
-}
-
-function getDomainPlatformWeight(domainWeights, domainId, platformId) {
-  if (domainId === 'all_rounder') return 1;
-
-  const direct = toNumber(domainWeights[platformId]);
-  if (direct > 0) return direct;
-
-  const aliasTo = PLATFORM_WEIGHT_ALIAS[platformId];
-  if (aliasTo) {
-    return toNumber(domainWeights[aliasTo]) * 0.75;
-  }
-
   return 0;
 }
 
-function normalizeConnectedWeights(domainWeights, domainId, connectedPlatforms) {
-  if (connectedPlatforms.length === 0) return {};
+function normalizeDomain(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === 'none') return 'all_rounder';
+  if (DOMAIN_AFFINITIES[normalized]) return normalized;
+  if (ARCHETYPE_TO_DOMAIN[normalized]) return ARCHETYPE_TO_DOMAIN[normalized];
+  if (LEGACY_DOMAIN_ALIASES[normalized]) return LEGACY_DOMAIN_ALIASES[normalized];
+  return 'all_rounder';
+}
 
-  const raw = {};
-  let total = 0;
+function scoreGitHub(data = {}) {
+  const cal = analyzeCalendar(data.contributionCalendar);
+  const recencyDate = data.lastSyncedAt || data.updatedAt;
+  const recency = recencyFactor(recencyDate, 365);
 
-  for (const platform of connectedPlatforms) {
-    const value = getDomainPlatformWeight(domainWeights, domainId, platform);
-    raw[platform] = value;
-    total += value;
+  const consistency = cal.activeWeekRate > 0
+    ? cal.activeWeekRate * 0.5 + cal.consistency * 0.3 + cal.densityScore * 0.2
+    : data.totalContributionsLastYear != null
+      ? logNorm(data.totalContributionsLastYear, 800)
+      : null;
+
+  const repoQuality = data.starsReceived != null || data.publicRepos != null
+    ? logNorm(data.starsReceived, 1000) * 0.45
+      + logNorm(data.forksCount, 200) * 0.25
+      + logNorm(data.publicRepos, 50) * 0.3
+    : null;
+
+  const pullRequestsTotal = toNumber(data.pullRequestsTotal, toNumber(data.pullRequests));
+  const pullRequestsMerged = toNumber(data.pullRequestsMerged, toNumber(data.pullRequests));
+  const issuesOpened = toNumber(data.issuesOpened);
+  const issuesClosed = toNumber(data.issuesClosed);
+
+  const prMergeRate = pullRequestsTotal > 5 ? pullRequestsMerged / pullRequestsTotal : null;
+  const prVolume = pullRequestsTotal > 0 ? logNorm(pullRequestsTotal, 200) : null;
+  const issueCloseRate = issuesOpened > 3 ? issuesClosed / issuesOpened : null;
+
+  let collaboration = null;
+  if (prMergeRate !== null && prVolume !== null) {
+    collaboration = prMergeRate * 0.55 + (issueCloseRate ?? 0.5) * 0.2 + prVolume * 0.25;
+  } else if (issueCloseRate !== null) {
+    collaboration = issueCloseRate * 0.6 + logNorm(issuesOpened, 100) * 0.4;
+  } else if (prVolume !== null) {
+    collaboration = prVolume * 0.5;
   }
 
-  if (total <= 0) {
-    const equal = 1 / connectedPlatforms.length;
-    return Object.fromEntries(connectedPlatforms.map((platform) => [platform, equal]));
+  const streak = data.currentStreak != null || data.longestStreak != null
+    ? geoMean(logNorm(data.currentStreak ?? 0, 60), logNorm(data.longestStreak ?? 0, 180))
+    : null;
+
+  const significantLangs = Array.isArray(data.languageDistribution)
+    ? data.languageDistribution.filter((lang) => toNumber(lang.bytes) > 2000).length
+    : null;
+  const langBreadth = significantLangs != null ? logNorm(significantLangs, 8) : null;
+
+  const organizations = Array.isArray(data.organizations)
+    ? data.organizations.length
+    : toNumber(data.organizations);
+  const community = data.followers != null || organizations > 0
+    ? logNorm(data.followers, 300) * 0.7 + logNorm(organizations, 8) * 0.3
+    : null;
+
+  const volume = data.totalCommits != null
+    ? logNorm(data.totalCommits, 3000) * recency
+    : data.totalContributionsLastYear != null
+      ? logNorm(data.totalContributionsLastYear, 800) * recency
+      : null;
+
+  const signals = [
+    { name: 'consistency', value: consistency, weight: 0.25 },
+    { name: 'repo_quality', value: repoQuality, weight: 0.22 },
+    { name: 'collaboration', value: collaboration, weight: 0.18 },
+    { name: 'volume', value: volume, weight: 0.14 },
+    { name: 'streak', value: streak, weight: 0.1 },
+    { name: 'community', value: community, weight: 0.07 },
+    { name: 'lang_breadth', value: langBreadth, weight: 0.04 },
+  ];
+
+  const { score, confidence } = combineSignals(signals);
+  return {
+    score,
+    confidence: confidence * recency,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreLeetCode(data = {}) {
+  const weightedSolved = data.easySolved != null || data.mediumSolved != null || data.hardSolved != null
+    ? toNumber(data.easySolved) * 1 + toNumber(data.mediumSolved) * 3 + toNumber(data.hardSolved) * 7
+    : null;
+
+  const depthScore = weightedSolved != null
+    ? logNorm(weightedSolved, 2000)
+    : data.totalSolved != null
+      ? logNorm(data.totalSolved, 1000)
+      : null;
+
+  const contestRating = data.contestRating != null && toNumber(data.contestsParticipated) > 0
+    ? piecewiseNorm(data.contestRating, LC_RATING_TIERS)
+    : null;
+
+  const acceptance = data.acceptanceRate != null ? linearNorm(data.acceptanceRate, 75) : null;
+  const consistency = data.activeDays != null
+    ? logNorm(data.activeDays, 250)
+    : data.currentStreak != null
+      ? logNorm(data.currentStreak, 60)
+      : null;
+
+  const rankPercentile = data.topPercentage != null
+    ? Math.max(0, 1 - toNumber(data.topPercentage) / 100)
+    : null;
+
+  const contestParticipation = data.contestsParticipated != null
+    ? logNorm(data.contestsParticipated, 75)
+    : null;
+
+  const hardFocus = data.hardSolved != null ? logNorm(data.hardSolved, 200) : null;
+  const badges = data.badgesEarned != null ? logNorm(data.badgesEarned, 25) : null;
+
+  const signals = [
+    { name: 'depth_score', value: depthScore, weight: 0.24 },
+    { name: 'contest_rating', value: contestRating, weight: 0.22 },
+    { name: 'hard_focus', value: hardFocus, weight: 0.14 },
+    { name: 'consistency', value: consistency, weight: 0.13 },
+    { name: 'rank_percentile', value: rankPercentile, weight: 0.11 },
+    { name: 'contest_participation', value: contestParticipation, weight: 0.1 },
+    { name: 'acceptance_quality', value: acceptance, weight: 0.04 },
+    { name: 'badges', value: badges, weight: 0.02 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreCodeforces(data = {}) {
+  const currentRating = data.currentRating != null
+    ? piecewiseNorm(data.currentRating, CF_TIERS)
+    : data.rating != null
+      ? piecewiseNorm(data.rating, CF_TIERS)
+      : null;
+
+  const peakRating = data.maxRating != null ? piecewiseNorm(data.maxRating, CF_TIERS) * 0.85 : null;
+
+  const rawCurrent = toNumber(data.currentRating, toNumber(data.rating));
+  const rawPeak = toNumber(data.maxRating);
+  const ratingGap = rawCurrent > 0 && rawPeak > 0 ? Math.max(0, rawPeak - rawCurrent) : 0;
+  const stabilityMultiplier = Math.max(0.5, 1 - ratingGap / 500);
+  const effectiveCurrentRating = currentRating != null ? currentRating * stabilityMultiplier : null;
+
+  const contestActivity = data.contestsParticipated != null ? logNorm(data.contestsParticipated, 100) : null;
+  const solveVolume = data.totalSolved != null ? logNorm(data.totalSolved, 1000) : null;
+
+  const recentActivity = (() => {
+    if (!Array.isArray(data.dailySubmissions) || !data.dailySubmissions.length) return null;
+    const last30 = data.dailySubmissions.filter((entry) => (Date.now() - new Date(entry.date).getTime()) / 86400000 <= 30);
+    const count = last30.reduce((sum, entry) => sum + toNumber(entry.count), 0);
+    return logNorm(count, 60);
+  })();
+
+  const ratingTrajectory = (() => {
+    if (!Array.isArray(data.ratingHistory) || data.ratingHistory.length < 4) return null;
+    const sorted = [...data.ratingHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const n = sorted.length;
+    const earlyWindow = Math.min(3, n);
+    const recentWindow = Math.min(5, n);
+
+    const earlyAvg = sorted.slice(0, earlyWindow).reduce((sum, row) => sum + toNumber(row.rating, toNumber(row.newRating)), 0) / earlyWindow;
+    const recentAvg = sorted.slice(-recentWindow).reduce((sum, row) => sum + toNumber(row.rating, toNumber(row.newRating)), 0) / recentWindow;
+
+    return linearNorm(recentAvg - earlyAvg + 500, 1000);
+  })();
+
+  const signals = [
+    { name: 'current_rating', value: effectiveCurrentRating, weight: 0.36 },
+    { name: 'peak_rating', value: peakRating, weight: 0.14 },
+    { name: 'contest_activity', value: contestActivity, weight: 0.22 },
+    { name: 'solve_volume', value: solveVolume, weight: 0.14 },
+    { name: 'recent_activity', value: recentActivity, weight: 0.1 },
+    { name: 'trajectory', value: ratingTrajectory, weight: 0.04 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreHackerRank(data = {}) {
+  const starScore = data.totalStars != null ? logNorm(data.totalStars, 80) : null;
+
+  const badgeQuality = Array.isArray(data.badges)
+    ? logNorm(data.badges.filter((b) => toNumber(b.stars) >= 4).length, 10) * 0.6
+      + logNorm(data.totalBadges ?? 0, 20) * 0.4
+    : data.totalBadges != null
+      ? logNorm(data.totalBadges, 20)
+      : null;
+
+  const levelMap = {
+    emerging: 0.15,
+    developer: 0.3,
+    intermediate: 0.5,
+    expert: 0.75,
+    professional: 0.9,
+    master: 1.0,
+  };
+
+  let levelScore = null;
+  if (typeof data.level === 'number') {
+    levelScore = linearNorm(data.level, 10);
+  } else if (typeof data.level === 'string') {
+    levelScore = levelMap[String(data.level).trim().toLowerCase()] ?? 0.2;
   }
 
-  return Object.fromEntries(
-    connectedPlatforms.map((platform) => [platform, raw[platform] / total])
+  const contestScore = data.contestsParticipated != null ? logNorm(data.contestsParticipated, 30) : null;
+
+  const domainBreadth = Array.isArray(data.badges)
+    ? logNorm(data.badges.filter((b) => toNumber(b.stars) >= 3).length, 6)
+    : data.domainScores && typeof data.domainScores === 'object'
+      ? logNorm(Object.keys(data.domainScores).length, 6)
+      : null;
+
+  const signals = [
+    { name: 'stars', value: starScore, weight: 0.32 },
+    { name: 'badge_quality', value: badgeQuality, weight: 0.24 },
+    { name: 'level', value: levelScore, weight: 0.22 },
+    { name: 'domain_breadth', value: domainBreadth, weight: 0.12 },
+    { name: 'contests', value: contestScore, weight: 0.1 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreCodeChef(data = {}) {
+  const starsCount = data.starsCount != null ? data.starsCount : parseStarsCount(data.stars);
+
+  const currentRating = data.currentRating != null ? piecewiseNorm(data.currentRating, CC_RATING_TIERS) : null;
+  const peakRating = data.highestRating != null ? piecewiseNorm(data.highestRating, CC_RATING_TIERS) * 0.8 : null;
+
+  const ratingScore = currentRating != null || peakRating != null
+    ? (currentRating ?? 0) * 0.7 + (peakRating ?? 0) * 0.3
+    : null;
+
+  const solveVolume = data.fullySolvedCount != null
+    ? logNorm(data.fullySolvedCount, 500)
+    : data.problemsSolved != null
+      ? logNorm(data.problemsSolved, 500)
+      : null;
+
+  const contestActivity = data.contestCount != null ? logNorm(data.contestCount, 100) : null;
+
+  const globalRankScore = data.globalRank != null && data.globalRank > 0
+    ? Math.max(0, 1 - Math.log10(data.globalRank) / Math.log10(200000))
+    : null;
+
+  const starScore = starsCount != null ? linearNorm(starsCount, 7) : null;
+
+  const signals = [
+    { name: 'rating', value: ratingScore, weight: 0.4 },
+    { name: 'solve_volume', value: solveVolume, weight: 0.22 },
+    { name: 'contest', value: contestActivity, weight: 0.18 },
+    { name: 'global_rank', value: globalRankScore, weight: 0.12 },
+    { name: 'stars', value: starScore, weight: 0.08 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreKaggle(data = {}) {
+  const tierScores = {
+    novice: 0.05,
+    contributor: 0.2,
+    expert: 0.48,
+    master: 0.73,
+    grandmaster: 0.93,
+  };
+
+  const tierKey = String(data.tier || '').trim().toLowerCase();
+  const tierScore = tierKey ? (tierScores[tierKey] ?? 0.05) : null;
+
+  const medalPoints = data.goldMedals != null || data.silverMedals != null || data.bronzeMedals != null
+    ? toNumber(data.goldMedals) * 3 + toNumber(data.silverMedals) * 2 + toNumber(data.bronzeMedals)
+    : data.totalMedals != null
+      ? toNumber(data.totalMedals)
+      : null;
+  const medalScore = medalPoints != null ? logNorm(medalPoints, 25) : null;
+
+  const competitionMedals = medalBucketTotal(data.competitionMedals);
+  const notebookMedals = medalBucketTotal(data.notebookMedals);
+  const datasetMedals = medalBucketTotal(data.datasetMedals);
+
+  const medalDiversityBonus = competitionMedals > 0 && notebookMedals > 0 && datasetMedals > 0 ? 0.06 : 0;
+
+  const notebookImpact = data.notebookVotesReceived != null ? logNorm(data.notebookVotesReceived, 500) : null;
+  const datasetImpact = data.datasetDownloads != null ? logNorm(data.datasetDownloads, 10000) : null;
+  const community = data.followers != null ? logNorm(data.followers, 500) : null;
+  const competitionActivity = data.competitionsCount != null ? logNorm(data.competitionsCount, 50) : null;
+
+  const signals = [
+    { name: 'tier', value: tierScore, weight: 0.35 },
+    {
+      name: 'medals',
+      value: medalScore != null ? Math.min(1, medalScore + medalDiversityBonus) : null,
+      weight: 0.27,
+    },
+    { name: 'notebook_impact', value: notebookImpact, weight: 0.16 },
+    { name: 'dataset_impact', value: datasetImpact, weight: 0.1 },
+    { name: 'competition_activity', value: competitionActivity, weight: 0.07 },
+    { name: 'community', value: community, weight: 0.05 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+function scoreHuggingFace(data = {}) {
+  let totalDownloads = toNumber(data.modelDownloads) + toNumber(data.datasetDownloads) * 0.5;
+  if (totalDownloads <= 0 && data.totalDownloads != null) {
+    totalDownloads = toNumber(data.totalDownloads);
+  }
+
+  const downloadImpact = totalDownloads > 0 ? logNorm(totalDownloads, 100000) : null;
+  const modelDepth = data.modelsPublished != null ? logNorm(data.modelsPublished, 20) : null;
+
+  const contentTotal = data.modelsPublished != null || data.datasetsPublished != null || data.spacesCreated != null
+    ? toNumber(data.modelsPublished)
+      + toNumber(data.datasetsPublished) * 1.2
+      + toNumber(data.spacesCreated) * 0.8
+    : null;
+  const contentBreadth = contentTotal != null ? logNorm(contentTotal, 40) : null;
+
+  const likeScore = data.totalLikes != null
+    ? logNorm(data.totalLikes, 1000)
+    : data.spacesLikes != null
+      ? logNorm(data.spacesLikes, 200)
+      : null;
+
+  const community = data.followers != null ? logNorm(data.followers, 1000) : null;
+
+  const pipelineDiversity = Array.isArray(data.topModels) && data.topModels.length
+    ? logNorm(
+      new Set(data.topModels.map((model) => model.pipeline || model.pipeline_tag).filter(Boolean)).size,
+      5
+    )
+    : null;
+
+  const signals = [
+    { name: 'download_impact', value: downloadImpact, weight: 0.3 },
+    { name: 'model_depth', value: modelDepth, weight: 0.24 },
+    { name: 'content_breadth', value: contentBreadth, weight: 0.18 },
+    { name: 'likes', value: likeScore, weight: 0.14 },
+    { name: 'community', value: community, weight: 0.08 },
+    { name: 'pipeline_diversity', value: pipelineDiversity, weight: 0.06 },
+  ];
+
+  const result = combineSignals(signals);
+  return {
+    ...result,
+    signals: Object.fromEntries(signals.map((s) => [s.name, s.value])),
+  };
+}
+
+const PLATFORM_SCORERS = {
+  github: scoreGitHub,
+  leetcode: scoreLeetCode,
+  codeforces: scoreCodeforces,
+  hackerrank: scoreHackerRank,
+  codechef: scoreCodeChef,
+  kaggle: scoreKaggle,
+  huggingface: scoreHuggingFace,
+};
+
+function aggregatePlatforms(platformResults, domain, secondaryDomain) {
+  const primaryAff = DOMAIN_AFFINITIES[domain] || DOMAIN_AFFINITIES.all_rounder;
+  const secondaryAff = secondaryDomain ? (DOMAIN_AFFINITIES[secondaryDomain] || primaryAff) : null;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  let activePlatformCount = 0;
+  const effectiveWeights = {};
+
+  for (const platform of ALL_PLATFORMS) {
+    const result = platformResults[platform];
+    if (!result) continue;
+
+    if (result.score < 0.12 && result.confidence < 0.28) continue;
+
+    const primaryAffinity = toNumber(primaryAff[platform]);
+    const secondaryAffinity = secondaryAff ? toNumber(secondaryAff[platform]) : primaryAffinity;
+    const blendedAffinity = secondaryDomain
+      ? primaryAffinity * 0.7 + secondaryAffinity * 0.3
+      : primaryAffinity;
+
+    const effectiveWeight = blendedAffinity * (0.35 + 0.65 * result.confidence);
+    if (effectiveWeight <= 0) continue;
+
+    weightedSum += result.score * effectiveWeight;
+    totalWeight += effectiveWeight;
+    effectiveWeights[platform] = effectiveWeight;
+
+    if (result.score >= 0.2) activePlatformCount += 1;
+  }
+
+  if (totalWeight <= 0) {
+    return {
+      rawRatio: 0,
+      normalizedWeights: {},
+      activePlatformCount: 0,
+    };
+  }
+
+  const baseScore = weightedSum / totalWeight;
+  const breadthBonus = Math.min(0.06, Math.max(0, activePlatformCount - 1) * 0.015);
+  const rawRatio = Math.min(1, baseScore + breadthBonus);
+
+  const normalizedWeights = Object.fromEntries(
+    Object.entries(effectiveWeights).map(([platform, weight]) => [platform, weight / totalWeight])
   );
+
+  return {
+    rawRatio,
+    normalizedWeights,
+    activePlatformCount,
+  };
 }
 
-function amplifyRawScore(rawScore) {
-  const raw = clamp(toNumber(rawScore), 0, 100);
-  if (raw < 20) return raw * 5;
-  if (raw < 50) return 100 + (raw - 20) * 10;
-  if (raw < 75) return 400 + (raw - 50) * 20;
-  return 900 + (raw - 75) * 4;
+function computePillars(platformResults) {
+  const scoreOf = (platform) => platformResults[platform]?.score ?? null;
+  const confidenceOf = (platform) => platformResults[platform]?.confidence ?? 0;
+  const signalOf = (platform, signalId) => platformResults[platform]?.signals?.[signalId] ?? null;
+
+  const problemSolving = combineSignals([
+    { name: 'leetcode', value: scoreOf('leetcode'), weight: 1.0 * confidenceOf('leetcode') },
+    { name: 'codeforces', value: scoreOf('codeforces'), weight: 1.0 * confidenceOf('codeforces') },
+    { name: 'codechef', value: scoreOf('codechef'), weight: 0.75 * confidenceOf('codechef') },
+    { name: 'hackerrank', value: scoreOf('hackerrank'), weight: 0.5 * confidenceOf('hackerrank') },
+  ]);
+
+  const building = combineSignals([
+    { name: 'gh_repos', value: signalOf('github', 'repo_quality'), weight: 1.0 },
+    { name: 'hf_models', value: signalOf('huggingface', 'model_depth'), weight: 0.9 },
+    { name: 'hf_breadth', value: signalOf('huggingface', 'content_breadth'), weight: 0.7 },
+    { name: 'kg_nb', value: signalOf('kaggle', 'notebook_impact'), weight: 0.6 },
+  ]);
+
+  const community = combineSignals([
+    { name: 'gh_community', value: signalOf('github', 'community'), weight: 1.0 },
+    { name: 'gh_stars', value: signalOf('github', 'repo_quality'), weight: 0.8 },
+    { name: 'hf_downloads', value: signalOf('huggingface', 'download_impact'), weight: 0.7 },
+    { name: 'hf_likes', value: signalOf('huggingface', 'likes'), weight: 0.6 },
+    { name: 'kg_community', value: signalOf('kaggle', 'community'), weight: 0.5 },
+    { name: 'kg_nb_votes', value: signalOf('kaggle', 'notebook_impact'), weight: 0.45 },
+  ]);
+
+  const consistency = combineSignals([
+    { name: 'gh_consistency', value: signalOf('github', 'consistency'), weight: 1.0 },
+    { name: 'gh_streak', value: signalOf('github', 'streak'), weight: 0.8 },
+    { name: 'lc_consistency', value: signalOf('leetcode', 'consistency'), weight: 0.9 },
+    { name: 'cf_recent', value: signalOf('codeforces', 'recent_activity'), weight: 0.7 },
+    { name: 'cf_trajectory', value: signalOf('codeforces', 'trajectory'), weight: 0.4 },
+  ]);
+
+  const specialization = combineSignals([
+    { name: 'lc_hard', value: signalOf('leetcode', 'hard_focus'), weight: 0.9 },
+    { name: 'cf_rating', value: signalOf('codeforces', 'current_rating'), weight: 0.9 },
+    { name: 'hf_pipeline', value: signalOf('huggingface', 'pipeline_diversity'), weight: 0.8 },
+    { name: 'kg_tier', value: signalOf('kaggle', 'tier'), weight: 0.85 },
+    { name: 'gh_collab', value: signalOf('github', 'collaboration'), weight: 0.7 },
+  ]);
+
+  return {
+    problemSolving: Math.round(problemSolving.score * 100),
+    building: Math.round(building.score * 100),
+    community: Math.round(community.score * 100),
+    consistency: Math.round(consistency.score * 100),
+    specialization: Math.round(specialization.score * 100),
+  };
 }
 
-function getGrade(percentile) {
+function transformToDevScore(rawRatio) {
+  const clamped = clamp(rawRatio, 0, 1);
+  return Math.round(Math.pow(clamped, 1.15) * 1000);
+}
+
+function gradeFromDevScore(score) {
+  if (score >= 920) return 'S';
+  if (score >= 820) return 'A+';
+  if (score >= 700) return 'A';
+  if (score >= 580) return 'B+';
+  if (score >= 450) return 'B';
+  if (score >= 300) return 'C+';
+  if (score >= 180) return 'C';
+  return 'D';
+}
+
+function pillarGradeFromPercentile(percentile) {
   if (percentile >= 95) return 'A+';
   if (percentile >= 85) return 'A';
   if (percentile >= 75) return 'B+';
@@ -1073,222 +798,238 @@ function getGrade(percentile) {
   return 'F';
 }
 
-function computePillarFromPlatformScores(platformScores, weightMap, max = 200) {
-  const entries = Object.entries(weightMap || {}).filter(([platform]) => platformScores[platform] != null);
-  if (entries.length === 0) {
-    return { score: 0, max, percentile: 0, grade: 'N/A' };
-  }
-
-  const totalWeight = entries.reduce((sum, [, w]) => sum + toNumber(w), 0);
-  if (totalWeight <= 0) {
-    return { score: 0, max, percentile: 0, grade: 'N/A' };
-  }
-
-  const avg = entries.reduce((sum, [platform, w]) => sum + platformScores[platform] * toNumber(w), 0) / totalWeight;
-  const score = Math.round((clamp(avg, 0, 100) / 100) * max);
-  const percentile = Math.round(clamp(avg, 0, 100));
-
+function toLegacyPillar(percentileValue) {
+  const percentile = Math.round(clamp(toNumber(percentileValue), 0, 100));
   return {
-    score,
-    max,
+    score: Math.round((percentile / 100) * 200),
+    max: 200,
     percentile,
-    grade: getGrade(percentile),
+    grade: pillarGradeFromPercentile(percentile),
   };
 }
 
-function toDistribution(values, keys) {
-  const picked = keys.map((k) => Math.max(0, toNumber(values[k])));
-  const sum = picked.reduce((a, b) => a + b, 0);
-  if (sum <= 0) {
-    const eq = 1 / Math.max(1, keys.length);
-    return Object.fromEntries(keys.map((k) => [k, eq]));
-  }
-  return Object.fromEntries(keys.map((k, i) => [k, picked[i] / sum]));
+function formatSignalName(signalId) {
+  return String(signalId || '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-function cosineSimilarity(distA, distB, keys) {
-  let dot = 0;
-  let magA = 0;
-  let magB = 0;
-  for (const key of keys) {
-    const a = toNumber(distA[key]);
-    const b = toNumber(distB[key]);
-    dot += a * b;
-    magA += a * a;
-    magB += b * b;
-  }
-  if (magA <= 0 || magB <= 0) return 0;
-  return clamp(dot / (Math.sqrt(magA) * Math.sqrt(magB)), 0, 1);
-}
+function getSignalEntries(platformResults) {
+  const entries = [];
 
-function computeDomainFit(domainId, connectedPlatforms, platformScores) {
-  if (connectedPlatforms.length === 0) return 0;
+  for (const platform of ALL_PLATFORMS) {
+    const result = platformResults[platform];
+    if (!result) continue;
 
-  const domainWeights = normalizeConnectedWeights(DOMAIN_WEIGHT_MATRIX[domainId] || {}, domainId, connectedPlatforms);
-  const scoreWeights = toDistribution(platformScores, connectedPlatforms);
-  return Math.round(cosineSimilarity(scoreWeights, domainWeights, connectedPlatforms) * 100);
-}
+    for (const [signalId, signalValue] of Object.entries(result.signals || {})) {
+      if (signalValue == null || Number.isNaN(signalValue)) continue;
+      const score = Math.round(clamp(signalValue, 0, 1) * 100);
 
-function generateUnconnectedRecommendations(domainId, connectedSet) {
-  const domainWeights = DOMAIN_WEIGHT_MATRIX[domainId] || {};
-  const recommendations = Object.entries(domainWeights)
-    .filter(([platform, weight]) => !connectedSet.has(platform) && toNumber(weight) > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([platform, weight]) => ({
-      platform,
-      platformLabel: PLATFORM_LABELS[platform] || platform,
-      expectedWeight: Math.round(toNumber(weight)),
-      reason: `High relevance for ${DOMAIN_LABELS[domainId] || 'selected domain'}`,
-    }));
-
-  return recommendations;
-}
-
-function buildInsights(strongestSignals, weakSignals, unconnectedRecommendations) {
-  const strengths = strongestSignals.slice(0, 3).map((s) => {
-    return `${s.metric} on ${s.platformLabel} is strong (${Math.round(s.score)}/100)`;
-  });
-
-  const improvements = [];
-
-  for (const weak of weakSignals.slice(0, 3)) {
-    improvements.push(`Improve ${weak.metric.toLowerCase()} on ${weak.platformLabel} (${Math.round(weak.score)}/100)`);
-  }
-
-  for (const rec of unconnectedRecommendations.slice(0, 2)) {
-    improvements.push(`Connect ${rec.platformLabel} to strengthen your ${rec.expectedWeight}% domain coverage`);
-  }
-
-  return {
-    strengths: strengths.slice(0, 5),
-    improvements: improvements.slice(0, 5),
-  };
-}
-
-export function computeDevScore({ archetype, secondaryArchetype, platformData = {} }) {
-  const safeArchetype = archetype || 'none';
-  const safeSecondary = secondaryArchetype || 'none';
-
-  const connectedPlatforms = Object.keys(platformData).filter((platform) => isConnectedPlatform(platformData[platform]));
-  const connectedSet = new Set(connectedPlatforms);
-
-  const platformResults = {};
-  const platformScoreMap = {};
-  const allSignals = [];
-
-  for (const platform of connectedPlatforms) {
-    const scorer = PLATFORM_SCORERS[platform] || ((data) => scoreFallback(platform, data));
-    const result = scorer(platformData[platform] || {});
-    platformResults[platform] = result;
-    platformScoreMap[platform] = result.score;
-
-    for (const signal of result.signals) {
-      if (!signal.available) continue;
-      allSignals.push({
+      entries.push({
+        key: `${platform}.${signalId}`,
         platform,
         platformLabel: PLATFORM_LABELS[platform] || platform,
-        metric: signal.label,
-        signalId: signal.id,
-        score: signal.score,
-        weight: signal.effectiveWeight,
-        rawValue: signal.rawValue,
+        signalId,
+        metric: formatSignalName(signalId),
+        score,
+        value: signalValue,
       });
     }
   }
 
-  const primaryDomain = resolveDomainFromArchetype(archetype);
-  const secondaryDomain = resolveDomainFromArchetype(secondaryArchetype);
-  const blendedDomainWeights = blendDomainWeights(primaryDomain, secondaryDomain);
-  const connectedWeights = normalizeConnectedWeights(blendedDomainWeights, primaryDomain, connectedPlatforms);
+  entries.sort((a, b) => b.value - a.value);
+  return entries;
+}
 
-  const weightedRawScore = connectedPlatforms.reduce((sum, platform) => {
-    return sum + platformScoreMap[platform] * toNumber(connectedWeights[platform]);
-  }, 0);
+function computeDiagnostics(domain, platformResults) {
+  const connectedPlatforms = ALL_PLATFORMS.filter((platform) => platformResults[platform] != null);
+  const activePlatforms = ALL_PLATFORMS.filter(
+    (platform) => (platformResults[platform]?.score ?? 0) >= 0.2 && (platformResults[platform]?.confidence ?? 0) >= 0.28
+  );
 
-  const overallScore = Math.round(clamp(amplifyRawScore(weightedRawScore), 0, 1000));
-  const rawScoreRounded = Math.round(weightedRawScore * 100) / 100;
+  const allSignals = getSignalEntries(platformResults);
+  const strongestSignals = allSignals.slice(0, 5);
+  const weakSignals = allSignals.filter((signal) => signal.value < 0.3).slice(-5);
 
-  const strongestSignals = allSignals
-    .filter((s) => s.score >= 70)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 6);
+  const strongestSignalKeys = strongestSignals.map((signal) => signal.key);
+  const weakSignalKeys = weakSignals.map((signal) => signal.key);
 
-  const weakSignals = allSignals
-    .filter((s) => s.score < 35)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 8);
+  const affinities = DOMAIN_AFFINITIES[domain] || DOMAIN_AFFINITIES.all_rounder;
+  const actualAffinity = connectedPlatforms.reduce((sum, platform) => sum + toNumber(affinities[platform]), 0);
+  const maxAffinity = ALL_PLATFORMS.reduce((sum, platform) => sum + toNumber(affinities[platform]), 0);
+  const domainFitScore = maxAffinity > 0 ? Math.round((actualAffinity / maxAffinity) * 100) : 0;
 
-  const unconnectedRecommendations = generateUnconnectedRecommendations(primaryDomain, connectedSet);
+  const domainScores = Object.keys(DOMAIN_AFFINITIES).map((domainId) => ({
+    domain: domainId,
+    score: activePlatforms.reduce(
+      (sum, platform) => sum + toNumber(DOMAIN_AFFINITIES[domainId][platform]) * toNumber(platformResults[platform]?.score),
+      0
+    ),
+  }));
 
-  const domainFitScores = Object.keys(DOMAIN_WEIGHT_MATRIX)
-    .map((domainId) => ({
-      domainId,
-      score: computeDomainFit(domainId, connectedPlatforms, platformScoreMap),
-    }))
-    .sort((a, b) => b.score - a.score);
+  domainScores.sort((a, b) => b.score - a.score);
+  const suggestedDomain = domainScores[0]?.domain || 'all_rounder';
 
-  const selectedDomainFit = computeDomainFit(primaryDomain, connectedPlatforms, platformScoreMap);
-  const bestFit = domainFitScores[0] || { domainId: primaryDomain, score: selectedDomainFit };
-  const suggestedDomain = bestFit.domainId !== primaryDomain && bestFit.score - selectedDomainFit >= 10
-    ? bestFit.domainId
+  const unconnectedPlatforms = ALL_PLATFORMS.filter((platform) => !platformResults[platform]);
+  const unconnectedPlatformRecommendations = unconnectedPlatforms
+    .filter((platform) => toNumber(affinities[platform]) >= 0.45)
+    .sort((a, b) => toNumber(affinities[b]) - toNumber(affinities[a]))
+    .slice(0, 3)
+    .map((platform) => ({
+      platform,
+      platformLabel: PLATFORM_LABELS[platform] || platform,
+      expectedWeight: Math.round(toNumber(affinities[platform]) * 100),
+      reason: `High relevance for ${DOMAIN_LABELS[domain] || 'selected domain'}`,
+    }));
+
+  const totalConfidence = connectedPlatforms.length
+    ? Math.round((connectedPlatforms.reduce((sum, platform) => sum + toNumber(platformResults[platform]?.confidence), 0) / connectedPlatforms.length) * 100) / 100
+    : 0;
+
+  const domainFitCandidates = domainScores.slice(0, 5).map((entry) => ({
+    domain: entry.domain,
+    label: DOMAIN_LABELS[entry.domain] || entry.domain,
+    score: Math.round(entry.score * 100),
+  }));
+
+  return {
+    strongestSignals,
+    weakSignals,
+    strongestSignalKeys,
+    weakSignalKeys,
+    domainFitScore,
+    suggestedDomain,
+    suggestedDomainLabel: DOMAIN_LABELS[suggestedDomain] || suggestedDomain,
+    unconnectedPlatformRecommendations,
+    totalConfidence,
+    connectedPlatforms,
+    activePlatforms,
+    domainFitCandidates,
+  };
+}
+
+function buildStrengths(diagnostics) {
+  return diagnostics.strongestSignals.slice(0, 3).map((signal) => {
+    return `${signal.metric} on ${signal.platformLabel} is strong (${Math.round(signal.score)}/100)`;
+  });
+}
+
+function buildImprovements(diagnostics) {
+  const improvements = [];
+
+  for (const signal of diagnostics.weakSignals.slice(0, 3)) {
+    improvements.push(`Improve ${String(signal.metric).toLowerCase()} on ${signal.platformLabel} (${Math.round(signal.score)}/100)`);
+  }
+
+  for (const recommendation of diagnostics.unconnectedPlatformRecommendations.slice(0, 2)) {
+    improvements.push(`Connect ${recommendation.platformLabel} to strengthen your ${recommendation.expectedWeight}% domain coverage`);
+  }
+
+  return improvements;
+}
+
+export function computeDevScore({
+  archetype,
+  secondaryArchetype,
+  domain,
+  secondaryDomain,
+  platformData = {},
+} = {}) {
+  const safeArchetype = archetype || 'none';
+  const safeSecondaryArchetype = secondaryArchetype || 'none';
+
+  const selectedDomain = normalizeDomain(domain || archetype);
+  const hasSecondaryDomain = Boolean(
+    (secondaryDomain && String(secondaryDomain).toLowerCase() !== 'none')
+      || (secondaryArchetype && String(secondaryArchetype).toLowerCase() !== 'none')
+  );
+
+  let resolvedSecondaryDomain = hasSecondaryDomain
+    ? normalizeDomain(secondaryDomain || secondaryArchetype)
     : null;
 
+  if (resolvedSecondaryDomain === selectedDomain) {
+    resolvedSecondaryDomain = null;
+  }
+
+  const connectedPlatforms = ALL_PLATFORMS.filter((platform) => {
+    const value = platformData[platform];
+    return value && typeof value === 'object' && Object.keys(value).length > 0;
+  });
+
+  const platformResults = {};
+  for (const platform of connectedPlatforms) {
+    const scorer = PLATFORM_SCORERS[platform];
+    if (!scorer) continue;
+    platformResults[platform] = scorer(platformData[platform] || {});
+  }
+
+  const aggregation = aggregatePlatforms(platformResults, selectedDomain, resolvedSecondaryDomain);
+  const rawRatio = aggregation.rawRatio;
+
+  const overallScore = transformToDevScore(rawRatio);
+  const rawScore = Math.round(rawRatio * 100);
+  const weightedRawScore = rawScore;
+
+  const rawPillars = computePillars(platformResults);
   const pillars = {
-    problemSolving: computePillarFromPlatformScores(platformScoreMap, PILLAR_WEIGHTS.problemSolving, 200),
-    building: computePillarFromPlatformScores(platformScoreMap, PILLAR_WEIGHTS.building, 200),
-    community: computePillarFromPlatformScores(platformScoreMap, PILLAR_WEIGHTS.community, 200),
-    consistency: computePillarFromPlatformScores(platformScoreMap, PILLAR_WEIGHTS.consistency, 200),
-    specialization: {
-      score: Math.round((clamp(weightedRawScore, 0, 100) / 100) * 200),
-      max: 200,
-      percentile: Math.round(clamp(weightedRawScore, 0, 100)),
-      grade: getGrade(Math.round(clamp(weightedRawScore, 0, 100))),
-    },
+    problemSolving: toLegacyPillar(rawPillars.problemSolving),
+    building: toLegacyPillar(rawPillars.building),
+    community: toLegacyPillar(rawPillars.community),
+    consistency: toLegacyPillar(rawPillars.consistency),
+    specialization: toLegacyPillar(rawPillars.specialization),
   };
 
-  const { strengths, improvements } = buildInsights(strongestSignals, weakSignals, unconnectedRecommendations);
+  const diagnosticsBase = computeDiagnostics(selectedDomain, platformResults);
+  const diagnostics = {
+    selectedDomain,
+    selectedDomainLabel: DOMAIN_LABELS[selectedDomain] || 'All Rounder',
+    ...diagnosticsBase,
+  };
 
-  const platformScores = Object.fromEntries(
-    connectedPlatforms.map((platform) => [
-      platform,
-      {
-        platformLabel: PLATFORM_LABELS[platform] || platform,
-        score: Math.round(platformScoreMap[platform] * 100) / 100,
-        weight: Math.round(toNumber(connectedWeights[platform]) * 10000) / 10000,
-        coverage: Math.round((platformResults[platform]?.coverage || 0) * 100) / 100,
-      },
-    ])
-  );
+  const platformScores = {};
+  for (const platform of connectedPlatforms) {
+    const result = platformResults[platform];
+    const normalizedWeight = toNumber(aggregation.normalizedWeights[platform]);
+
+    platformScores[platform] = {
+      platformLabel: PLATFORM_LABELS[platform] || platform,
+      score: Math.round(toNumber(result?.score) * 10000) / 100,
+      confidence: Math.round(toNumber(result?.confidence) * 100) / 100,
+      coverage: Math.round(toNumber(result?.confidence) * 100) / 100,
+      weight: Math.round(normalizedWeight * 10000) / 10000,
+      active: normalizedWeight > 0,
+    };
+  }
+
+  const strengths = buildStrengths(diagnostics);
+  const improvements = buildImprovements(diagnostics);
 
   return {
     overallScore,
+    devScore: overallScore,
     maxScore: 1000,
-    rawScore: rawScoreRounded,
-    weightedRawScore: rawScoreRounded,
+    rawScore,
+    weightedRawScore,
+    grade: gradeFromDevScore(overallScore),
+
     archetype: safeArchetype,
-    secondaryArchetype: safeSecondary,
-    domain: primaryDomain,
-    domainLabel: DOMAIN_LABELS[primaryDomain] || 'All Rounder',
+    secondaryArchetype: safeSecondaryArchetype,
+    domain: selectedDomain,
+    domainLabel: DOMAIN_LABELS[selectedDomain] || 'All Rounder',
+
     connectedPlatforms: connectedPlatforms.length,
     pillars,
     strengths,
     improvements,
     platformScores,
-    diagnostics: {
-      selectedDomain: primaryDomain,
-      selectedDomainLabel: DOMAIN_LABELS[primaryDomain] || 'All Rounder',
-      strongestSignals: strongestSignals.slice(0, 3),
-      weakSignals: weakSignals.slice(0, 5),
-      unconnectedPlatformRecommendations: unconnectedRecommendations,
-      domainFitScore: selectedDomainFit,
-      suggestedDomain,
-      suggestedDomainLabel: suggestedDomain ? (DOMAIN_LABELS[suggestedDomain] || suggestedDomain) : null,
-      domainFitCandidates: domainFitScores.slice(0, 5).map((entry) => ({
-        domain: entry.domainId,
-        label: DOMAIN_LABELS[entry.domainId] || entry.domainId,
-        score: entry.score,
-      })),
+    diagnostics,
+
+    meta: {
+      scoringVersion: SCORING_VERSION,
+      timestamp: new Date().toISOString(),
     },
   };
 }

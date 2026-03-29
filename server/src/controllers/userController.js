@@ -10,7 +10,7 @@ function serializeUser(user) {
     role: user.role,
     archetype: user.archetype,
     secondaryArchetype: user.secondaryArchetype,
-    // All 15 platform handles
+    // Supported platform handles
     ...user.getPlatformData(),
   };
 }
@@ -31,22 +31,14 @@ export const updateMe = asyncHandler(async (req, res) => {
     'displayName',
     'archetype',
     'secondaryArchetype',
-    // All 15 platforms
+    // Supported platforms
     'githubUsername',
     'leetcodeUsername',
     'codeforcesUsername',
     'hackerrankUsername',
     'codechefUsername',
-    'gfgUsername',
     'kaggleUsername',
-    'atcoderUsername',
-    'hackerEarthUsername',
     'huggingfaceUsername',
-    'stackoverflowUserId',
-    'devtoUsername',
-    'gitlabUsername',
-    'tryhackmeUsername',
-    'codesignalUsername',
   ];
   const updates = {};
 

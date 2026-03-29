@@ -105,15 +105,7 @@ export default function WrappedPage() {
       platformStats?.hackerrank?.dailyActivity,
       platformStats?.codechef?.dailyActivity,
       platformStats?.kaggle?.dailyActivity,
-      platformStats?.gfg?.dailyActivity,
-      platformStats?.atcoder?.dailyActivity,
-      platformStats?.stackoverflow?.dailyActivity,
-      platformStats?.hackerearth?.dailyActivity,
       platformStats?.huggingface?.dailyActivity,
-      platformStats?.tryhackme?.dailyActivity,
-      platformStats?.codesignal?.dailyActivity,
-      platformStats?.devto?.dailyActivity,
-      platformStats?.gitlab?.dailyActivity,
     ];
 
     return sumByYear(calendars, currentYear);
@@ -121,9 +113,7 @@ export default function WrappedPage() {
 
   const combinedSolved =
     (dsaStats?.leetcode?.totalSolved || 0) +
-    (dsaStats?.codeforces?.totalSolved || 0) +
-    (platformStats?.gfg?.totalProblemsSolved || 0) +
-    (platformStats?.hackerearth?.problemsSolved || 0);
+    (dsaStats?.codeforces?.totalSolved || 0);
 
   const highlights = [
     ...(diagnostics?.strongestSignals || []).slice(0, 3).map((signal) => `${signal.metric} on ${signal.platformLabel}`),
@@ -174,7 +164,7 @@ export default function WrappedPage() {
           <MetricCard label="Active Platforms" value={activePlatforms} hint="connected this account" />
           <MetricCard label={`${currentYear} Active Days`} value={yearSummary.activeDays} hint="days with recorded activity" />
           <MetricCard label={`${currentYear} Activity Events`} value={yearSummary.totalEvents} hint="sum across calendars" />
-          <MetricCard label="Problems Solved" value={combinedSolved} hint="LeetCode + CF + GFG + HE" />
+          <MetricCard label="Problems Solved" value={combinedSolved} hint="LeetCode + Codeforces" />
           <MetricCard
             label="Strongest Platform"
             value={strongestPlatform ? strongestPlatform.label : 'N/A'}

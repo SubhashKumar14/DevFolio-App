@@ -70,7 +70,7 @@ export function PlatformCard({ platform, onSync, isSyncing, readonly = false }) 
       {!readonly && (
         <CardFooter className="pt-2 border-t border-border mt-auto">
           <Button variant="ghost" className="w-full justify-between text-muted hover:text-foreground" asChild>
-            <Link to="/dashboard/analytics">
+            <Link to={`/dashboard/analytics?platform=${encodeURIComponent(platform.id)}`}>
               View Full Stats
               <ArrowRight className="h-4 w-4" />
             </Link>

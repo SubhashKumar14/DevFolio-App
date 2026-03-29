@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import apiClient from '@/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -132,9 +133,9 @@ export default function RecruiterPage() {
                   </div>
                 </div>
                 <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <a href={`/p/${encodeURIComponent(dev.displayName)}`} target="_blank" rel="noreferrer">
+                  <Link to={`/p/${encodeURIComponent(dev.displayName)}`}>
                     View Profile <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

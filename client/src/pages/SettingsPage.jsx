@@ -11,23 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle } from 'lucide-react';
 
-// ─── All 15 platforms ─────────────────────────────
+// ─── Supported platforms ─────────────────────────
 const ALL_PLATFORMS = [
-  { field: 'githubUsername', label: 'GitHub', placeholder: 'e.g. SubhashKumar14', color: '#39d353' },
-  { field: 'leetcodeUsername', label: 'LeetCode', placeholder: 'e.g. Subhash_Kumar14', color: '#FFA116' },
-  { field: 'codeforcesUsername', label: 'Codeforces', placeholder: 'e.g. tourist', color: '#3B82F6' },
-  { field: 'hackerrankUsername', label: 'HackerRank', placeholder: 'e.g. hr_user', color: '#00C38C' },
-  { field: 'codechefUsername', label: 'CodeChef', placeholder: 'e.g. chef_user', color: '#B57044' },
-  { field: 'kaggleUsername', label: 'Kaggle', placeholder: 'e.g. kaggle_user', color: '#20BEFF' },
-  { field: 'gfgUsername', label: 'GeeksforGeeks', placeholder: 'e.g. gfg_user', color: '#1FA759' },
-  { field: 'atcoderUsername', label: 'AtCoder', placeholder: 'e.g. atcoder_handle', color: '#00BFFF' },
-  { field: 'stackoverflowUserId', label: 'Stack Overflow', placeholder: 'e.g. 1234567 (user ID)', color: '#F48024' },
-  { field: 'hackerEarthUsername', label: 'HackerEarth', placeholder: 'e.g. @username', color: '#444CF7' },
-  { field: 'huggingfaceUsername', label: 'Hugging Face', placeholder: 'e.g. hf_user', color: '#FFD533' },
-  { field: 'tryhackmeUsername', label: 'TryHackMe', placeholder: 'e.g. thm_user', color: '#D43232' },
-  { field: 'codesignalUsername', label: 'CodeSignal', placeholder: 'e.g. cs_user', color: '#8149F3' },
-  { field: 'devtoUsername', label: 'Dev.to', placeholder: 'e.g. devto_user', color: '#5A67D8' },
-  { field: 'gitlabUsername', label: 'GitLab', placeholder: 'e.g. gitlab_user', color: '#FC6D26' },
+  { field: 'githubUsername', label: 'GitHub', placeholder: 'your_github_username', color: '#39d353' },
+  { field: 'leetcodeUsername', label: 'LeetCode', placeholder: 'your_leetcode_username', color: '#FFA116' },
+  { field: 'codeforcesUsername', label: 'Codeforces', placeholder: 'your_codeforces_username', color: '#3B82F6' },
+  { field: 'hackerrankUsername', label: 'HackerRank', placeholder: 'your_hackerrank_username', color: '#00C38C' },
+  { field: 'codechefUsername', label: 'CodeChef', placeholder: 'your_codechef_username', color: '#B57044' },
+  { field: 'kaggleUsername', label: 'Kaggle', placeholder: 'your_kaggle_username', color: '#20BEFF' },
+  { field: 'huggingfaceUsername', label: 'Hugging Face', placeholder: 'your_huggingface_username', color: '#FFD533' },
 ];
 
 // ─── 6 Archetypes ─────────────────────────────────
@@ -54,14 +46,16 @@ export default function SettingsPage() {
   // Profile form state
   const [displayNameDraft, setDisplayNameDraft] = useState(undefined);
   const [bioDraft, setBioDraft] = useState(undefined);
+  const [avatarUrlDraft, setAvatarUrlDraft] = useState(undefined);
   const [selectedArchetypeDraft, setSelectedArchetypeDraft] = useState(undefined);
   const [selectedSecondaryArchetypeDraft, setSelectedSecondaryArchetypeDraft] = useState(undefined);
 
-  // Platform form state — all 15
+  // Platform form state
   const [platformHandles, setPlatformHandles] = useState({});
 
   const displayName = displayNameDraft ?? user?.displayName ?? '';
   const bio = bioDraft ?? profile?.bio ?? '';
+  const avatarUrl = avatarUrlDraft ?? profile?.avatarUrl ?? '';
   const selectedArchetype = selectedArchetypeDraft ?? user?.archetype ?? '';
   const selectedSecondaryArchetype = selectedSecondaryArchetypeDraft ?? user?.secondaryArchetype ?? '';
 
@@ -74,6 +68,7 @@ export default function SettingsPage() {
     mutationFn: (data) => profileService.updateProfile(data),
     onSuccess: () => {
       setBioDraft(undefined);
+      setAvatarUrlDraft(undefined);
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
   });
@@ -97,7 +92,9 @@ export default function SettingsPage() {
   const connectPlatformsMutation = useMutation({
     mutationFn: (data) => integrationService.connectDsa(data),
     onSuccess: async (response) => {
-      const updatedUser = response.data?.data || response.data;
+      const updatedUser = response?.data?._id
+        ? response.data
+        : (response?._id ? response : null);
       if (updatedUser?._id) setUser(updatedUser);
       setPlatformHandles({});
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -122,7 +119,11 @@ export default function SettingsPage() {
       updates.secondaryArchetype = null;
     }
     if (Object.keys(updates).length > 0) updateUserMutation.mutate(updates);
-    if (bio !== (profile?.bio || '')) updateProfileMutation.mutate({ bio });
+
+    const profileUpdates = {};
+    if (bio !== (profile?.bio || '')) profileUpdates.bio = bio;
+    if (avatarUrl !== (profile?.avatarUrl || '')) profileUpdates.avatarUrl = avatarUrl.trim() || null;
+    if (Object.keys(profileUpdates).length > 0) updateProfileMutation.mutate(profileUpdates);
   };
 
   const handleConnectPlatforms = () => {
@@ -181,6 +182,17 @@ export default function SettingsPage() {
                     onChange={(e) => setBioDraft(e.target.value)}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="avatarUrl">Avatar URL</Label>
+                  <Input
+                    id="avatarUrl"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrlDraft(e.target.value)}
+                    placeholder="https://..."
+                  />
+                  <p className="text-xs text-muted">Used in the top navbar avatar and public profile card.</p>
+                </div>
               </CardContent>
               <CardFooter className="border-t border-border pt-6">
                 <Button onClick={handleSaveProfile} disabled={updateProfileMutation.isPending || updateUserMutation.isPending}>
@@ -190,11 +202,11 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {/* ─── Platforms Tab (All 15) ────────── */}
+          {/* ─── Platforms Tab ─────────────────── */}
           {activeTab === 'platforms' && (
             <Card className="animate-slide-up">
               <CardHeader>
-                <CardTitle>Connected Platforms ({ALL_PLATFORMS.filter(p => user?.[p.field]).length}/15)</CardTitle>
+                <CardTitle>Connected Platforms ({ALL_PLATFORMS.filter((p) => user?.[p.field]).length}/{ALL_PLATFORMS.length})</CardTitle>
                 <CardDescription>Enter your platform usernames or IDs to connect and sync your stats.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">

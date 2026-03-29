@@ -20,7 +20,7 @@ export function RootLayout() {
                 <span className="font-extrabold text-xl">Dev<span className="text-accent-cyan">Folio</span></span>
               </Link>
               <p className="text-sm text-muted max-w-xs leading-relaxed">
-                The unified developer profile platform. Track 15+ platforms, get your DevScore, and stand out to recruiters.
+                The unified developer profile platform. Track core coding platforms, get your DevScore, and stand out to recruiters.
               </p>
             </div>
 
@@ -40,7 +40,7 @@ export function RootLayout() {
               <div className="space-y-2">
                 <span className="block text-sm text-muted">GitHub · LeetCode</span>
                 <span className="block text-sm text-muted">Codeforces · Kaggle</span>
-                <span className="block text-sm text-muted">+ 11 more platforms</span>
+                <span className="block text-sm text-muted">HackerRank · CodeChef · Hugging Face</span>
               </div>
             </div>
           </div>

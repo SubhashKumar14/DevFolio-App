@@ -75,15 +75,7 @@ export default function PublicProfilePage() {
       userData?.hackerrankUsername,
       userData?.codechefUsername,
       userData?.kaggleUsername,
-      userData?.gfgUsername,
-      userData?.atcoderUsername,
-      userData?.stackoverflowUserId,
-      userData?.hackerEarthUsername,
       userData?.huggingfaceUsername,
-      userData?.tryhackmeUsername,
-      userData?.codesignalUsername,
-      userData?.devtoUsername,
-      userData?.gitlabUsername,
     ].filter(Boolean).length,
     currentStreak: 0,
   };
@@ -156,16 +148,6 @@ export default function PublicProfilePage() {
         username: userData.kaggleUsername,
         primaryStat: platformStats?.kaggle?.tier || 'Unknown',
         rating: `${platformStats?.kaggle?.totalMedals || 0} Medals`,
-        breakdown: null,
-      });
-    }
-
-    if (userData?.gfgUsername) {
-      list.push({
-        id: 'geeksforgeeks',
-        username: userData.gfgUsername,
-        primaryStat: `${platformStats?.gfg?.totalProblemsSolved || 0} Solved`,
-        rating: `Score: ${platformStats?.gfg?.score || 0}`,
         breakdown: null,
       });
     }
@@ -278,15 +260,7 @@ export default function PublicProfilePage() {
           hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
           codechefCalendar={platformStats?.codechef?.dailyActivity || []}
           kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-          gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-          atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
-          stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
-          hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
           huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
-          tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
-          codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
-          devtoCalendar={platformStats?.devto?.dailyActivity || []}
-          gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
         />
       </div>
 
@@ -301,15 +275,7 @@ export default function PublicProfilePage() {
             hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
             codechefCalendar={platformStats?.codechef?.dailyActivity || []}
             kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-            atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
-            stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
-            hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
             huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
-            tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
-            codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
-            devtoCalendar={platformStats?.devto?.dailyActivity || []}
-            gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
           />
         </div>
 

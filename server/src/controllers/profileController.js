@@ -35,15 +35,7 @@ export const getProfile = asyncHandler(async (req, res) => {
       'hackerrankUsername',
       'codechefUsername',
       'kaggleUsername',
-      'gfgUsername',
-      'atcoderUsername',
-      'stackoverflowUserId',
-      'hackerEarthUsername',
       'huggingfaceUsername',
-      'tryhackmeUsername',
-      'codesignalUsername',
-      'devtoUsername',
-      'gitlabUsername',
     ].join(' ')
   );
 

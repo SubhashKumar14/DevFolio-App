@@ -11,15 +11,7 @@ function calculateStreak(
   hackerrankCalendar = [],
   codechefCalendar = [],
   kaggleCalendar = [],
-  gfgCalendar = [],
-  atcoderCalendar = [],
-  stackoverflowCalendar = [],
-  hackerearthCalendar = [],
-  huggingfaceCalendar = [],
-  tryhackmeCalendar = [],
-  codesignalCalendar = [],
-  devtoCalendar = [],
-  gitlabCalendar = []
+  huggingfaceCalendar = []
 ) {
   // Build date->activity map
   const activityMap = new Map();
@@ -41,31 +33,7 @@ function calculateStreak(
   kaggleCalendar.forEach((d) => {
     activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
   });
-  gfgCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  atcoderCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  stackoverflowCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  hackerearthCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
   huggingfaceCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  tryhackmeCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  codesignalCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  devtoCalendar.forEach((d) => {
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
-  });
-  gitlabCalendar.forEach((d) => {
     activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
   });
 
@@ -95,15 +63,7 @@ export default function StreakCounter({
   hackerrankCalendar = [],
   codechefCalendar = [],
   kaggleCalendar = [],
-  gfgCalendar = [],
-  atcoderCalendar = [],
-  stackoverflowCalendar = [],
-  hackerearthCalendar = [],
   huggingfaceCalendar = [],
-  tryhackmeCalendar = [],
-  codesignalCalendar = [],
-  devtoCalendar = [],
-  gitlabCalendar = [],
 }) {
   const streak = useMemo(
     () => calculateStreak(
@@ -113,15 +73,7 @@ export default function StreakCounter({
       hackerrankCalendar,
       codechefCalendar,
       kaggleCalendar,
-      gfgCalendar,
-      atcoderCalendar,
-      stackoverflowCalendar,
-      hackerearthCalendar,
-      huggingfaceCalendar,
-      tryhackmeCalendar,
-      codesignalCalendar,
-      devtoCalendar,
-      gitlabCalendar
+      huggingfaceCalendar
     ),
     [
       githubCalendar,
@@ -130,15 +82,7 @@ export default function StreakCounter({
       hackerrankCalendar,
       codechefCalendar,
       kaggleCalendar,
-      gfgCalendar,
-      atcoderCalendar,
-      stackoverflowCalendar,
-      hackerearthCalendar,
       huggingfaceCalendar,
-      tryhackmeCalendar,
-      codesignalCalendar,
-      devtoCalendar,
-      gitlabCalendar,
     ]
   );
 

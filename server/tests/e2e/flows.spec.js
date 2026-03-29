@@ -37,4 +37,77 @@ describe('DevScore engine smoke tests', () => {
 		expect(result.pillars).toHaveProperty('consistency');
 		expect(result.pillars).toHaveProperty('specialization');
 	});
+
+	test('missing signals are excluded instead of zero-padded', async () => {
+		const { computeDevScore } = await import('../../src/services/devscoreEngine.js');
+
+		const result = computeDevScore({
+			archetype: 'problem_solver',
+			platformData: {
+				leetcode: {
+					totalSolved: 180,
+					easySolved: 70,
+					mediumSolved: 85,
+					hardSolved: 25,
+					// Intentionally missing contest metrics
+				},
+			},
+		});
+
+		expect(result.platformScores.leetcode.score).toBeGreaterThan(0);
+		expect(result.overallScore).toBeGreaterThan(0);
+	});
+
+	test('adding a dormant platform does not reduce score', async () => {
+		const { computeDevScore } = await import('../../src/services/devscoreEngine.js');
+
+		const baseline = computeDevScore({
+			archetype: 'builder',
+			platformData: {
+				github: {
+					publicRepos: 10,
+					totalCommits: 300,
+					starsReceived: 25,
+					pullRequestsTotal: 20,
+					pullRequestsMerged: 14,
+					followers: 8,
+				},
+				leetcode: {
+					totalSolved: 220,
+					easySolved: 90,
+					mediumSolved: 100,
+					hardSolved: 30,
+					contestRating: 1650,
+					contestsParticipated: 12,
+				},
+			},
+		});
+
+		const withDormant = computeDevScore({
+			archetype: 'builder',
+			platformData: {
+				github: {
+					publicRepos: 10,
+					totalCommits: 300,
+					starsReceived: 25,
+					pullRequestsTotal: 20,
+					pullRequestsMerged: 14,
+					followers: 8,
+				},
+				leetcode: {
+					totalSolved: 220,
+					easySolved: 90,
+					mediumSolved: 100,
+					hardSolved: 30,
+					contestRating: 1650,
+					contestsParticipated: 12,
+				},
+				kaggle: {
+					tier: 'Unknown',
+				},
+			},
+		});
+
+		expect(withDormant.overallScore).toBeGreaterThanOrEqual(baseline.overallScore);
+	});
 });

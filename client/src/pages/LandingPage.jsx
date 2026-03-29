@@ -112,15 +112,7 @@ const platformLogos = [
   { name: 'HackerRank', color: '#00C38C' },
   { name: 'CodeChef', color: '#B57044' },
   { name: 'Kaggle', color: '#20BEFF' },
-  { name: 'GFG', color: '#1FA759' },
-  { name: 'AtCoder', color: '#00BFFF' },
-  { name: 'Stack Overflow', color: '#F48024' },
-  { name: 'HackerEarth', color: '#444CF7' },
   { name: 'Hugging Face', color: '#FFD533' },
-  { name: 'TryHackMe', color: '#D43232' },
-  { name: 'CodeSignal', color: '#8149F3' },
-  { name: 'Dev.to', color: '#5A67D8' },
-  { name: 'GitLab', color: '#FC6D26' },
 ];
 
 function PlatformMarquee() {
@@ -225,7 +217,7 @@ export default function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-accent-cyan/30 bg-accent-cyan/5 text-accent-cyan text-sm font-medium animate-fade-in">
             <Sparkles className="w-4 h-4" />
-            15 Platforms · DevScore 0–1000 · AI-Powered Insights
+            7 Platforms · DevScore 0-1000 · AI-Powered Insights
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-devscore animate-fade-in leading-tight">
@@ -235,7 +227,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-muted animate-slide-up max-w-2xl mx-auto leading-relaxed">
-            Aggregate metrics from <span className="text-foreground-bright font-semibold">15+ platforms</span> including GitHub, LeetCode, Codeforces, Kaggle, and more into a single shareable profile with a unified <span className="text-accent-cyan font-semibold">DevScore</span>.
+            Aggregate metrics from <span className="text-foreground-bright font-semibold">7 focused platforms</span> including GitHub, LeetCode, Codeforces, and Kaggle into a single shareable profile with a unified <span className="text-accent-cyan font-semibold">DevScore</span>.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
@@ -256,7 +248,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center gap-8 md:gap-16 pt-8 animate-slide-up" style={{ animationDelay: '400ms' }}>
             <div className="text-center">
               <p className="text-3xl md:text-4xl font-extrabold text-foreground-bright">
-                <AnimatedNumber target={15} suffix="+" />
+                <AnimatedNumber target={7} />
               </p>
               <p className="text-sm text-muted mt-1">Platforms Tracked</p>
             </div>
@@ -371,8 +363,8 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard
               icon={Layers}
-              title="15+ Platform Integration"
-              description="Connect GitHub, LeetCode, Codeforces, Kaggle, HackerRank, CodeChef, and 9 more platforms in one click."
+              title="7 Platform Integration"
+              description="Connect GitHub, LeetCode, Codeforces, Kaggle, HackerRank, CodeChef, and Hugging Face in one flow."
               color="#06b6d4"
               delay="0ms"
             />
@@ -518,7 +510,7 @@ export default function LandingPage() {
               number={2}
               icon={GitBranch}
               title="Connect Platforms"
-              description="Link your GitHub, LeetCode, Codeforces, and up to 15 platforms in seconds."
+              description="Link your GitHub, LeetCode, Codeforces, and other core platforms in seconds."
             />
             <StepCard
               number={3}

@@ -16,13 +16,13 @@ const roles = [
   {
     id: 'developer',
     title: 'Developer',
-    description: 'Track your coding journey across 15+ platforms, build your portfolio, and showcase your DevScore.',
+    description: 'Track your coding journey across core platforms, build your portfolio, and showcase your DevScore.',
     icon: Code2,
     color: '#06b6d4',
     bgColor: 'bg-accent-cyan/10',
     borderColor: 'border-accent-cyan',
     textColor: 'text-accent-cyan',
-    features: ['15+ Platform Tracking', 'DevScore Analytics', 'Portfolio Builder', 'Archetype Selection'],
+    features: ['Platform Tracking', 'DevScore Analytics', 'Portfolio Builder', 'Archetype Selection'],
   },
   {
     id: 'recruiter',

@@ -39,6 +39,31 @@ function computeMaxStreak(dailyActivity) {
   return maxStreak;
 }
 
+function computeCurrentStreak(dailyActivity) {
+  if (!Array.isArray(dailyActivity) || dailyActivity.length === 0) return 0;
+
+  const activeDates = dailyActivity
+    .filter((d) => Number(d.count) > 0)
+    .map((d) => d.date)
+    .sort();
+
+  if (activeDates.length === 0) return 0;
+
+  let streak = 1;
+  for (let i = activeDates.length - 1; i > 0; i--) {
+    const curr = new Date(`${activeDates[i]}T00:00:00.000Z`);
+    const prev = new Date(`${activeDates[i - 1]}T00:00:00.000Z`);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+    if (diffDays === 1) {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
 /**
  * Fetch LeetCode stats via the unofficial GraphQL API.
  * @param {string} username - LeetCode username
@@ -65,9 +90,32 @@ export async function fetchLeetcodeStats(username) {
           id
           displayName
         }
+        tagProblemCounts {
+          fundamental {
+            tagName
+            problemsSolved
+          }
+          intermediate {
+            tagName
+            problemsSolved
+          }
+          advanced {
+            tagName
+            problemsSolved
+          }
+        }
+        languageProblemCount {
+          languageName
+          problemsSolved
+        }
+        profile {
+          reputation
+          solutionCount
+        }
       }
       userContestRanking(username: $username) {
         rating
+        globalRanking
         topPercentage
         attendedContestsCount
       }
@@ -105,12 +153,18 @@ export async function fetchLeetcodeStats(username) {
         hardSolved: 0,
         totalSolved: 0,
         contestRating: null,
+        contestGlobalRanking: null,
         acceptanceRate: null,
+        currentStreak: 0,
         activeDays: 0,
         maxStreak: 0,
         topPercentage: null,
         contestsParticipated: null,
         badgesEarned: 0,
+        categoryWiseProblemCount: [],
+        languagesUsed: [],
+        solutionCount: null,
+        reputation: null,
         dailyActivity: [],
       };
     }
@@ -129,7 +183,30 @@ export async function fetchLeetcodeStats(username) {
     const dailyActivity = parseDailyActivity(matchedUser.submissionCalendar);
     const activeDays = dailyActivity.filter((d) => Number(d.count) > 0).length;
     const maxStreak = computeMaxStreak(dailyActivity);
+    const currentStreak = computeCurrentStreak(dailyActivity);
     const contest = response.data?.data?.userContestRanking || null;
+
+    const categoryMap = new Map();
+    const tagBuckets = [
+      ...(matchedUser.tagProblemCounts?.fundamental || []),
+      ...(matchedUser.tagProblemCounts?.intermediate || []),
+      ...(matchedUser.tagProblemCounts?.advanced || []),
+    ];
+    for (const entry of tagBuckets) {
+      const tag = String(entry?.tagName || '').trim();
+      if (!tag) continue;
+      categoryMap.set(tag, (categoryMap.get(tag) || 0) + (Number(entry?.problemsSolved) || 0));
+    }
+    const categoryWiseProblemCount = [...categoryMap.entries()]
+      .map(([tag, solved]) => ({ tag, solved }))
+      .sort((a, b) => b.solved - a.solved);
+
+    const languagesUsed = (matchedUser.languageProblemCount || [])
+      .map((entry) => ({
+        language: entry?.languageName || 'Unknown',
+        solved: Number(entry?.problemsSolved) || 0,
+      }))
+      .sort((a, b) => b.solved - a.solved);
 
     return {
       easySolved: acStats.find((s) => s.difficulty === 'Easy')?.count || 0,
@@ -137,12 +214,18 @@ export async function fetchLeetcodeStats(username) {
       hardSolved: acStats.find((s) => s.difficulty === 'Hard')?.count || 0,
       totalSolved: acStats.find((s) => s.difficulty === 'All')?.count || 0,
       contestRating: contest?.rating ?? null,
+      contestGlobalRanking: contest?.globalRanking ?? null,
       acceptanceRate,
+      currentStreak,
       activeDays,
       maxStreak,
       topPercentage: contest?.topPercentage ?? null,
       contestsParticipated: contest?.attendedContestsCount ?? null,
       badgesEarned: Array.isArray(matchedUser.badges) ? matchedUser.badges.length : 0,
+      categoryWiseProblemCount,
+      languagesUsed,
+      solutionCount: matchedUser?.profile?.solutionCount ?? null,
+      reputation: matchedUser?.profile?.reputation ?? null,
       dailyActivity,
     };
   } catch {
@@ -162,12 +245,18 @@ export async function fetchLeetcodeStats(username) {
         hardSolved: 0,
         totalSolved: 0,
         contestRating: null,
+        contestGlobalRanking: null,
         acceptanceRate: null,
+        currentStreak: 0,
         activeDays: 0,
         maxStreak: 0,
         topPercentage: null,
         contestsParticipated: null,
         badgesEarned: 0,
+        categoryWiseProblemCount: [],
+        languagesUsed: [],
+        solutionCount: null,
+        reputation: null,
         dailyActivity: [],
       };
     }
@@ -176,6 +265,7 @@ export async function fetchLeetcodeStats(username) {
     const dailyActivity = parseDailyActivity(matchedUser.submissionCalendar);
     const activeDays = dailyActivity.filter((d) => Number(d.count) > 0).length;
     const maxStreak = computeMaxStreak(dailyActivity);
+    const currentStreak = computeCurrentStreak(dailyActivity);
 
     return {
       easySolved: stats.find((s) => s.difficulty === 'Easy')?.count || 0,
@@ -183,12 +273,18 @@ export async function fetchLeetcodeStats(username) {
       hardSolved: stats.find((s) => s.difficulty === 'Hard')?.count || 0,
       totalSolved: stats.find((s) => s.difficulty === 'All')?.count || 0,
       contestRating: null,
+      contestGlobalRanking: null,
       acceptanceRate: null,
+      currentStreak,
       activeDays,
       maxStreak,
       topPercentage: null,
       contestsParticipated: null,
       badgesEarned: 0,
+      categoryWiseProblemCount: [],
+      languagesUsed: [],
+      solutionCount: null,
+      reputation: null,
       dailyActivity,
     };
   }
