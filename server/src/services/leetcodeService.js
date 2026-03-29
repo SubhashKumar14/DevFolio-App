@@ -1,12 +1,80 @@
 import axios from 'axios';
 
+function parseDailyActivity(submissionCalendar) {
+  let dailyActivity = [];
+  try {
+    const calendar = JSON.parse(submissionCalendar || '{}');
+    dailyActivity = Object.entries(calendar).map(([ts, count]) => ({
+      date: new Date(parseInt(ts, 10) * 1000).toISOString().split('T')[0],
+      count,
+    }));
+  } catch {
+    dailyActivity = [];
+  }
+  return dailyActivity;
+}
+
+function computeMaxStreak(dailyActivity) {
+  if (!Array.isArray(dailyActivity) || dailyActivity.length === 0) return 0;
+  const activeDates = dailyActivity
+    .filter((d) => Number(d.count) > 0)
+    .map((d) => d.date)
+    .sort();
+
+  if (activeDates.length === 0) return 0;
+
+  let maxStreak = 1;
+  let current = 1;
+  for (let i = 1; i < activeDates.length; i++) {
+    const prev = new Date(`${activeDates[i - 1]}T00:00:00.000Z`);
+    const next = new Date(`${activeDates[i]}T00:00:00.000Z`);
+    const diffDays = Math.round((next.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+    if (diffDays === 1) {
+      current += 1;
+      if (current > maxStreak) maxStreak = current;
+    } else {
+      current = 1;
+    }
+  }
+  return maxStreak;
+}
+
 /**
  * Fetch LeetCode stats via the unofficial GraphQL API.
  * @param {string} username - LeetCode username
  * @returns {Object} LeetCode problem-solving stats + submission calendar
  */
 export async function fetchLeetcodeStats(username) {
-  const query = `
+  const enhancedQuery = `
+    query getUserProfile($username: String!) {
+      matchedUser(username: $username) {
+        submitStatsGlobal {
+          acSubmissionNum {
+            difficulty
+            count
+            submissions
+          }
+          totalSubmissionNum {
+            difficulty
+            count
+            submissions
+          }
+        }
+        submissionCalendar
+        badges {
+          id
+          displayName
+        }
+      }
+      userContestRanking(username: $username) {
+        rating
+        topPercentage
+        attendedContestsCount
+      }
+    }
+  `;
+
+  const fallbackQuery = `
     query getUserProblemsSolved($username: String!) {
       matchedUser(username: $username) {
         submitStatsGlobal {
@@ -20,42 +88,108 @@ export async function fetchLeetcodeStats(username) {
     }
   `;
 
-  const response = await axios.post('https://leetcode.com/graphql', {
-    query,
-    variables: { username },
-  }, {
-    headers: { 'Content-Type': 'application/json' },
-    timeout: 10000,
-  });
+  try {
+    const response = await axios.post('https://leetcode.com/graphql', {
+      query: enhancedQuery,
+      variables: { username },
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
 
-  const matchedUser = response.data?.data?.matchedUser;
-  if (!matchedUser) {
+    const matchedUser = response.data?.data?.matchedUser;
+    if (!matchedUser) {
+      return {
+        easySolved: 0,
+        mediumSolved: 0,
+        hardSolved: 0,
+        totalSolved: 0,
+        contestRating: null,
+        acceptanceRate: null,
+        activeDays: 0,
+        maxStreak: 0,
+        topPercentage: null,
+        contestsParticipated: null,
+        badgesEarned: 0,
+        dailyActivity: [],
+      };
+    }
+
+    const acStats = matchedUser.submitStatsGlobal?.acSubmissionNum || [];
+    const totalStats = matchedUser.submitStatsGlobal?.totalSubmissionNum || [];
+
+    const acAll = acStats.find((s) => s.difficulty === 'All')?.submissions
+      ?? acStats.find((s) => s.difficulty === 'All')?.count
+      ?? 0;
+    const totalAll = totalStats.find((s) => s.difficulty === 'All')?.submissions
+      ?? totalStats.find((s) => s.difficulty === 'All')?.count
+      ?? 0;
+    const acceptanceRate = totalAll > 0 ? (acAll / totalAll) * 100 : null;
+
+    const dailyActivity = parseDailyActivity(matchedUser.submissionCalendar);
+    const activeDays = dailyActivity.filter((d) => Number(d.count) > 0).length;
+    const maxStreak = computeMaxStreak(dailyActivity);
+    const contest = response.data?.data?.userContestRanking || null;
+
     return {
-      easySolved: 0,
-      mediumSolved: 0,
-      hardSolved: 0,
-      totalSolved: 0,
-      dailyActivity: [],
+      easySolved: acStats.find((s) => s.difficulty === 'Easy')?.count || 0,
+      mediumSolved: acStats.find((s) => s.difficulty === 'Medium')?.count || 0,
+      hardSolved: acStats.find((s) => s.difficulty === 'Hard')?.count || 0,
+      totalSolved: acStats.find((s) => s.difficulty === 'All')?.count || 0,
+      contestRating: contest?.rating ?? null,
+      acceptanceRate,
+      activeDays,
+      maxStreak,
+      topPercentage: contest?.topPercentage ?? null,
+      contestsParticipated: contest?.attendedContestsCount ?? null,
+      badgesEarned: Array.isArray(matchedUser.badges) ? matchedUser.badges.length : 0,
+      dailyActivity,
+    };
+  } catch {
+    const fallbackResponse = await axios.post('https://leetcode.com/graphql', {
+      query: fallbackQuery,
+      variables: { username },
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
+
+    const matchedUser = fallbackResponse.data?.data?.matchedUser;
+    if (!matchedUser) {
+      return {
+        easySolved: 0,
+        mediumSolved: 0,
+        hardSolved: 0,
+        totalSolved: 0,
+        contestRating: null,
+        acceptanceRate: null,
+        activeDays: 0,
+        maxStreak: 0,
+        topPercentage: null,
+        contestsParticipated: null,
+        badgesEarned: 0,
+        dailyActivity: [],
+      };
+    }
+
+    const stats = matchedUser.submitStatsGlobal?.acSubmissionNum || [];
+    const dailyActivity = parseDailyActivity(matchedUser.submissionCalendar);
+    const activeDays = dailyActivity.filter((d) => Number(d.count) > 0).length;
+    const maxStreak = computeMaxStreak(dailyActivity);
+
+    return {
+      easySolved: stats.find((s) => s.difficulty === 'Easy')?.count || 0,
+      mediumSolved: stats.find((s) => s.difficulty === 'Medium')?.count || 0,
+      hardSolved: stats.find((s) => s.difficulty === 'Hard')?.count || 0,
+      totalSolved: stats.find((s) => s.difficulty === 'All')?.count || 0,
+      contestRating: null,
+      acceptanceRate: null,
+      activeDays,
+      maxStreak,
+      topPercentage: null,
+      contestsParticipated: null,
+      badgesEarned: 0,
+      dailyActivity,
     };
   }
-
-  const stats = matchedUser.submitStatsGlobal.acSubmissionNum;
-
-  // Parse submission calendar: { "unixTimestamp": count, ... }
-  let dailyActivity = [];
-  try {
-    const calendar = JSON.parse(matchedUser.submissionCalendar || '{}');
-    dailyActivity = Object.entries(calendar).map(([ts, count]) => ({
-      date: new Date(parseInt(ts) * 1000).toISOString().split('T')[0],
-      count,
-    }));
-  } catch { /* ignore parse errors */ }
-
-  return {
-    easySolved: stats.find((s) => s.difficulty === 'Easy')?.count || 0,
-    mediumSolved: stats.find((s) => s.difficulty === 'Medium')?.count || 0,
-    hardSolved: stats.find((s) => s.difficulty === 'Hard')?.count || 0,
-    totalSolved: stats.find((s) => s.difficulty === 'All')?.count || 0,
-    dailyActivity,
-  };
 }

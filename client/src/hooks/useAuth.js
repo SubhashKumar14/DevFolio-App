@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
+import { getDefaultRouteForRole } from '@/lib/roleRoutes';
 
 export function useAuth() {
-  const { setAccessToken, setRefreshToken, setUser, logout: clearStore, isAuthenticated } = useAuthStore();
+  const { setAccessToken, setRefreshToken, setUser, logout: clearStore, isAuthenticated, user: storeUser } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -14,7 +15,8 @@ export function useAuth() {
       setAccessToken(data.accessToken);
       if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
-      navigate('/dashboard');
+      queryClient.setQueryData(['user', 'me'], data.user);
+      navigate(getDefaultRouteForRole(data.user?.role));
     },
   });
 
@@ -24,7 +26,12 @@ export function useAuth() {
       setAccessToken(data.accessToken);
       if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
-      navigate('/onboarding');
+      queryClient.setQueryData(['user', 'me'], data.user);
+      if (data.user?.role === 'developer') {
+        navigate('/onboarding');
+      } else {
+        navigate(getDefaultRouteForRole(data.user?.role));
+      }
     },
   });
 
@@ -45,9 +52,10 @@ export function useAuth() {
       setUser(data);
       return data;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !storeUser,
     retry: false,
     staleTime: 5 * 60 * 1000,
+    initialData: storeUser || undefined,
   });
 
   return {

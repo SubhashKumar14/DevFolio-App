@@ -11,8 +11,8 @@ import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap';
 import ProfileCompleteness from '@/components/dashboard/ProfileCompleteness';
 import StreakCounter from '@/components/dashboard/StreakCounter';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, ExternalLink, FileCode, FileText, Download } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { RefreshCw, ExternalLink, Download, ChevronRight, Radar, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient from '@/lib/apiClient';
@@ -63,99 +63,82 @@ export default function DashboardPage() {
   const syncMutation = useMutation({
     mutationFn: () => statsService.syncStats(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['githubStats'] });
-      queryClient.invalidateQueries({ queryKey: ['dsaStats'] });
-      queryClient.invalidateQueries({ queryKey: ['devScore'] });
-      queryClient.invalidateQueries({ queryKey: ['platformStats'] });
+      queryClient.invalidateQueries();
       toast.success('All platforms synced!');
     },
     onError: () => toast.error('Sync failed. Please try again.'),
   });
 
   // ─── Computed data ──────────────────────
+  const activePlatformsCount = [
+    user?.githubUsername, user?.leetcodeUsername, user?.codeforcesUsername, user?.hackerrankUsername,
+    user?.codechefUsername, user?.kaggleUsername, user?.gfgUsername, user?.atcoderUsername,
+    user?.stackoverflowUserId, user?.hackerEarthUsername, user?.huggingfaceUsername,
+    user?.tryhackmeUsername, user?.codesignalUsername, user?.devtoUsername, user?.gitlabUsername
+  ].filter(Boolean).length;
+
   const quickStats = {
-    totalProblemsSolved: dsaStats?.leetcode?.totalSolved || 0,
-    totalRepos: githubStats?.publicRepos || 0,
-    activePlatforms: [user?.githubUsername, user?.leetcodeUsername, user?.codeforcesUsername, user?.hackerrankUsername, user?.codechefUsername, user?.kaggleUsername, user?.gfgUsername].filter(Boolean).length,
-    currentStreak: 0,
+    totalProblemsSolved: (dsaStats?.leetcode?.totalSolved || 0) + (dsaStats?.codeforces?.totalSolved || 0),
+    totalRepos: (githubStats?.publicRepos || 0) + (platformStats?.gitlab?.projectsCount || 0),
+    activePlatforms: activePlatformsCount,
+    currentStreak: githubStats?.currentStreak || 0,
   };
 
   const platforms = useMemo(() => {
     const list = [];
-    if (user?.leetcodeUsername) {
-      const total = dsaStats?.leetcode?.totalSolved || 1;
-      list.push({
-        id: 'leetcode', username: user.leetcodeUsername,
-        primaryStat: `${dsaStats?.leetcode?.totalSolved || 0} Solved`, rating: '',
-        breakdown: dsaStats?.leetcode ? {
-          label1: 'Easy', pct1: Math.round(((dsaStats.leetcode.easySolved || 0) / total) * 100),
-          label2: 'Medium', pct2: Math.round(((dsaStats.leetcode.mediumSolved || 0) / total) * 100),
-          label3: 'Hard', pct3: Math.round(((dsaStats.leetcode.hardSolved || 0) / total) * 100),
-        } : null,
-      });
-    }
-    if (user?.githubUsername) {
-      list.push({
-        id: 'github', username: user.githubUsername,
-        primaryStat: `${githubStats?.publicRepos || 0} Repos`,
-        rating: `${githubStats?.starsReceived || 0}★`, breakdown: null,
-      });
-    }
-    if (user?.codeforcesUsername) {
-      list.push({
-        id: 'codeforces', username: user.codeforcesUsername,
-        primaryStat: `${dsaStats?.codeforces?.currentRating || 0}`,
-        rating: dsaStats?.codeforces?.rank || 'unrated', breakdown: null,
-      });
-    }
-    if (user?.hackerrankUsername) {
-      list.push({
-        id: 'hackerrank', username: user.hackerrankUsername,
-        primaryStat: `${platformStats?.hackerrank?.totalBadges || 0} Badges`,
-        rating: `${platformStats?.hackerrank?.totalStars || 0}★`, breakdown: null,
-      });
-    }
-    if (user?.codechefUsername) {
-      list.push({
-        id: 'codechef', username: user.codechefUsername,
-        primaryStat: `${platformStats?.codechef?.currentRating || 0}`,
-        rating: platformStats?.codechef?.stars || '', breakdown: null,
-      });
-    }
-    if (user?.kaggleUsername) {
-      list.push({
-        id: 'kaggle', username: user.kaggleUsername,
-        primaryStat: platformStats?.kaggle?.tier || 'Unknown',
-        rating: `${platformStats?.kaggle?.totalMedals || 0} Medals`, breakdown: null,
-      });
-    }
-    if (user?.gfgUsername) {
-      list.push({
-        id: 'gfg', username: user.gfgUsername,
-        primaryStat: `${platformStats?.gfg?.totalProblemsSolved || 0} Solved`,
-        rating: `Score: ${platformStats?.gfg?.score || 0}`, breakdown: null,
-      });
-    }
+    const add = (id, username, stat, rating, breakdown = null) => {
+      if (username) list.push({ id, username, primaryStat: stat, rating, breakdown });
+    };
+    
+    // Original 7
+    add('leetcode', user?.leetcodeUsername, `${dsaStats?.leetcode?.totalSolved || 0} Solved`, `Rating: ${dsaStats?.leetcode?.contestRating || 0}`, dsaStats?.leetcode ? {
+      label1: 'Easy', pct1: Math.round(((dsaStats.leetcode.easySolved || 0) / (dsaStats.leetcode.totalSolved || 1)) * 100),
+      label2: 'Medium', pct2: Math.round(((dsaStats.leetcode.mediumSolved || 0) / (dsaStats.leetcode.totalSolved || 1)) * 100),
+      label3: 'Hard', pct3: Math.round(((dsaStats.leetcode.hardSolved || 0) / (dsaStats.leetcode.totalSolved || 1)) * 100),
+    } : null);
+    add('github', user?.githubUsername, `${githubStats?.publicRepos || 0} Repos`, `${githubStats?.starsReceived || 0}★`);
+    add('codeforces', user?.codeforcesUsername, `Rating: ${dsaStats?.codeforces?.rating || 0}`, dsaStats?.codeforces?.rank || 'unrated');
+    add('hackerrank', user?.hackerrankUsername, `${platformStats?.hackerrank?.totalBadges || 0} Badges`, `${platformStats?.hackerrank?.totalStars || 0}★`);
+    add('codechef', user?.codechefUsername, `Rating: ${platformStats?.codechef?.currentRating || 0}`, platformStats?.codechef?.stars || '');
+    add('kaggle', user?.kaggleUsername, platformStats?.kaggle?.tier || 'Novice', `${platformStats?.kaggle?.totalMedals || 0} Medals`);
+    add('geeksforgeeks', user?.gfgUsername, `${platformStats?.gfg?.totalProblemsSolved || 0} Solved`, `Score: ${platformStats?.gfg?.score || 0}`);
+    
+    // New 8
+    add('atcoder', user?.atcoderUsername, `Rating: ${platformStats?.atcoder?.rating || 0}`, `${platformStats?.atcoder?.colorRank || 'grey'} Rank`);
+    add('stackoverflow', user?.stackoverflowUserId, `${platformStats?.stackoverflow?.reputation || 0} Rep`, `${platformStats?.stackoverflow?.totalBadges || 0} Badges`);
+    add('hackerearth', user?.hackerEarthUsername, `${platformStats?.hackerearth?.problemsSolved || 0} Solved`, `Rating: ${platformStats?.hackerearth?.rating || 0}`);
+    add('huggingface', user?.huggingfaceUsername, `${platformStats?.huggingface?.modelsPublished || 0} Models`, `${platformStats?.huggingface?.totalLikes || 0} Likes`);
+    add('tryhackme', user?.tryhackmeUsername, `Level: ${platformStats?.tryhackme?.level || 0}`, `Rank: ${platformStats?.tryhackme?.rank || 0}`);
+    add('codesignal', user?.codesignalUsername, `GCA: ${platformStats?.codesignal?.gcaScore || 0}`, `Level: ${platformStats?.codesignal?.level || 0}`);
+    add('devto', user?.devtoUsername, `${platformStats?.devto?.articlesPublished || 0} Posts`, `${platformStats?.devto?.totalReactions || 0} Hits`);
+    add('gitlab', user?.gitlabUsername, `${platformStats?.gitlab?.projectsCount || 0} Projects`, `${platformStats?.gitlab?.totalStars || 0}★`);
+
     return list;
   }, [user, dsaStats, githubStats, platformStats]);
 
-  const breakdown = devScore?.breakdown;
-  const scoreBreakdown = breakdown ? [
-    { label: 'GitHub', value: breakdown.github?.score || 0 },
-    { label: 'DSA', value: breakdown.dsa?.score || 0 },
-    { label: 'Portfolio', value: breakdown.portfolio?.score || 0 },
+  const scoreData = devScore?.data || devScore;
+  const pillars = scoreData?.pillars;
+  const diagnostics = scoreData?.diagnostics || {};
+  const strongestSignals = diagnostics?.strongestSignals || [];
+  const weakSignals = diagnostics?.weakSignals || [];
+  const domainSuggestions = diagnostics?.unconnectedPlatformRecommendations || [];
+  const platformScoreData = Object.entries(scoreData?.platformScores || {})
+    .map(([platform, stats]) => ({ platform, ...stats }))
+    .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+  const scoreBreakdown = pillars ? [
+    { label: 'Problem Solving', value: pillars.problemSolving?.score || 0, max: pillars.problemSolving?.max || 200, grade: pillars.problemSolving?.grade || 'N/A' },
+    { label: 'Building', value: pillars.building?.score || 0, max: pillars.building?.max || 200, grade: pillars.building?.grade || 'N/A' },
+    { label: 'Community', value: pillars.community?.score || 0, max: pillars.community?.max || 200, grade: pillars.community?.grade || 'N/A' },
+    { label: 'Consistency', value: pillars.consistency?.score || 0, max: pillars.consistency?.max || 200, grade: pillars.consistency?.grade || 'N/A' },
+    { label: 'Specialization', value: pillars.specialization?.score || 0, max: pillars.specialization?.max || 200, grade: pillars.specialization?.grade || 'N/A' },
   ] : [];
 
-  // Portfolio preview srcdoc
-  const portfolioSrcdoc = useMemo(() => {
-    if (!portfolio) return null;
-    const html = portfolio.htmlContent || portfolio.rawHtml || '';
-    const css = portfolio.cssContent || '';
-    return `<!DOCTYPE html><html><head><style>body{margin:0;overflow:hidden;transform:scale(0.5);transform-origin:0 0;width:200%;height:200%}${css}</style></head><body>${html}</body></html>`;
-  }, [portfolio]);
+  const improvements = scoreData?.improvements || [];
 
   return (
     <div className="space-y-6 animate-fade-in p-2 md:p-0">
+      
       {/* ─── Header ────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -165,15 +148,6 @@ export default function DashboardPage() {
               Welcome back, <span className="text-foreground font-medium">{user?.displayName || 'Developer'}</span>
             </p>
           </div>
-          <StreakCounter
-            githubCalendar={githubStats?.contributionCalendar || []}
-            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
-            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
-            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
-            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
-            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-          />
         </div>
         <div className="flex gap-2">
           <Button
@@ -198,41 +172,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ─── Quick Stats Row ───────────────── */}
-      <QuickStats stats={quickStats} />
-
-      {/* ─── Empty State Banner ──────── */}
       {quickStats.activePlatforms === 0 && (
         <div className="rounded-xl border-2 border-dashed border-accent-cyan/30 bg-accent-cyan/5 p-6 text-center animate-slide-up">
           <h3 className="text-lg font-bold text-foreground mb-2">🚀 Complete Your Setup</h3>
-          <p className="text-sm text-muted mb-4">Connect your coding platforms to unlock DevScore, analytics, and more.</p>
+          <p className="text-sm text-muted mb-4">Connect your coding platforms to unlock your DevScore, analytics, and more.</p>
           <Link to="/dashboard/settings">
             <Button className="gap-2"><ExternalLink className="h-4 w-4" /> Go to Settings</Button>
           </Link>
         </div>
       )}
 
-      {/* ─── Bento Grid ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8">
-          <ActivityHeatmap
-            githubCalendar={githubStats?.contributionCalendar || []}
-            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
-            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
-            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
-            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
-            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
-            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
-          />
-        </div>
-
-        <div className="lg:col-span-4 rounded-xl border border-border bg-card p-6 text-center animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <h2 className="text-lg font-semibold tracking-tight mb-4">DevScore</h2>
-          <div className="relative inline-flex items-center justify-center">
-            <svg className="w-36 h-36 transform -rotate-90">
-              <circle cx="72" cy="72" r="60" stroke="var(--border)" strokeWidth="10" fill="none" />
-              <circle cx="72" cy="72" r="60" stroke="url(#scoreGrad)" strokeWidth="10" fill="none"
-                strokeDasharray="377" strokeDashoffset={377 - (377 * (devScore?.overallScore || 0) / 100)}
+      {/* ─── 3-TIER BENTO GRID ──────────────── */}
+      
+      {/* TIER 1: Heros (DevScore + Quick Stats) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* DevScore Prime Card */}
+        <div className="md:col-span-4 rounded-xl glass-card p-6 flex flex-col items-center justify-center text-center relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/5 to-accent-purple/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-2">DevScore v2</h2>
+          <div className="relative inline-flex items-center justify-center my-2">
+            <svg className="w-40 h-40 transform -rotate-90">
+              <circle cx="80" cy="80" r="70" stroke="var(--border)" strokeWidth="12" fill="none" />
+              <circle cx="80" cy="80" r="70" stroke="url(#scoreGrad)" strokeWidth="12" fill="none"
+                strokeDasharray="440" strokeDashoffset={440 - (440 * (scoreData?.overallScore || 0) / 1000)}
                 strokeLinecap="round" className="transition-all duration-1000 ease-out" />
               <defs>
                 <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -243,105 +205,234 @@ export default function DashboardPage() {
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-devscore">
-                {devScore?.overallScore || 0}
+              <span className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink">
+                {scoreData?.overallScore || 0}
               </span>
-              <span className="text-xs text-muted font-medium">/ 100</span>
+              <span className="text-xs text-muted">/1000</span>
             </div>
           </div>
-          <div className="mt-4 space-y-2.5 text-left">
-            {scoreBreakdown.map(stat => (
-              <div key={stat.label}>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span>{stat.label}</span><span>{stat.value}/100</span>
+          <p className="text-xs text-muted font-medium mt-1">
+            Archetype: <span className="text-foreground capitalize">{user?.archetype ? user.archetype.replace('_', ' ') : 'None'}{user?.secondaryArchetype ? ` + ${user.secondaryArchetype.replace('_', ' ')}` : ''}</span>
+          </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs">
+            <span className="rounded-full border border-accent-cyan/35 bg-accent-cyan/10 px-2.5 py-1 text-accent-cyan font-medium">
+              Domain: {scoreData?.domainLabel || 'All Rounder'}
+            </span>
+            <span className="rounded-full border border-accent-purple/35 bg-accent-purple/10 px-2.5 py-1 text-accent-purple font-medium">
+              Domain Fit: {diagnostics?.domainFitScore ?? 0}%
+            </span>
+          </div>
+          {diagnostics?.suggestedDomainLabel && (
+            <p className="mt-2 text-xs text-muted">
+              Suggested Fit: <span className="text-foreground font-medium">{diagnostics.suggestedDomainLabel}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Quick Stats Grid */}
+        <div className="md:col-span-8 space-y-6 flex flex-col justify-between">
+          <StreakCounter
+            githubCalendar={githubStats?.contributionCalendar || []}
+            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
+            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
+            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
+            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
+            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
+            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
+            atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
+            stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
+            hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
+            huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
+            tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
+            codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
+            devtoCalendar={platformStats?.devto?.dailyActivity || []}
+            gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
+          />
+          <QuickStats stats={quickStats} />
+          <ProfileCompleteness user={user} profile={profile} hasPortfolio={!!portfolio} />
+        </div>
+      </div>
+
+      {/* TIER 2: Deep Dives (Activity + Pillars Breakdown) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8">
+          <ActivityHeatmap
+            githubCalendar={githubStats?.contributionCalendar || []}
+            leetcodeCalendar={dsaStats?.leetcode?.dailyActivity || []}
+            codeforcesCalendar={dsaStats?.codeforces?.dailySubmissions || []}
+            hackerrankCalendar={platformStats?.hackerrank?.dailyActivity || []}
+            codechefCalendar={platformStats?.codechef?.dailyActivity || []}
+            kaggleCalendar={platformStats?.kaggle?.dailyActivity || []}
+            gfgCalendar={platformStats?.gfg?.dailyActivity || []}
+            atcoderCalendar={platformStats?.atcoder?.dailyActivity || []}
+            stackoverflowCalendar={platformStats?.stackoverflow?.dailyActivity || []}
+            hackerearthCalendar={platformStats?.hackerearth?.dailyActivity || []}
+            huggingfaceCalendar={platformStats?.huggingface?.dailyActivity || []}
+            tryhackmeCalendar={platformStats?.tryhackme?.dailyActivity || []}
+            codesignalCalendar={platformStats?.codesignal?.dailyActivity || []}
+            devtoCalendar={platformStats?.devto?.dailyActivity || []}
+            gitlabCalendar={platformStats?.gitlab?.dailyActivity || []}
+          />
+        </div>
+
+        {/* Pillars Breakdown */}
+        <div className="lg:col-span-4 rounded-xl glass-card p-6 flex flex-col">
+          <h2 className="text-lg font-semibold tracking-tight mb-5">Pillar Analysis</h2>
+          <div className="space-y-4 flex-1">
+            {scoreBreakdown.map((stat, i) => (
+              <div key={stat.label} className="group">
+                <div className="flex justify-between text-sm font-medium mb-1.5">
+                  <span className="text-foreground/80 group-hover:text-foreground transition-colors">{stat.label}</span>
+                  <span className="text-muted group-hover:text-accent-cyan transition-colors">
+                    {stat.value}/{stat.max}
+                    <span className="ml-1 text-xs opacity-60">({stat.grade})</span>
+                  </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-card-elevated overflow-hidden">
-                  <div className="h-full bg-accent-purple rounded-full transition-all duration-700" style={{ width: `${stat.value}%` }} />
+                <div className="h-2 rounded-full bg-border overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out" 
+                    style={{ 
+                      width: `${Math.round((stat.value / stat.max) * 100)}%`,
+                      background: `var(--accent-${['cyan','purple','green','yellow','orange'][i%5]})`
+                    }} 
+                  />
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="lg:col-span-7 space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Connected Platforms</h2>
-          {platforms.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {platforms.map((p) => (
-                <PlatformCard
-                  key={p.id}
-                  platform={p}
-                  onSync={() => syncMutation.mutate()}
-                  isSyncing={syncMutation.isPending}
-                />
+          {/* Improvement Areas from Gap Analysis */}
+          {improvements.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border space-y-2">
+              <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">💡 Improvements</h3>
+              {improvements.slice(0, 3).map((tip, i) => (
+                <p key={i} className="text-xs text-muted/80 leading-relaxed">• {tip}</p>
               ))}
             </div>
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center text-muted">
-                <p className="font-medium">No platforms connected</p>
-                <p className="text-sm mt-1">Go to Settings → Platforms to connect</p>
-              </CardContent>
-            </Card>
           )}
-        </div>
 
-        <div className="lg:col-span-5 rounded-xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-              <FileCode className="h-5 w-5 text-accent-cyan" /> Portfolio
-            </h2>
-            <div className="flex gap-2">
-              {profile?.socialLinks?.resumeUrl && (
-                <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <a href={profile.socialLinks.resumeUrl} target="_blank" rel="noreferrer">
-                    <FileText className="h-3.5 w-3.5" /> Resume
-                  </a>
-                </Button>
-              )}
-              {user?.displayName && (
-                <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <Link to={`/portfolio/${encodeURIComponent(user.displayName)}`} target="_blank">
-                    <ExternalLink className="h-3.5 w-3.5" /> View Live
-                  </Link>
-                </Button>
-              )}
-              {user?.role !== 'recruiter' && (
-                <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <Link to="/portfolio/editor">
-                    <FileText className="h-3.5 w-3.5" /> Edit Code
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </div>
-          {portfolioSrcdoc ? (
-            <div className="h-[300px] bg-white">
-              <iframe
-                srcDoc={portfolioSrcdoc}
-                title="Portfolio Preview"
-                sandbox="allow-scripts"
-                className="w-full h-full border-0"
-              />
-            </div>
-          ) : (
-            <CardContent className="py-12 text-center text-muted">
-              <FileCode className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">No portfolio yet</p>
-              <p className="text-sm mt-1">Create your portfolio in the editor</p>
-              {user?.role !== 'recruiter' && (
-                <Button asChild size="sm" className="mt-4">
-                  <Link to="/portfolio/editor">Create Portfolio</Link>
-                </Button>
-              )}
-            </CardContent>
-          )}
-        </div>
-
-        <div className="lg:col-span-12">
-          <ProfileCompleteness user={user} profile={profile} hasPortfolio={!!portfolio} />
+          <Button variant="ghost" size="sm" asChild className="mt-4 w-full justify-between group">
+            <Link to="/dashboard/analytics">
+              View Detailed Analytics <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </Button>
         </div>
       </div>
+
+      {/* TIER 2.5: Score Diagnostics */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Radar className="h-5 w-5 text-accent-cyan" />
+              Platform Scores
+            </CardTitle>
+            <CardDescription>Per-platform quality score used in DevScore</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {platformScoreData.length > 0 ? platformScoreData.slice(0, 6).map((item) => (
+              <div key={item.platform} className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-foreground/85">{item.platformLabel || item.platform}</span>
+                  <span className="text-muted">{Math.round(item.score || 0)}/100</span>
+                </div>
+                <div className="h-2 rounded-full bg-border overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-purple"
+                    style={{ width: `${Math.max(0, Math.min(100, Math.round(item.score || 0)))}%` }}
+                  />
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-muted">Connect and sync platforms to view platform diagnostics.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-accent-yellow" />
+              Strongest Signals
+            </CardTitle>
+            <CardDescription>Top metrics where you currently perform best</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {strongestSignals.length > 0 ? strongestSignals.map((signal, index) => (
+              <div key={`${signal.platform}-${signal.signalId}-${index}`} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium text-foreground">{signal.metric}</p>
+                <p className="text-xs text-muted mt-1">
+                  {signal.platformLabel} · {Math.round(signal.score || 0)}/100
+                </p>
+              </div>
+            )) : (
+              <p className="text-sm text-muted">No strong-signal diagnostics available yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-accent-orange" />
+              Focus Areas
+            </CardTitle>
+            <CardDescription>Low signals and recommended platforms to improve fit</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {weakSignals.slice(0, 3).map((signal, index) => (
+              <div key={`${signal.platform}-${signal.signalId}-${index}`} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium text-foreground">{signal.metric}</p>
+                <p className="text-xs text-muted mt-1">
+                  {signal.platformLabel} · {Math.round(signal.score || 0)}/100
+                </p>
+              </div>
+            ))}
+            {domainSuggestions.slice(0, 2).map((rec, index) => (
+              <div key={`${rec.platform}-${index}`} className="rounded-lg border border-dashed border-accent-cyan/35 bg-accent-cyan/5 p-3">
+                <p className="text-sm font-medium text-foreground">Connect {rec.platformLabel}</p>
+                <p className="text-xs text-muted mt-1">Expected domain impact: {rec.expectedWeight}%</p>
+              </div>
+            ))}
+            {weakSignals.length === 0 && domainSuggestions.length === 0 && (
+              <p className="text-sm text-muted">No focus recommendations yet. Keep syncing activity to refine guidance.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* TIER 3: Connected Platforms Inventory */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight">Connected Platforms</h2>
+          <Link to="/dashboard/settings" className="text-sm font-medium text-accent-cyan hover:underline">
+            Manage Connections
+          </Link>
+        </div>
+        
+        {platforms.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {platforms.map((p) => (
+              <PlatformCard
+                key={p.id}
+                platform={p}
+                onSync={() => syncMutation.mutate()}
+                isSyncing={syncMutation.isPending}
+              />
+            ))}
+          </div>
+        ) : (
+          <Card className="border-dashed glass-card">
+            <CardContent className="p-10 text-center text-muted">
+              <p className="font-medium text-lg">No platforms active</p>
+              <p className="text-sm mt-1 mb-4">You have 15 available platforms to link.</p>
+              <Button asChild size="sm">
+                <Link to="/dashboard/settings">Connect Platforms</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
     </div>
   );
 }

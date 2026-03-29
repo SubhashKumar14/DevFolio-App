@@ -109,6 +109,27 @@ export async function fetchGithubStats(githubUsername, accessToken) {
     }
   }
 
+  // Last-resort fallback: aggregate recent public events by day (typically up to ~90 days)
+  if (contributionCalendar.length === 0) {
+    try {
+      const eventsRes = await axios.get(
+        `https://api.github.com/users/${githubUsername}/events/public?per_page=100`,
+        { headers, timeout: 15000 }
+      );
+      const eventMap = {};
+      for (const event of eventsRes.data || []) {
+        if (!event?.created_at) continue;
+        const date = event.created_at.slice(0, 10);
+        eventMap[date] = (eventMap[date] || 0) + 1;
+      }
+      contributionCalendar = Object.entries(eventMap)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    } catch {
+      // No events fallback available
+    }
+  }
+
   return {
     totalCommits,
     publicRepos: userRes.data.public_repos || 0,

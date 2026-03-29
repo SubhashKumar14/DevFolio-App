@@ -4,15 +4,69 @@ import { Flame } from 'lucide-react';
 /**
  * Calculate consecutive activity streak from heatmap data.
  */
-function calculateStreak(githubCalendar = [], dsaActivity = []) {
-  // Build date→activity map
+function calculateStreak(
+  githubCalendar = [],
+  leetcodeCalendar = [],
+  codeforcesCalendar = [],
+  hackerrankCalendar = [],
+  codechefCalendar = [],
+  kaggleCalendar = [],
+  gfgCalendar = [],
+  atcoderCalendar = [],
+  stackoverflowCalendar = [],
+  hackerearthCalendar = [],
+  huggingfaceCalendar = [],
+  tryhackmeCalendar = [],
+  codesignalCalendar = [],
+  devtoCalendar = [],
+  gitlabCalendar = []
+) {
+  // Build date->activity map
   const activityMap = new Map();
   githubCalendar.forEach((d) => {
     activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
   });
-  dsaActivity.forEach((d) => {
-    const total = (d.leetcodeCount || 0) + (d.codeforcesCount || 0);
-    activityMap.set(d.date, (activityMap.get(d.date) || 0) + total);
+  leetcodeCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  codeforcesCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  hackerrankCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  codechefCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  kaggleCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  gfgCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  atcoderCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  stackoverflowCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  hackerearthCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  huggingfaceCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  tryhackmeCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  codesignalCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  devtoCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
+  });
+  gitlabCalendar.forEach((d) => {
+    activityMap.set(d.date, (activityMap.get(d.date) || 0) + (d.count || 0));
   });
 
   // Walk backwards from today
@@ -34,8 +88,59 @@ function calculateStreak(githubCalendar = [], dsaActivity = []) {
   return streak;
 }
 
-export default function StreakCounter({ githubCalendar = [], dsaActivity = [] }) {
-  const streak = useMemo(() => calculateStreak(githubCalendar, dsaActivity), [githubCalendar, dsaActivity]);
+export default function StreakCounter({
+  githubCalendar = [],
+  leetcodeCalendar = [],
+  codeforcesCalendar = [],
+  hackerrankCalendar = [],
+  codechefCalendar = [],
+  kaggleCalendar = [],
+  gfgCalendar = [],
+  atcoderCalendar = [],
+  stackoverflowCalendar = [],
+  hackerearthCalendar = [],
+  huggingfaceCalendar = [],
+  tryhackmeCalendar = [],
+  codesignalCalendar = [],
+  devtoCalendar = [],
+  gitlabCalendar = [],
+}) {
+  const streak = useMemo(
+    () => calculateStreak(
+      githubCalendar,
+      leetcodeCalendar,
+      codeforcesCalendar,
+      hackerrankCalendar,
+      codechefCalendar,
+      kaggleCalendar,
+      gfgCalendar,
+      atcoderCalendar,
+      stackoverflowCalendar,
+      hackerearthCalendar,
+      huggingfaceCalendar,
+      tryhackmeCalendar,
+      codesignalCalendar,
+      devtoCalendar,
+      gitlabCalendar
+    ),
+    [
+      githubCalendar,
+      leetcodeCalendar,
+      codeforcesCalendar,
+      hackerrankCalendar,
+      codechefCalendar,
+      kaggleCalendar,
+      gfgCalendar,
+      atcoderCalendar,
+      stackoverflowCalendar,
+      hackerearthCalendar,
+      huggingfaceCalendar,
+      tryhackmeCalendar,
+      codesignalCalendar,
+      devtoCalendar,
+      gitlabCalendar,
+    ]
+  );
 
   const flameColor = streak >= 30 ? 'text-red-500' : streak >= 7 ? 'text-orange-400' : streak >= 1 ? 'text-yellow-400' : 'text-muted/40';
 

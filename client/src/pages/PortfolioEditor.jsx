@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { portfolioService } from '@/services/portfolioService';
@@ -12,14 +12,9 @@ export default function PortfolioEditor() {
   const queryClient = useQueryClient();
   const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState('html');
-  const [html, setHtml] = useState('');
-  const [css, setCss] = useState('');
-  const [js, setJs] = useState('');
-  const [dirty, setDirty] = useState(false);
-  const [isPublic, setIsPublic] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [visibilityOverride, setVisibilityOverride] = useState(undefined);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  useBeforeUnload(dirty);
 
   // Load existing portfolio
   const { data: portfolio, isLoading } = useQuery({
@@ -28,21 +23,28 @@ export default function PortfolioEditor() {
     enabled: !!user?._id,
   });
 
-  // Populate form when data loads
-  useEffect(() => {
-    if (portfolio) {
-      setHtml(portfolio.rawHtml || portfolio.htmlContent || '');
-      setCss(portfolio.cssContent || '');
-      setJs(portfolio.jsContent || '');
-      setIsPublic(portfolio.isPublic || false);
-    }
-  }, [portfolio]);
+  const baseHtml = portfolio?.rawHtml || portfolio?.htmlContent || '';
+  const baseCss = portfolio?.cssContent || '';
+  const baseJs = portfolio?.jsContent || '';
+
+  const html = draft?.html ?? baseHtml;
+  const css = draft?.css ?? baseCss;
+  const js = draft?.js ?? baseJs;
+  const isPublic = visibilityOverride ?? (portfolio?.isPublic || false);
+
+  const dirty = !!draft && (
+    draft.html !== baseHtml ||
+    draft.css !== baseCss ||
+    draft.js !== baseJs
+  );
+
+  useBeforeUnload(dirty);
 
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: () => portfolioService.savePortfolio({ rawHtml: html, cssContent: css, jsContent: js }),
     onSuccess: () => {
-      setDirty(false);
+      setDraft(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
@@ -53,12 +55,25 @@ export default function PortfolioEditor() {
   const visibilityMutation = useMutation({
     mutationFn: (val) => portfolioService.toggleVisibility(val),
     onSuccess: (_, val) => {
-      setIsPublic(val);
+      setVisibilityOverride(val);
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
     },
   });
 
-  const handleChange = (setter) => (val) => { setter(val); setDirty(true); };
+  const handleChange = (field) => (value) => {
+    setDraft((prev) => {
+      const next = prev ?? {
+        html: baseHtml,
+        css: baseCss,
+        js: baseJs,
+      };
+
+      return {
+        ...next,
+        [field]: value,
+      };
+    });
+  };
 
   const tabs = [
     { id: 'html', label: 'HTML' },
@@ -111,13 +126,13 @@ export default function PortfolioEditor() {
           {/* Active Panel */}
           <div className="flex-1 min-h-0">
             {activeTab === 'html' && (
-              <CodePanel language="HTML" value={html} onChange={handleChange(setHtml)} placeholder="<div>\n  <h1>Hello World</h1>\n  <p>Build your portfolio here...</p>\n</div>" />
+              <CodePanel language="HTML" value={html} onChange={handleChange('html')} placeholder="<div>\n  <h1>Hello World</h1>\n  <p>Build your portfolio here...</p>\n</div>" />
             )}
             {activeTab === 'css' && (
-              <CodePanel language="CSS" value={css} onChange={handleChange(setCss)} placeholder="body {\n  font-family: 'Inter', sans-serif;\n  background: #0f172a;\n  color: white;\n}" />
+              <CodePanel language="CSS" value={css} onChange={handleChange('css')} placeholder="body {\n  font-family: 'Inter', sans-serif;\n  background: #0f172a;\n  color: white;\n}" />
             )}
             {activeTab === 'js' && (
-              <CodePanel language="JavaScript" value={js} onChange={handleChange(setJs)} placeholder="// Add interactivity\nconsole.log('Portfolio loaded!');" />
+              <CodePanel language="JavaScript" value={js} onChange={handleChange('js')} placeholder="// Add interactivity\nconsole.log('Portfolio loaded!');" />
             )}
           </div>
         </div>

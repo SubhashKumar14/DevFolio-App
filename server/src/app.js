@@ -22,6 +22,7 @@ import exportRoutes from './routes/exportRoutes.js';
 // ─── Middleware Imports ─────────────────────────────────
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
+import { csrfOriginProtection } from './middleware/csrfOriginProtection.js';
 
 // ─── Express App ────────────────────────────────────────
 const app = express();
@@ -37,6 +38,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── Rate Limiting ──────────────────────────────────────
 app.use('/api/', apiLimiter);
+app.use('/api/', csrfOriginProtection);
 
 // ─── Health Check ───────────────────────────────────────
 app.get('/api/health', (req, res) => {

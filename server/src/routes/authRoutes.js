@@ -7,7 +7,7 @@ const router = Router();
 
 router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
-router.post('/refresh', refreshToken);
+router.post('/refresh', authLimiter, refreshToken);
 router.post('/logout', authenticate, logout);
 
 // GitHub OAuth

@@ -1,27 +1,53 @@
 import User from '../models/User.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 
+// ─── Serialise user data for response ─────────────
+function serializeUser(user) {
+  return {
+    _id: user._id,
+    email: user.email,
+    displayName: user.displayName,
+    role: user.role,
+    archetype: user.archetype,
+    secondaryArchetype: user.secondaryArchetype,
+    // All 15 platform handles
+    ...user.getPlatformData(),
+  };
+}
+
 // ─── Get Current User ─────────────────────────────
 export const getMe = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   res.json({
     success: true,
-    data: {
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
-      githubUsername: user.githubUsername,
-      leetcodeUsername: user.leetcodeUsername,
-      codeforcesUsername: user.codeforcesUsername,
-    },
+    data: serializeUser(user),
   });
 });
 
 // ─── Update Current User ──────────────────────────
 export const updateMe = asyncHandler(async (req, res) => {
-  const allowedFields = ['displayName', 'githubUsername', 'leetcodeUsername', 'codeforcesUsername'];
+  const allowedFields = [
+    'displayName',
+    'archetype',
+    'secondaryArchetype',
+    // All 15 platforms
+    'githubUsername',
+    'leetcodeUsername',
+    'codeforcesUsername',
+    'hackerrankUsername',
+    'codechefUsername',
+    'gfgUsername',
+    'kaggleUsername',
+    'atcoderUsername',
+    'hackerEarthUsername',
+    'huggingfaceUsername',
+    'stackoverflowUserId',
+    'devtoUsername',
+    'gitlabUsername',
+    'tryhackmeUsername',
+    'codesignalUsername',
+  ];
   const updates = {};
 
   for (const field of allowedFields) {
@@ -41,14 +67,6 @@ export const updateMe = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: {
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
-      githubUsername: user.githubUsername,
-      leetcodeUsername: user.leetcodeUsername,
-      codeforcesUsername: user.codeforcesUsername,
-    },
+    data: serializeUser(user),
   });
 });

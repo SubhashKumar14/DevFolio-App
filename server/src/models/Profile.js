@@ -24,6 +24,8 @@ const profileSchema = new Schema({
   socialLinks: {
     linkedin: { type: String, default: '' },
     website: { type: String, default: '' },
+    resumeUrl: { type: String, default: '' },
+    twitter: { type: String, default: '' },
   },
 
   // ─── College (for leaderboard filtering)
@@ -37,7 +39,6 @@ const profileSchema = new Schema({
 });
 
 // ─── Indexes ──────────────────────────────
-// userId index auto-created by unique: true
 profileSchema.index({ college: 1 });
 profileSchema.index({ isPublic: 1 });
 

@@ -10,55 +10,28 @@ const platformStatsSchema = new Schema({
     unique: true,
   },
 
-  // ─── HackerRank ────────────────────────
-  hackerrank: {
-    totalBadges: { type: Number, default: 0 },
-    totalStars: { type: Number, default: 0 },
-    badges: [{
-      name: { type: String },
-      stars: { type: Number, default: 0 },
-      _id: false,
-    }],
-    level: { type: Number, default: 0 },
-  },
+  // ─── Existing New/Arbitrary Platforms ───────
+  hackerrank: { type: Object, default: {} },
+  codechef: { type: Object, default: {} },
+  kaggle: { type: Object, default: {} },
+  gfg: { type: Object, default: {} },
 
-  // ─── CodeChef ──────────────────────────
-  codechef: {
-    currentRating: { type: Number, default: 0 },
-    stars: { type: String, default: '' },
-    problemsSolved: { type: Number, default: 0 },
-    globalRank: { type: Number, default: 0 },
-    countryRank: { type: Number, default: 0 },
-  },
-
-  // ─── Kaggle ────────────────────────────
-  kaggle: {
-    tier: { type: String, default: 'Unknown' },
-    totalMedals: { type: Number, default: 0 },
-    goldMedals: { type: Number, default: 0 },
-    silverMedals: { type: Number, default: 0 },
-    bronzeMedals: { type: Number, default: 0 },
-    notebooks: { type: Number, default: 0 },
-    competitions: { type: Number, default: 0 },
-    ranking: { type: Number, default: 0 },
-  },
-
-  // ─── GeeksforGeeks ─────────────────────
-  gfg: {
-    totalProblemsSolved: { type: Number, default: 0 },
-    easySolved: { type: Number, default: 0 },
-    mediumSolved: { type: Number, default: 0 },
-    hardSolved: { type: Number, default: 0 },
-    score: { type: Number, default: 0 },
-    instituteRank: { type: Number, default: 0 },
-    streak: { type: String, default: '0' },
-  },
+  // ─── Phase 4: 8 New Platforms ───────────────
+  atcoder: { type: Object, default: {} },
+  stackoverflow: { type: Object, default: {} },
+  hackerearth: { type: Object, default: {} },
+  huggingface: { type: Object, default: {} },
+  tryhackme: { type: Object, default: {} },
+  codesignal: { type: Object, default: {} },
+  devto: { type: Object, default: {} },
+  gitlab: { type: Object, default: {} },
 
   // ─── Sync Metadata ─────────────────────
   lastSyncedAt: { type: Date, default: null },
 
 }, {
   timestamps: true,
+  // We use mixed types (Object) for simplicity and flexibility in storing scraped platform payloads
 });
 
 const PlatformStats = mongoose.model('PlatformStats', platformStatsSchema);

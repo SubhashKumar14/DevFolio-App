@@ -1,9 +1,9 @@
 export function ScoreBadge({ score }) {
   const getGrade = (s) => {
-    if (s >= 90) return { grade: 'S', color: 'bg-accent-purple/20 text-accent-purple' };
-    if (s >= 75) return { grade: 'A', color: 'bg-accent-cyan/20 text-accent-cyan' };
-    if (s >= 60) return { grade: 'B', color: 'bg-accent-green/20 text-accent-green' };
-    if (s >= 40) return { grade: 'C', color: 'bg-accent-orange/20 text-accent-orange' };
+    if (s >= 900) return { grade: 'S', color: 'bg-accent-purple/20 text-accent-purple' };
+    if (s >= 750) return { grade: 'A', color: 'bg-accent-cyan/20 text-accent-cyan' };
+    if (s >= 600) return { grade: 'B', color: 'bg-accent-green/20 text-accent-green' };
+    if (s >= 400) return { grade: 'C', color: 'bg-accent-orange/20 text-accent-orange' };
     return { grade: 'D', color: 'bg-accent-red/20 text-accent-red' };
   };
 

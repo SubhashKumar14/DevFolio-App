@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
@@ -6,9 +6,25 @@ import { Sidebar } from './Sidebar';
 export function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobileMenuOpen]);
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground">
-      <Navbar onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+      <Navbar
+        onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        isMobileMenuOpen={isMobileMenuOpen}
+      />
       <div className="flex-1 pt-16 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)]">
         {/* Desktop Sidebar */}
         <aside className="fixed top-16 z-30 -ml-2 hidden h-[calc(100vh-4rem)] w-full shrink-0 md:sticky md:block">
@@ -24,7 +40,13 @@ export function DashboardLayout() {
               className="absolute inset-0 bg-background/80 backdrop-blur-sm"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-            <div className="relative h-full w-3/4 max-w-sm border-r border-border bg-card p-6 shadow-xl">
+            <div
+              id="dashboard-mobile-nav"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Dashboard navigation"
+              className="relative h-full w-3/4 max-w-sm border-r border-border bg-card p-6 shadow-xl"
+            >
               <Sidebar />
             </div>
           </div>

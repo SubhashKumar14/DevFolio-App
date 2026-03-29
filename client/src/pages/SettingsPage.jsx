@@ -1,22 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { profileService } from '@/services/profileService';
 import { integrationService } from '@/services/integrationService';
 import { statsService } from '@/services/statsService';
-import { authService } from '@/services/authService';
 import apiClient from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CheckCircle } from 'lucide-react';
+
+// ─── All 15 platforms ─────────────────────────────
+const ALL_PLATFORMS = [
+  { field: 'githubUsername', label: 'GitHub', placeholder: 'e.g. SubhashKumar14', color: '#39d353' },
+  { field: 'leetcodeUsername', label: 'LeetCode', placeholder: 'e.g. Subhash_Kumar14', color: '#FFA116' },
+  { field: 'codeforcesUsername', label: 'Codeforces', placeholder: 'e.g. tourist', color: '#3B82F6' },
+  { field: 'hackerrankUsername', label: 'HackerRank', placeholder: 'e.g. hr_user', color: '#00C38C' },
+  { field: 'codechefUsername', label: 'CodeChef', placeholder: 'e.g. chef_user', color: '#B57044' },
+  { field: 'kaggleUsername', label: 'Kaggle', placeholder: 'e.g. kaggle_user', color: '#20BEFF' },
+  { field: 'gfgUsername', label: 'GeeksforGeeks', placeholder: 'e.g. gfg_user', color: '#1FA759' },
+  { field: 'atcoderUsername', label: 'AtCoder', placeholder: 'e.g. atcoder_handle', color: '#00BFFF' },
+  { field: 'stackoverflowUserId', label: 'Stack Overflow', placeholder: 'e.g. 1234567 (user ID)', color: '#F48024' },
+  { field: 'hackerEarthUsername', label: 'HackerEarth', placeholder: 'e.g. @username', color: '#444CF7' },
+  { field: 'huggingfaceUsername', label: 'Hugging Face', placeholder: 'e.g. hf_user', color: '#FFD533' },
+  { field: 'tryhackmeUsername', label: 'TryHackMe', placeholder: 'e.g. thm_user', color: '#D43232' },
+  { field: 'codesignalUsername', label: 'CodeSignal', placeholder: 'e.g. cs_user', color: '#8149F3' },
+  { field: 'devtoUsername', label: 'Dev.to', placeholder: 'e.g. devto_user', color: '#5A67D8' },
+  { field: 'gitlabUsername', label: 'GitLab', placeholder: 'e.g. gitlab_user', color: '#FC6D26' },
+];
+
+// ─── 6 Archetypes ─────────────────────────────────
+const ARCHETYPES = [
+  { id: 'builder', label: 'Full-Stack Builder', icon: '🔨', desc: 'Builds production apps, contributes to OSS', color: '#06b6d4' },
+  { id: 'problem_solver', label: 'DSA Specialist', icon: '🧩', desc: 'Algorithms, data structures, contests', color: '#8b5cf6' },
+  { id: 'ai_engineer', label: 'AI/ML Engineer', icon: '🤖', desc: 'ML models, datasets, competitions', color: '#f59e0b' },
+  { id: 'security_expert', label: 'Security Researcher', icon: '🛡️', desc: 'CTF challenges, pen testing, certs', color: '#ef4444' },
+  { id: 'open_source', label: 'Open Source Contributor', icon: '🌐', desc: 'Max contributions, code reviews', color: '#22c55e' },
+  { id: 'competitor', label: 'Competitive Programmer', icon: '⚔️', desc: 'Pure contest performance, ratings', color: '#ec4899' },
+];
 
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profile');
 
-  // Fetch profile data
   const { data: profile } = useQuery({
     queryKey: ['profile', user?._id],
     queryFn: () => profileService.getProfile(user?._id),
@@ -24,45 +52,32 @@ export default function SettingsPage() {
   });
 
   // Profile form state
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
+  const [displayNameDraft, setDisplayNameDraft] = useState(undefined);
+  const [bioDraft, setBioDraft] = useState(undefined);
+  const [selectedArchetypeDraft, setSelectedArchetypeDraft] = useState(undefined);
+  const [selectedSecondaryArchetypeDraft, setSelectedSecondaryArchetypeDraft] = useState(undefined);
 
-  // Platform form state — initialized from user store
-  const [githubUsername, setGithubUsername] = useState('');
-  const [leetcodeUsername, setLeetcodeUsername] = useState('');
-  const [codeforcesUsername, setCodeforcesUsername] = useState('');
-  const [hackerrankUsername, setHackerrankUsername] = useState('');
-  const [codechefUsername, setCodechefUsername] = useState('');
-  const [kaggleUsername, setKaggleUsername] = useState('');
-  const [gfgUsername, setGfgUsername] = useState('');
+  // Platform form state — all 15
+  const [platformHandles, setPlatformHandles] = useState({});
 
-  // Initialize form when user/profile data loads
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setGithubUsername(user.githubUsername || '');
-      setLeetcodeUsername(user.leetcodeUsername || '');
-      setCodeforcesUsername(user.codeforcesUsername || '');
-      setHackerrankUsername(user.hackerrankUsername || '');
-      setCodechefUsername(user.codechefUsername || '');
-      setKaggleUsername(user.kaggleUsername || '');
-      setGfgUsername(user.gfgUsername || '');
-    }
-  }, [user]);
+  const displayName = displayNameDraft ?? user?.displayName ?? '';
+  const bio = bioDraft ?? profile?.bio ?? '';
+  const selectedArchetype = selectedArchetypeDraft ?? user?.archetype ?? '';
+  const selectedSecondaryArchetype = selectedSecondaryArchetypeDraft ?? user?.secondaryArchetype ?? '';
 
-  useEffect(() => {
-    if (profile) setBio(profile.bio || '');
-  }, [profile]);
+  const updatePlatformHandle = (field, value) => {
+    setPlatformHandles((prev) => ({ ...prev, [field]: value }));
+  };
 
-  // Update profile mutation
+  // Mutations
   const updateProfileMutation = useMutation({
     mutationFn: (data) => profileService.updateProfile(data),
     onSuccess: () => {
+      setBioDraft(undefined);
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
   });
 
-  // Update user mutation (display name)
   const updateUserMutation = useMutation({
     mutationFn: async (data) => {
       const res = await apiClient.put('/user/me', data);
@@ -71,28 +86,25 @@ export default function SettingsPage() {
     onSuccess: (data) => {
       if (data.success) {
         setUser(data.data);
+        setDisplayNameDraft(undefined);
+        setSelectedArchetypeDraft(undefined);
+        setSelectedSecondaryArchetypeDraft(undefined);
         queryClient.invalidateQueries({ queryKey: ['user'] });
       }
     },
   });
 
-  // Connect platforms mutation
   const connectPlatformsMutation = useMutation({
     mutationFn: (data) => integrationService.connectDsa(data),
     onSuccess: async (response) => {
-      // Update Zustand store with the returned user data
       const updatedUser = response.data?.data || response.data;
-      if (updatedUser?._id) {
-        setUser(updatedUser);
-      }
+      if (updatedUser?._id) setUser(updatedUser);
+      setPlatformHandles({});
       queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      // Now trigger sync (usernames are saved in DB at this point)
       try {
         await statsService.syncStats();
-        queryClient.invalidateQueries({ queryKey: ['githubStats'] });
-        queryClient.invalidateQueries({ queryKey: ['dsaStats'] });
-        queryClient.invalidateQueries({ queryKey: ['devScore'] });
+        queryClient.invalidateQueries();
       } catch (err) {
         console.error('Auto-sync after connect failed:', err);
       }
@@ -100,38 +112,40 @@ export default function SettingsPage() {
   });
 
   const handleSaveProfile = () => {
-    if (displayName && displayName !== user?.displayName) {
-      updateUserMutation.mutate({ displayName });
+    const updates = {};
+    if (displayName && displayName !== user?.displayName) updates.displayName = displayName;
+    if (selectedArchetype && selectedArchetype !== user?.archetype) updates.archetype = selectedArchetype;
+    if (selectedSecondaryArchetype !== (user?.secondaryArchetype ?? '')) {
+      updates.secondaryArchetype = selectedSecondaryArchetype || null;
     }
-    if (bio !== undefined) {
-      updateProfileMutation.mutate({ bio });
+    if (updates.secondaryArchetype && updates.secondaryArchetype === updates.archetype) {
+      updates.secondaryArchetype = null;
     }
+    if (Object.keys(updates).length > 0) updateUserMutation.mutate(updates);
+    if (bio !== (profile?.bio || '')) updateProfileMutation.mutate({ bio });
   };
 
   const handleConnectPlatforms = () => {
     const data = {};
-    if (githubUsername) data.githubUsername = githubUsername;
-    if (leetcodeUsername) data.leetcodeUsername = leetcodeUsername;
-    if (codeforcesUsername) data.codeforcesUsername = codeforcesUsername;
-    if (hackerrankUsername) data.hackerrankUsername = hackerrankUsername;
-    if (codechefUsername) data.codechefUsername = codechefUsername;
-    if (kaggleUsername) data.kaggleUsername = kaggleUsername;
-    if (gfgUsername) data.gfgUsername = gfgUsername;
-    if (Object.keys(data).length > 0) {
-      connectPlatformsMutation.mutate(data);
+    for (const p of ALL_PLATFORMS) {
+      const value = (platformHandles[p.field] ?? user?.[p.field] ?? '').trim();
+      if (value) data[p.field] = value;
     }
+    if (Object.keys(data).length > 0) connectPlatformsMutation.mutate(data);
   };
+
+  const tabs = ['profile', 'platforms', 'archetype', 'privacy'];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in p-2 md:p-0">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted mt-1">Manage your account settings and connected platforms.</p>
+        <p className="text-muted mt-1">Manage your account, platforms, and developer identity.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
         <aside className="md:w-64 space-y-1 shrink-0">
-          {['profile', 'platforms', 'privacy'].map(tab => (
+          {tabs.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -145,6 +159,7 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1">
+          {/* ─── Profile Tab ──────────────────── */}
           {activeTab === 'profile' && (
             <Card className="animate-slide-up">
               <CardHeader>
@@ -154,157 +169,137 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="displayName">Display Name</Label>
-                  <Input 
-                    id="displayName" 
-                    value={displayName || user?.displayName || ''} 
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
+                  <Input id="displayName" value={displayName} onChange={(e) => setDisplayNameDraft(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
-                  <textarea 
+                  <textarea
                     id="bio"
                     className="flex min-h-[100px] w-full rounded-md border border-border bg-card-elevated px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan"
                     placeholder="Briefly describe your developer journey..."
-                    value={bio || profile?.bio || ''}
-                    onChange={(e) => setBio(e.target.value)}
+                    value={bio}
+                    onChange={(e) => setBioDraft(e.target.value)}
                   />
                 </div>
               </CardContent>
               <CardFooter className="border-t border-border pt-6">
-                <Button 
-                  onClick={handleSaveProfile}
-                  disabled={updateProfileMutation.isPending || updateUserMutation.isPending}
-                >
+                <Button onClick={handleSaveProfile} disabled={updateProfileMutation.isPending || updateUserMutation.isPending}>
                   {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </CardFooter>
             </Card>
           )}
 
+          {/* ─── Platforms Tab (All 15) ────────── */}
           {activeTab === 'platforms' && (
             <Card className="animate-slide-up">
               <CardHeader>
-                <CardTitle>Connected Platforms</CardTitle>
-                <CardDescription>Enter your platform usernames (not full URLs) to connect and sync your stats.</CardDescription>
+                <CardTitle>Connected Platforms ({ALL_PLATFORMS.filter(p => user?.[p.field]).length}/15)</CardTitle>
+                <CardDescription>Enter your platform usernames or IDs to connect and sync your stats.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* GitHub */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">GitHub</h4>
-                    {user?.githubUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
+              <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {ALL_PLATFORMS.map((p) => (
+                  <div key={p.field} className="p-4 border border-border rounded-xl space-y-3 hover:border-opacity-60 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
+                        <h4 className="font-semibold text-sm">{p.label}</h4>
+                      </div>
+                      {user?.[p.field] && (
+                        <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Connected
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      placeholder={p.placeholder}
+                      value={platformHandles[p.field] ?? user?.[p.field] ?? ''}
+                      onChange={(e) => updatePlatformHandle(p.field, e.target.value)}
+                    />
                   </div>
-                  <Input 
-                    placeholder="e.g. SubhashKumar14"
-                    value={githubUsername}
-                    onChange={(e) => setGithubUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* LeetCode */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">LeetCode</h4>
-                    {user?.leetcodeUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. Subhash_Kumar14"
-                    value={leetcodeUsername}
-                    onChange={(e) => setLeetcodeUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* Codeforces */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Codeforces</h4>
-                    {user?.codeforcesUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. tourist"
-                    value={codeforcesUsername}
-                    onChange={(e) => setCodeforcesUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* HackerRank */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">HackerRank</h4>
-                    {user?.hackerrankUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. hackerrank_user"
-                    value={hackerrankUsername}
-                    onChange={(e) => setHackerrankUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* CodeChef */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">CodeChef</h4>
-                    {user?.codechefUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. chef_user"
-                    value={codechefUsername}
-                    onChange={(e) => setCodechefUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* Kaggle */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Kaggle</h4>
-                    {user?.kaggleUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. kaggle_user"
-                    value={kaggleUsername}
-                    onChange={(e) => setKaggleUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* GeeksforGeeks */}
-                <div className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">GeeksforGeeks</h4>
-                    {user?.gfgUsername && (
-                      <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium">Connected</span>
-                    )}
-                  </div>
-                  <Input 
-                    placeholder="e.g. gfg_user"
-                    value={gfgUsername}
-                    onChange={(e) => setGfgUsername(e.target.value)}
-                  />
-                </div>
+                ))}
               </CardContent>
               <CardFooter className="border-t border-border pt-6">
-                <Button 
-                  onClick={handleConnectPlatforms}
-                  disabled={connectPlatformsMutation.isPending}
-                >
-                  {connectPlatformsMutation.isPending ? 'Syncing...' : 'Save & Sync'}
+                <Button onClick={handleConnectPlatforms} disabled={connectPlatformsMutation.isPending}>
+                  {connectPlatformsMutation.isPending ? 'Syncing...' : 'Save & Sync All'}
                 </Button>
               </CardFooter>
             </Card>
           )}
 
+          {/* ─── Archetype Tab ────────────────── */}
+          {activeTab === 'archetype' && (
+            <Card className="animate-slide-up">
+              <CardHeader>
+                <CardTitle>Developer Identity</CardTitle>
+                <CardDescription>Choose your primary archetype and an optional secondary archetype. DevScore v2 blends them 70/30.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ARCHETYPES.map((arch) => {
+                    const isSelected = selectedArchetype === arch.id;
+                    return (
+                      <button
+                        key={arch.id}
+                        onClick={() => {
+                          setSelectedArchetypeDraft(arch.id);
+                          if (selectedSecondaryArchetype === arch.id) {
+                            setSelectedSecondaryArchetypeDraft('');
+                          }
+                        }}
+                        className={`relative p-4 rounded-xl border-2 text-left transition-all duration-300 hover:-translate-y-0.5 ${
+                          isSelected
+                            ? 'shadow-lg'
+                            : 'border-border hover:border-opacity-60'
+                        }`}
+                        style={isSelected ? { borderColor: arch.color, boxShadow: `0 0 20px ${arch.color}20` } : {}}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-3 right-3">
+                            <CheckCircle className="w-5 h-5" style={{ color: arch.color }} />
+                          </div>
+                        )}
+                        <span className="text-2xl">{arch.icon}</span>
+                        <h4 className="font-bold text-sm mt-2" style={isSelected ? { color: arch.color } : {}}>{arch.label}</h4>
+                        <p className="text-xs text-muted mt-1">{arch.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 space-y-2">
+                  <Label htmlFor="secondaryArchetype">Secondary Archetype</Label>
+                  <select
+                    id="secondaryArchetype"
+                    className="h-10 w-full rounded-md border border-border bg-card-elevated px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                    value={selectedSecondaryArchetype}
+                    onChange={(e) => setSelectedSecondaryArchetypeDraft(e.target.value)}
+                  >
+                    <option value="">None</option>
+                    {ARCHETYPES.filter((arch) => arch.id !== selectedArchetype).map((arch) => (
+                      <option key={arch.id} value={arch.id}>{arch.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted">Optional. Secondary archetype contributes 30% of the scoring blend.</p>
+                </div>
+              </CardContent>
+              <CardFooter className="border-t border-border pt-6">
+                <Button
+                  onClick={() => {
+                    const updates = {};
+                    if (selectedArchetype) updates.archetype = selectedArchetype;
+                    updates.secondaryArchetype = selectedSecondaryArchetype || null;
+                    if (updates.secondaryArchetype === updates.archetype) updates.secondaryArchetype = null;
+                    if (Object.keys(updates).length > 0) updateUserMutation.mutate(updates);
+                  }}
+                  disabled={updateUserMutation.isPending || (!selectedArchetype && selectedSecondaryArchetype === (user?.secondaryArchetype ?? ''))}
+                >
+                  {updateUserMutation.isPending ? 'Saving...' : 'Save Identity'}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+
+          {/* ─── Privacy Tab ──────────────────── */}
           {activeTab === 'privacy' && (
             <Card className="animate-slide-up">
               <CardHeader>
@@ -317,7 +312,7 @@ export default function SettingsPage() {
                     <Label className="text-base">Public Profile</Label>
                     <p className="text-sm text-muted">Allow anyone to view your DevScore using your unique URL.</p>
                   </div>
-                  <button 
+                  <button
                     className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${profile?.isPublic ? 'bg-accent-cyan' : 'bg-muted/30'}`}
                     onClick={() => updateProfileMutation.mutate({ isPublic: !profile?.isPublic })}
                   >

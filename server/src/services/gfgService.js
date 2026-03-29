@@ -14,7 +14,7 @@ export async function fetchGfgStats(username) {
     const d = res.data || {};
     return {
       totalProblemsSolved: parseInt(d.totalProblemsSolved) || 0,
-      easySolved: parseInt(d.School) || 0 + parseInt(d.Basic) || 0 + parseInt(d.Easy) || 0,
+      easySolved: (parseInt(d.School) || 0) + (parseInt(d.Basic) || 0) + (parseInt(d.Easy) || 0),
       mediumSolved: parseInt(d.Medium) || 0,
       hardSolved: parseInt(d.Hard) || 0,
       score: parseInt(d.codingScore) || 0,

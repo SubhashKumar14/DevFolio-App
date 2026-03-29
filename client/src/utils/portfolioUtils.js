@@ -1,7 +1,13 @@
 /**
  * Build a complete HTML document from separate HTML, CSS, and JS strings.
  */
+export function escapeScriptContent(script = '') {
+  return String(script).replace(/<\/script/gi, '<\\/script');
+}
+
 export function buildPortfolioHtml(html = '', css = '', js = '') {
+  const safeJs = escapeScriptContent(js);
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +17,7 @@ export function buildPortfolioHtml(html = '', css = '', js = '') {
 </head>
 <body>
   ${html}
-  <script>${js}<\/script>
+  <script>${safeJs}</script>
 </body>
 </html>`;
 }

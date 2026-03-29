@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, Users, Trophy, ExternalLink, AlertTriangle } from 'lucide-react';
 import { ScoreBadge } from '@/components/dashboard/ScoreBadge';
+import { ARCHETYPE_LIST } from '@/lib/constants';
 
 export default function RecruiterPage() {
   const { user } = useAuthStore();
-  const [filters, setFilters] = useState({ name: '', techStack: '', college: '', minScore: '' });
+  const [filters, setFilters] = useState({ name: '', techStack: '', college: '', minScore: '', archetype: '' });
   const [searchParams, setSearchParams] = useState(null);
 
   // All hooks MUST be above any conditional return
@@ -23,6 +24,7 @@ export default function RecruiterPage() {
       if (searchParams.techStack) params.set('techStack', searchParams.techStack);
       if (searchParams.college) params.set('college', searchParams.college);
       if (searchParams.minScore) params.set('minScore', searchParams.minScore);
+      if (searchParams.archetype) params.set('archetype', searchParams.archetype);
       const res = await apiClient.get(`/recruiter/search?${params.toString()}`);
       return res.data;
     },
@@ -55,7 +57,7 @@ export default function RecruiterPage() {
       {/* Search Filters */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label>Name</Label>
               <Input value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} placeholder="Search by name" />
@@ -71,6 +73,19 @@ export default function RecruiterPage() {
             <div className="space-y-2">
               <Label>Min DevScore</Label>
               <Input type="number" value={filters.minScore} onChange={(e) => setFilters({ ...filters, minScore: e.target.value })} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Archetype</Label>
+              <select
+                className="h-10 w-full rounded-md border border-border bg-card-elevated px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                value={filters.archetype}
+                onChange={(e) => setFilters({ ...filters, archetype: e.target.value })}
+              >
+                <option value="">All archetypes</option>
+                {ARCHETYPE_LIST.map((a) => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </select>
             </div>
           </div>
           <Button onClick={handleSearch} className="gap-2">
@@ -98,6 +113,13 @@ export default function RecruiterPage() {
                     <div className="flex items-center gap-3 text-sm text-muted mt-0.5">
                       {dev.college && <span>🎓 {dev.college}</span>}
                       <span className="flex items-center gap-1"><Trophy className="h-3.5 w-3.5" /> {dev.devScore}</span>
+                      {dev.archetype && dev.archetype !== 'none' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-card-elevated border border-border capitalize">
+                          {dev.secondaryArchetype && dev.secondaryArchetype !== 'none'
+                            ? `${dev.archetype.replace('_', ' ')} + ${dev.secondaryArchetype.replace('_', ' ')}`
+                            : dev.archetype.replace('_', ' ')}
+                        </span>
+                      )}
                       {dev.hasPortfolio && <span className="text-accent-green text-xs font-medium">📄 Portfolio</span>}
                     </div>
                     {dev.techStack?.length > 0 && (
@@ -110,7 +132,7 @@ export default function RecruiterPage() {
                   </div>
                 </div>
                 <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <a href={`/p/${dev.userId}`} target="_blank" rel="noreferrer">
+                  <a href={`/p/${encodeURIComponent(dev.displayName)}`} target="_blank" rel="noreferrer">
                     View Profile <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </Button>

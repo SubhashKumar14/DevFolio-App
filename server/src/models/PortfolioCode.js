@@ -11,14 +11,14 @@ const portfolioCodeSchema = new Schema({
   },
 
   // ─── Raw Code (for editing) ────────────
-  rawHtml: { type: String, default: '' },
+  rawHtml: { type: String, default: '', maxlength: 100000 },
 
   // ─── Sanitized Code (for public preview)
-  htmlContent: { type: String, default: '' },
+  htmlContent: { type: String, default: '', maxlength: 100000 },
 
   // ─── CSS & JS ──────────────────────────
-  cssContent: { type: String, default: '' },
-  jsContent: { type: String, default: '' },
+  cssContent: { type: String, default: '', maxlength: 100000 },
+  jsContent: { type: String, default: '', maxlength: 100000 },
 
   // ─── Visibility ────────────────────────
   isPublic: { type: Boolean, default: false },

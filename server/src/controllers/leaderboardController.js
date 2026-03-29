@@ -11,8 +11,9 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
   const college = req.query.college;
+  const archetype = req.query.archetype;
 
-  const cacheKey = college ? `leaderboard:college:${college.toLowerCase()}` : 'leaderboard:all';
+  const cacheKey = `leaderboard:${college ? `college:${college.toLowerCase()}:` : ''}${archetype ? `archetype:${archetype}:` : ''}all`;
 
   const allRankings = await cacheGet(cacheKey, async () => {
     // Get latest score per user via aggregation
@@ -20,11 +21,11 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
       { $sort: { userId: 1, createdAt: -1 } },
       { $group: {
         _id: '$userId',
-        overallScore: { $first: '$overallScore' },
+        score: { $first: { $ifNull: ['$score', '$overallScore'] } },
         breakdown: { $first: '$breakdown' },
         computedAt: { $first: '$computedAt' },
       }},
-      { $sort: { overallScore: -1 } },
+      { $sort: { score: -1 } },
     ];
 
     const scores = await DevScore.aggregate(pipeline);
@@ -32,7 +33,7 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
     // Get user info
     const userIds = scores.map((s) => s._id);
     const [users, profiles, portfolios] = await Promise.all([
-      User.find({ _id: { $in: userIds } }).select('displayName email'),
+      User.find({ _id: { $in: userIds } }).select('displayName email archetype secondaryArchetype'),
       Profile.find({ userId: { $in: userIds } }).select('userId college avatarUrl'),
       PortfolioCode.find({ userId: { $in: userIds }, isPublic: true }).select('userId'),
     ]);
@@ -48,7 +49,9 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
         rank: idx + 1,
         userId: s._id,
         displayName: user?.displayName || 'Unknown',
-        overallScore: s.overallScore,
+        overallScore: s.score || 0,
+        archetype: user?.archetype || 'none',
+        secondaryArchetype: user?.secondaryArchetype || 'none',
         college: profile?.college || '',
         avatarUrl: profile?.avatarUrl || null,
         hasPortfolio: portfolioSet.has(s._id.toString()),
@@ -60,8 +63,13 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
       rankings = rankings.filter((r) =>
         r.college.toLowerCase().includes(college.toLowerCase())
       );
-      rankings = rankings.map((r, idx) => ({ ...r, rank: idx + 1 }));
     }
+
+    if (archetype) {
+      rankings = rankings.filter((r) => r.archetype === archetype || r.secondaryArchetype === archetype);
+    }
+
+    rankings = rankings.map((r, idx) => ({ ...r, rank: idx + 1 }));
 
     return rankings;
   }, 600); // 10 minute TTL

@@ -31,18 +31,50 @@ const userSchema = new Schema({
     default: 'developer',
   },
 
+  // ─── Developer Identity (Archetype) ─────
+  archetype: {
+    type: String,
+    enum: ['builder', 'problem_solver', 'ai_engineer', 'security_expert', 'open_source', 'competitor', null],
+    default: null,
+  },
+
+  secondaryArchetype: {
+    type: String,
+    enum: ['builder', 'problem_solver', 'ai_engineer', 'security_expert', 'open_source', 'competitor', null],
+    default: null,
+  },
+
   // ─── GitHub OAuth ───────────────────────
   githubId: { type: String, default: null },
   githubUsername: { type: String, default: null },
   githubAccessToken: { type: String, select: false },
 
-  // ─── DSA Platform Handles ───────────────
+  // ─── Platform Handles (15 platforms) ────
+  // DSA / Competitive Programming
   leetcodeUsername: { type: String, default: null },
   codeforcesUsername: { type: String, default: null },
   hackerrankUsername: { type: String, default: null },
   codechefUsername: { type: String, default: null },
-  kaggleUsername: { type: String, default: null },
   gfgUsername: { type: String, default: null },
+  atcoderUsername: { type: String, default: null },
+  hackerEarthUsername: { type: String, default: null },
+
+  // AI / ML
+  kaggleUsername: { type: String, default: null },
+  huggingfaceUsername: { type: String, default: null },
+
+  // Community / Knowledge
+  stackoverflowUserId: { type: String, default: null },
+  devtoUsername: { type: String, default: null },
+
+  // Open Source
+  gitlabUsername: { type: String, default: null },
+
+  // Security
+  tryhackmeUsername: { type: String, default: null },
+
+  // Interview / Assessment
+  codesignalUsername: { type: String, default: null },
 
   // ─── Auth ───────────────────────────────
   refreshToken: { type: String, select: false },
@@ -52,9 +84,10 @@ const userSchema = new Schema({
 });
 
 // ─── Indexes ──────────────────────────────
-// Note: email index is auto-created by unique: true in schema
 userSchema.index({ githubId: 1 }, { sparse: true });
 userSchema.index({ role: 1 });
+userSchema.index({ archetype: 1 });
+userSchema.index({ secondaryArchetype: 1 });
 
 // ─── Hooks ────────────────────────────────
 userSchema.pre('save', async function () {
@@ -65,6 +98,27 @@ userSchema.pre('save', async function () {
 // ─── Methods ──────────────────────────────
 userSchema.methods.comparePassword = async function (candidate) {
   return bcrypt.compare(candidate, this.password);
+};
+
+// ─── Helper: Get all platform fields for a user ───
+userSchema.methods.getPlatformData = function () {
+  return {
+    githubUsername: this.githubUsername,
+    leetcodeUsername: this.leetcodeUsername,
+    codeforcesUsername: this.codeforcesUsername,
+    hackerrankUsername: this.hackerrankUsername,
+    codechefUsername: this.codechefUsername,
+    gfgUsername: this.gfgUsername,
+    kaggleUsername: this.kaggleUsername,
+    atcoderUsername: this.atcoderUsername,
+    hackerEarthUsername: this.hackerEarthUsername,
+    huggingfaceUsername: this.huggingfaceUsername,
+    stackoverflowUserId: this.stackoverflowUserId,
+    devtoUsername: this.devtoUsername,
+    gitlabUsername: this.gitlabUsername,
+    tryhackmeUsername: this.tryhackmeUsername,
+    codesignalUsername: this.codesignalUsername,
+  };
 };
 
 const User = mongoose.model('User', userSchema);

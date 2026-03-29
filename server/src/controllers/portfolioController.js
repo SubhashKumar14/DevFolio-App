@@ -14,7 +14,8 @@ export const getPortfolio = asyncHandler(async (req, res) => {
     userId = param;
   } else {
     // Otherwise, look up user by displayName (case-insensitive)
-    const user = await User.findOne({ displayName: { $regex: new RegExp(`^${param}$`, 'i') } });
+    const escaped = param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const user = await User.findOne({ displayName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
     if (!user) {
       return res.json({ success: true, data: null });
     }

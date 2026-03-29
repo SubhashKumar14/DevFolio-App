@@ -30,11 +30,6 @@ export default function ProjectsPage() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => projectService.deleteProject(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
-  });
-
   const handleCreate = () => {
     const data = {
       ...form,

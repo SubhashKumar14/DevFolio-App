@@ -22,7 +22,30 @@ export const getProfile = asyncHandler(async (req, res) => {
     throw new AppError('Profile not found', 404);
   }
 
-  const profile = await Profile.findOne({ userId }).populate('userId', 'displayName email githubUsername leetcodeUsername codeforcesUsername hackerrankUsername codechefUsername kaggleUsername gfgUsername');
+  const profile = await Profile.findOne({ userId }).populate(
+    'userId',
+    [
+      'displayName',
+      'email',
+      'archetype',
+      'secondaryArchetype',
+      'githubUsername',
+      'leetcodeUsername',
+      'codeforcesUsername',
+      'hackerrankUsername',
+      'codechefUsername',
+      'kaggleUsername',
+      'gfgUsername',
+      'atcoderUsername',
+      'stackoverflowUserId',
+      'hackerEarthUsername',
+      'huggingfaceUsername',
+      'tryhackmeUsername',
+      'codesignalUsername',
+      'devtoUsername',
+      'gitlabUsername',
+    ].join(' ')
+  );
 
   if (!profile) {
     throw new AppError('Profile not found', 404);

@@ -35,6 +35,7 @@ Authorization: Bearer <access_token>
 10. [Comparison Endpoints](#10-comparison-endpoints)
 11. [Admin Endpoints](#11-admin-endpoints)
 12. [Recruiter Endpoints](#12-recruiter-endpoints)
+13. [Change Log](#13-change-log)
 
 ---
 
@@ -99,14 +100,22 @@ Authenticate user with email and password.
 
 Refresh the access token using a refresh token.
 
-**Auth:** None (uses refresh token from cookie)
+**Auth:** None (refresh token is sent in request body)
+
+**Request Body:**
+```json
+{
+  "refreshToken": "<refresh_jwt>"
+}
+```
 
 **Response (200):**
 ```json
 {
   "success": true,
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "<rotated_refresh_jwt>"
   }
 }
 ```
@@ -144,7 +153,7 @@ GitHub OAuth callback — exchange code for access token and link account.
 
 **Query Params:** `?code=...`
 
-**Response:** Redirects to frontend with JWT token
+**Response:** Redirects to frontend dashboard; JWT access token is appended in URL fragment (`#token=...`) instead of query string.
 
 ---
 
@@ -696,6 +705,15 @@ Search developers by criteria.
   ]
 }
 ```
+
+---
+
+## 13. Change Log
+
+### 2026-03-29
+
+- `POST /api/auth/refresh` now documented with body-based refresh token and rotated refresh token response.
+- GitHub OAuth callback behavior updated: token is returned in URL fragment (`#token=...`) instead of query parameter.
 
 ---
 

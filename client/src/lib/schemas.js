@@ -13,6 +13,7 @@ export const registerSchema = z.object({
     .regex(/[A-Z]/, 'Need 1 uppercase letter')
     .regex(/[0-9]/, 'Need 1 number'),
   displayName: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Max 50 characters'),
+  role: z.enum(['developer', 'recruiter', 'mentor']),
 });
 
 export const platformHandleSchema = z.object({

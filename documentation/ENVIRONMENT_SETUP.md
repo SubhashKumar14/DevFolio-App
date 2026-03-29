@@ -61,6 +61,13 @@ JWT_REFRESH_SECRET=another-secret-key-change-this-too
 JWT_EXPIRY=15m
 JWT_REFRESH_EXPIRY=7d
 
+# Encryption
+# Required in production, recommended in development (32+ chars)
+ENCRYPTION_KEY=your-32-plus-char-encryption-key
+
+# Redis (optional)
+REDIS_URL=redis://localhost:6379
+
 # GitHub OAuth (required for GitHub integration)
 GITHUB_CLIENT_ID=your_github_oauth_client_id
 GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
@@ -113,24 +120,13 @@ mongod --dbpath /data/db
 ## 6. Run the Development Servers
 
 ```bash
-# From project root — starts both client and server
-npm run dev
+# Terminal 1 (server)
+cd server
+npm run dev    # Runs on http://localhost:5000
 
-# Or separately:
-# Terminal 1 (server):
-cd server && npm run dev    # Runs on http://localhost:5000
-
-# Terminal 2 (client):
-cd client && npm run dev    # Runs on http://localhost:5173
-```
-
-The `npm run dev` at root uses `concurrently` to run both:
-```json
-{
-  "scripts": {
-    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\""
-  }
-}
+# Terminal 2 (client)
+cd client
+npm run dev    # Runs on http://localhost:5173
 ```
 
 ---
@@ -175,15 +171,13 @@ The `npm run dev` at root uses `concurrently` to run both:
 ## 9. Running Tests
 
 ```bash
-# Server unit + integration tests (Jest + Supertest)
+# Server tests (Jest)
 cd server && npm test
-
-# Client tests
-cd client && npm test
-
-# E2E tests (requires dev servers running)
-npm run test:e2e
 ```
+
+Note:
+- A client-side `npm test` script is not currently defined.
+- Current backend suite is smoke-level and should be expanded for route-level integration coverage.
 
 ---
 

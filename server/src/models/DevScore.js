@@ -9,26 +9,57 @@ const devScoreSchema = new Schema({
     required: true,
   },
 
-  // ─── Overall Score ─────────────────────
-  overallScore: { type: Number, required: true, min: 0 },
+  // ─── DevScore v2 (0–1000) ─────────────
+  score: { type: Number, required: true, min: 0, max: 1000 },
+  rawScore: { type: Number, default: 0, min: 0, max: 100 },
+  weightedRawScore: { type: Number, default: 0, min: 0, max: 100 },
 
-  // ─── Breakdown ──────────────────────────
+  // ─── Archetype used for computation ────
+  archetype: { type: String, default: 'none' },
+  secondaryArchetype: { type: String, default: 'none' },
+
+  // ─── 5-Pillar Breakdown ────────────────
   breakdown: {
-    github: {
+    problemSolving: {
       score: { type: Number, default: 0 },
-      weight: { type: Number, default: 40 },
+      max: { type: Number, default: 200 },
+      percentile: { type: Number, default: 0 },
+      grade: { type: String, default: 'N/A' },
     },
-    dsa: {
+    building: {
       score: { type: Number, default: 0 },
-      weight: { type: Number, default: 40 },
+      max: { type: Number, default: 200 },
+      percentile: { type: Number, default: 0 },
+      grade: { type: String, default: 'N/A' },
     },
-    portfolio: {
+    community: {
       score: { type: Number, default: 0 },
-      weight: { type: Number, default: 20 },
+      max: { type: Number, default: 200 },
+      percentile: { type: Number, default: 0 },
+      grade: { type: String, default: 'N/A' },
+    },
+    consistency: {
+      score: { type: Number, default: 0 },
+      max: { type: Number, default: 200 },
+      percentile: { type: Number, default: 0 },
+      grade: { type: String, default: 'N/A' },
+    },
+    specialization: {
+      score: { type: Number, default: 0 },
+      max: { type: Number, default: 200 },
+      percentile: { type: Number, default: 0 },
+      grade: { type: String, default: 'N/A' },
     },
   },
 
   // ─── Metadata ──────────────────────────
+  domain: { type: String, default: 'all_rounder' },
+  domainLabel: { type: String, default: 'All Rounder' },
+  connectedPlatforms: { type: Number, default: 0 },
+  platformScores: { type: Schema.Types.Mixed, default: {} },
+  strengths: [{ type: String }],
+  improvements: [{ type: String }],
+  diagnostics: { type: Schema.Types.Mixed, default: {} },
   computedAt: { type: Date, default: Date.now },
 
 }, {
@@ -36,9 +67,7 @@ const devScoreSchema = new Schema({
 });
 
 // ─── Indexes ──────────────────────────────
-// Leaderboard: rank by score
-devScoreSchema.index({ overallScore: -1 });
-// User score history
+devScoreSchema.index({ score: -1 });
 devScoreSchema.index({ userId: 1, createdAt: -1 });
 
 const DevScore = mongoose.model('DevScore', devScoreSchema);

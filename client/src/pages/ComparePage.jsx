@@ -15,20 +15,26 @@ export default function ComparePage() {
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [compareId, setCompareId] = useState(null);
-  const [selectedName, setSelectedName] = useState('');
   const dropdownRef = useRef(null);
 
   // Search users as you type
   useEffect(() => {
-    if (searchQuery.length < 2) { setSearchResults([]); return; }
+    if (searchQuery.length < 2) {
+      return;
+    }
+
     const timer = setTimeout(async () => {
       try {
         const res = await apiClient.get(`/user/search?q=${encodeURIComponent(searchQuery)}`);
         const filtered = (res.data || []).filter((u) => u._id !== user?._id);
         setSearchResults(filtered);
         setShowDropdown(filtered.length > 0);
-      } catch { setSearchResults([]); }
+      } catch {
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [searchQuery, user?._id]);
 
@@ -41,7 +47,6 @@ export default function ComparePage() {
 
   const selectUser = (u) => {
     setCompareId(u._id);
-    setSelectedName(u.displayName);
     setSearchQuery(u.displayName);
     setShowDropdown(false);
   };
@@ -106,7 +111,16 @@ export default function ComparePage() {
                     placeholder="Search by name..."
                     className="pl-9 bg-transparent border-muted/30 focus-visible:ring-accent-cyan/50"
                     value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearchQuery(value);
+                      if (value.length < 2) {
+                        setSearchResults([]);
+                        setShowDropdown(false);
+                        return;
+                      }
+                      setShowDropdown(true);
+                    }}
                     onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
                   />
                 </div>

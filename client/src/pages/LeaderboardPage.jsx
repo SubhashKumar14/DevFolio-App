@@ -11,10 +11,16 @@ export default function LeaderboardPage() {
   const { user } = useAuthStore();
   const [page, setPage] = useState(1);
   const [college, setCollege] = useState('');
+  const [archetypeFilter, setArchetypeFilter] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leaderboard', page, college],
-    queryFn: () => leaderboardService.getLeaderboard({ page, limit: 20, college: college || undefined }),
+    queryKey: ['leaderboard', page, college, archetypeFilter],
+    queryFn: () => leaderboardService.getLeaderboard({ 
+      page, 
+      limit: 20, 
+      college: college || undefined,
+      archetype: archetypeFilter || undefined
+    }),
   });
 
   const rankings = data?.rankings || [];
@@ -30,14 +36,29 @@ export default function LeaderboardPage() {
           </h1>
           <p className="text-muted mt-1">See how you rank globally across all integrated platforms.</p>
         </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-          <Input 
-            placeholder="Filter by college..." 
-            className="pl-9"
-            value={college}
-            onChange={(e) => { setCollege(e.target.value); setPage(1); }}
-          />
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+            <Input 
+              placeholder="Filter by college..." 
+              className="pl-9 h-10 bg-card-elevated"
+              value={college}
+              onChange={(e) => { setCollege(e.target.value); setPage(1); }}
+            />
+          </div>
+          <select
+            className="h-10 px-3 rounded-md border border-border bg-card-elevated text-sm focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+            value={archetypeFilter}
+            onChange={(e) => { setArchetypeFilter(e.target.value); setPage(1); }}
+          >
+            <option value="">All Archetypes</option>
+            <option value="builder">Full-Stack Builder</option>
+            <option value="problem_solver">DSA Specialist</option>
+            <option value="ai_engineer">AI Engineer</option>
+            <option value="security_expert">Security Expert</option>
+            <option value="open_source">Open Source</option>
+            <option value="competitor">Competitor</option>
+          </select>
         </div>
       </div>
 
@@ -54,6 +75,7 @@ export default function LeaderboardPage() {
                   <th className="px-6 py-4 font-semibold">Rank</th>
                   <th className="px-6 py-4 font-semibold">Developer</th>
                   <th className="px-6 py-4 font-semibold">DevScore</th>
+                  <th className="px-6 py-4 font-semibold">Identity</th>
                   <th className="px-6 py-4 font-semibold">College</th>
                   <th className="px-6 py-4 font-semibold">Portfolio</th>
                 </tr>
@@ -75,6 +97,17 @@ export default function LeaderboardPage() {
                       </td>
                       <td className="px-6 py-4 font-bold text-transparent bg-clip-text bg-gradient-devscore">
                         {entry.overallScore}
+                      </td>
+                      <td className="px-6 py-4">
+                        {entry.archetype && entry.archetype !== 'none' ? (
+                           <span className="capitalize text-xs font-semibold px-2 py-1 rounded bg-card-elevated border border-border text-foreground">
+                             {entry.secondaryArchetype && entry.secondaryArchetype !== 'none'
+                               ? `${entry.archetype.replace('_', ' ')} + ${entry.secondaryArchetype.replace('_', ' ')}`
+                               : entry.archetype.replace('_', ' ')}
+                           </span>
+                        ) : (
+                           <span className="text-xs text-muted">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-muted">
                         {entry.college || '—'}

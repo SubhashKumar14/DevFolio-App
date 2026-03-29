@@ -47,11 +47,25 @@ export default function AnalyticsPage() {
     enabled: !!userId, retry: false,
   });
 
+  const scoreData = devScore?.data || devScore;
+  const diagnostics = scoreData?.diagnostics || {};
+
   // ── Chart Data ──────────────
   const trendData = scoreHistory.map((e) => ({
     name: new Date(e.computedAt || e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    score: e.overallScore,
+    score: e.score ?? e.overallScore ?? 0,
   }));
+
+  const platformScoreData = Object.entries(scoreData?.platformScores || {})
+    .map(([platform, value]) => ({
+      platform,
+      label: value?.platformLabel || platform,
+      score: Math.round(value?.score || 0),
+      weightPct: Math.round((value?.weight || 0) * 100),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const domainFitData = diagnostics?.domainFitCandidates || [];
 
   const problemData = dsaStats?.leetcode ? [
     { difficulty: 'Easy', count: dsaStats.leetcode.easySolved || 0, fill: '#10b981' },
@@ -71,14 +85,29 @@ export default function AnalyticsPage() {
     fill: COLORS[i % COLORS.length],
   }));
 
-  // Platform comparison radar
+  // Pillar distribution radar
+  const pillars = scoreData?.pillars || {};
   const radarData = [
-    { metric: 'GitHub', value: Math.min((githubStats?.totalCommits || 0) / 10, 100) },
-    { metric: 'LeetCode', value: Math.min((dsaStats?.leetcode?.totalSolved || 0) / 5, 100) },
-    { metric: 'Codeforces', value: Math.min((dsaStats?.codeforces?.currentRating || 0) / 20, 100) },
-    { metric: 'HackerRank', value: Math.min((platformStats?.hackerrank?.totalBadges || 0) * 10, 100) },
-    { metric: 'CodeChef', value: Math.min((platformStats?.codechef?.currentRating || 0) / 20, 100) },
-    { metric: 'GFG', value: Math.min((platformStats?.gfg?.totalProblemsSolved || 0) / 5, 100) },
+    {
+      metric: 'DSA',
+      value: Math.round(((pillars.problemSolving?.score || 0) / Math.max(1, pillars.problemSolving?.max || 100)) * 100),
+    },
+    {
+      metric: 'Build',
+      value: Math.round(((pillars.building?.score || 0) / Math.max(1, pillars.building?.max || 100)) * 100),
+    },
+    {
+      metric: 'Community',
+      value: Math.round(((pillars.community?.score || 0) / Math.max(1, pillars.community?.max || 100)) * 100),
+    },
+    {
+      metric: 'Consistency',
+      value: Math.round(((pillars.consistency?.score || 0) / Math.max(1, pillars.consistency?.max || 100)) * 100),
+    },
+    {
+      metric: 'Specialization',
+      value: Math.round(((pillars.specialization?.score || 0) / Math.max(1, pillars.specialization?.max || 100)) * 100),
+    },
   ];
 
   const tooltipStyle = {
@@ -98,7 +127,7 @@ export default function AnalyticsPage() {
       {/* ── Quick Stats Row ── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: 'DevScore', value: devScore?.overallScore || 0, icon: '🏆' },
+          { label: 'DevScore', value: scoreData?.overallScore || 0, icon: '🏆' },
           { label: 'LeetCode', value: dsaStats?.leetcode?.totalSolved || 0, icon: '💡' },
           { label: 'CF Rating', value: dsaStats?.codeforces?.currentRating || 0, icon: '📊' },
           { label: 'Repos', value: githubStats?.publicRepos || 0, icon: '📁' },
@@ -111,6 +140,107 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* ── Score Diagnostics Row ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="animate-slide-up bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Platform Quality Scores</CardTitle>
+            <CardDescription>Normalized score out of 100 for each connected platform</CardDescription>
+          </CardHeader>
+          <CardContent className="h-64">
+            {platformScoreData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={platformScoreData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={55} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <Tooltip
+                    {...tooltipStyle}
+                    formatter={(value, _name, item) => [`${value}/100`, `${item?.payload?.label || 'Score'}`]}
+                    labelFormatter={(label) => {
+                      const found = platformScoreData.find((e) => e.label === label);
+                      if (!found) return label;
+                      return `${found.label} · Weight ${found.weightPct}%`;
+                    }}
+                  />
+                  <Bar dataKey="score" radius={[6, 6, 0, 0]} fill="#06b6d4" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <EmptyChart msg="Sync connected platforms to compute diagnostics." />}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Domain Fit Candidates</CardTitle>
+            <CardDescription>
+              Selected: {scoreData?.domainLabel || 'All Rounder'} ({diagnostics?.domainFitScore ?? 0}% fit)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="h-64">
+            {domainFitData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={domainFitData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={55} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <Tooltip {...tooltipStyle} formatter={(value) => [`${value}%`, 'Fit Score']} />
+                  <Bar dataKey="score" radius={[6, 6, 0, 0]} fill="#8b5cf6" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <EmptyChart msg="No domain-fit diagnostics available yet." />}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Guidance Row ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="animate-slide-up bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Strongest Signals</CardTitle>
+            <CardDescription>Highest quality signal metrics from your connected platforms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(diagnostics?.strongestSignals || []).length > 0 ? (
+              diagnostics.strongestSignals.map((signal, idx) => (
+                <div key={`${signal.platform}-${signal.signalId}-${idx}`} className="rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium">{signal.metric}</p>
+                  <p className="text-xs text-muted mt-1">{signal.platformLabel} · {Math.round(signal.score || 0)}/100</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted">No strongest-signal diagnostics available.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up bg-card/60 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Focus Recommendations</CardTitle>
+            <CardDescription>Weak signals and unconnected platforms that improve domain coverage</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(diagnostics?.weakSignals || []).slice(0, 3).map((signal, idx) => (
+              <div key={`${signal.platform}-${signal.signalId}-${idx}`} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium">Improve {signal.metric.toLowerCase()}</p>
+                <p className="text-xs text-muted mt-1">{signal.platformLabel} · {Math.round(signal.score || 0)}/100</p>
+              </div>
+            ))}
+
+            {(diagnostics?.unconnectedPlatformRecommendations || []).slice(0, 2).map((rec, idx) => (
+              <div key={`${rec.platform}-${idx}`} className="rounded-lg border border-dashed border-accent-cyan/35 bg-accent-cyan/5 p-3">
+                <p className="text-sm font-medium">Connect {rec.platformLabel}</p>
+                <p className="text-xs text-muted mt-1">Estimated domain coverage impact: {rec.expectedWeight}%</p>
+              </div>
+            ))}
+
+            {(diagnostics?.weakSignals || []).length === 0 && (diagnostics?.unconnectedPlatformRecommendations || []).length === 0 && (
+              <p className="text-sm text-muted">No recommendation diagnostics available right now.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Row 1: DevScore Trend + Platform Radar ── */}
@@ -132,7 +262,7 @@ export default function AnalyticsPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 1000]} />
                   <Tooltip {...tooltipStyle} />
                   <Area type="monotone" dataKey="score" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorScore)" />
                 </AreaChart>

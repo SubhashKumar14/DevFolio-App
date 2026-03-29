@@ -64,6 +64,7 @@ export async function fetchCodeforcesStats(username) {
     maxRating,
     rank,
     totalSolved,
+    contestsParticipated: ratingHistory.length,
     ratingHistory,
     dailySubmissions,
   };

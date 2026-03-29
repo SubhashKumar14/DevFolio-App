@@ -24,18 +24,22 @@ function generateRefreshToken(user) {
 
 // ─── Register ─────────────────────────────────────
 export const register = asyncHandler(async (req, res) => {
-  const { email, password, displayName } = req.body;
+  const { email, password, displayName, role } = req.body;
 
   if (!email || !password || !displayName) {
     throw new AppError('Email, password, and display name are required', 400);
   }
+
+  // Validate role
+  const validRoles = ['developer', 'recruiter', 'mentor'];
+  const userRole = validRoles.includes(role) ? role : 'developer';
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     throw new AppError('Email already registered', 409);
   }
 
-  const user = await User.create({ email, password, displayName });
+  const user = await User.create({ email, password, displayName, role: userRole });
 
   // Create empty profile
   await Profile.create({ userId: user._id });
@@ -189,7 +193,7 @@ export const githubCallback = asyncHandler(async (req, res) => {
 
   // Generate tokens and redirect to frontend
   const accessToken = generateAccessToken(user);
-  res.redirect(`${env.CLIENT_URL}/dashboard?token=${accessToken}`);
+  res.redirect(`${env.CLIENT_URL}/dashboard#token=${encodeURIComponent(accessToken)}`);
 });
 
 // ─── Link GitHub (for authenticated users) ────────

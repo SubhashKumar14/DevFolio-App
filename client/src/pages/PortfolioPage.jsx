@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Eye, ExternalLink, PenTool, FileCode, Loader2, Globe, Lock } from 'lucide-react';
+import { buildPortfolioHtml } from '@/utils/portfolioUtils';
 
 export default function PortfolioPage() {
   const { user } = useAuthStore();
@@ -19,12 +20,16 @@ export default function PortfolioPage() {
     retry: false,
   });
 
-  const srcdoc = useMemo(() => {
-    if (!portfolio) return null;
-    const html = portfolio.htmlContent || portfolio.rawHtml || '';
-    const css = portfolio.cssContent || '';
-    const js = portfolio.jsContent || '';
-    return `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}<script>${js}<\/script></body></html>`;
+  const srcDoc = useMemo(() => {
+    if (!portfolio) {
+      return '';
+    }
+
+    return buildPortfolioHtml(
+      portfolio.htmlContent || portfolio.rawHtml || '',
+      portfolio.cssContent || '',
+      portfolio.jsContent || ''
+    );
   }, [portfolio]);
 
   if (isLoading) {
@@ -68,9 +73,9 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {srcdoc ? (
+      {srcDoc ? (
         <Card className="overflow-hidden">
-          <div className="bg-[#1a1a2e] border-b border-border px-4 py-2 flex items-center gap-2">
+          <div className="bg-card-elevated border-b border-border px-4 py-2 flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-red-500/60" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
@@ -82,7 +87,7 @@ export default function PortfolioPage() {
           </div>
           <div className="h-[70vh] bg-white">
             <iframe
-              srcDoc={srcdoc}
+              srcDoc={srcDoc}
               title="Portfolio Preview"
               sandbox="allow-scripts"
               className="w-full h-full border-0"

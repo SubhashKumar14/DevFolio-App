@@ -2,10 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PLATFORMS } from '@/lib/constants';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, RefreshCw, Code2 } from 'lucide-react';
 
-export function PlatformCard({ platform, onSync, isSyncing }) {
-  const meta = PLATFORMS[platform.id] || PLATFORMS.default;
+export function PlatformCard({ platform, onSync, isSyncing, readonly = false }) {
+  const meta = PLATFORMS[platform.id] || {
+    name: platform.id || 'Platform',
+    color: '#9ca3af',
+    icon: Code2,
+  };
   const Icon = meta.icon;
 
   return (
@@ -21,14 +25,16 @@ export function PlatformCard({ platform, onSync, isSyncing }) {
               <p className="text-sm text-muted">@{platform.username}</p>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => onSync(platform.id)}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 text-muted ${isSyncing ? 'animate-spin' : ''}`} />
-          </Button>
+          {!readonly && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onSync && onSync(platform.id)}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 text-muted ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
         </div>
       </CardHeader>
       
@@ -61,14 +67,16 @@ export function PlatformCard({ platform, onSync, isSyncing }) {
         )}
       </CardContent>
 
-      <CardFooter className="pt-2 border-t border-border mt-auto">
-        <Button variant="ghost" className="w-full justify-between text-muted hover:text-foreground" asChild>
-          <Link to="/dashboard/analytics">
-            View Full Stats
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
-      </CardFooter>
+      {!readonly && (
+        <CardFooter className="pt-2 border-t border-border mt-auto">
+          <Button variant="ghost" className="w-full justify-between text-muted hover:text-foreground" asChild>
+            <Link to="/dashboard/analytics">
+              View Full Stats
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }

@@ -16,7 +16,7 @@ const FIELDS = [
 ];
 
 export default function ProfileCompleteness({ user, profile, hasPortfolio }) {
-  const { pct, completed, missing } = useMemo(() => {
+  const { pct, missing } = useMemo(() => {
     const results = FIELDS.map((f) => ({
       ...f,
       done: f.check(user, profile, hasPortfolio),
@@ -24,7 +24,6 @@ export default function ProfileCompleteness({ user, profile, hasPortfolio }) {
     const done = results.filter((r) => r.done).length;
     return {
       pct: Math.round((done / FIELDS.length) * 100),
-      completed: done,
       missing: results.filter((r) => !r.done),
     };
   }, [user, profile, hasPortfolio]);

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,6 +13,10 @@
     --muted: #6b7280;
     --foreground: #1f2937;
     --foreground-bright: #111827;
+
+    --glass-bg: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(17, 24, 39, 0.1);
+    --heatmap-empty: rgba(17, 24, 39, 0.07);
 
     --accent-cyan: #06b6d4;
     --accent-purple: #8b5cf6;
@@ -28,6 +34,10 @@
     --muted: #6b7280;
     --foreground: #e5e7eb;
     --foreground-bright: #f9fafb;
+
+    --glass-bg: rgba(18, 18, 26, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --heatmap-empty: rgba(255, 255, 255, 0.05);
     
     color-scheme: dark;
   }
@@ -38,9 +48,106 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground tracking-tight antialiased selection:bg-accent-cyan selection:text-white;
+    @apply bg-background text-foreground tracking-tight antialiased;
+    font-family: 'Inter', sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply text-foreground-bright font-bold;
   }
+}
+
+/* ─── Marquee Animation ─────────────────────────── */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Glow Effects ────────────────────────────────── */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 60px rgba(6, 182, 212, 0.1);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 60px rgba(139, 92, 246, 0.1);
+}
+
+/* ─── Role Selection Cards ────────────────────────── */
+.role-card {
+  position: relative;
+  padding: 2rem;
+  border-radius: 1rem;
+  border: 2px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.role-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.role-card.selected {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
+}
+
+.role-card.role-recruiter.selected {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+}
+
+.role-card.role-mentor.selected {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15);
+}
+
+/* ─── Gradient Text Utility ───────────────────────── */
+.text-gradient {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-image: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%);
+}
+
+/* ─── Glass Card ──────────────────────────────────── */
+.glass-card {
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ─── Smooth Scrollbar ────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ─── Selection ───────────────────────────────────── */
+::selection {
+  background: rgba(6, 182, 212, 0.3);
+  color: white;
 }
