@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { createHash } from 'crypto';
 dotenv.config();
 
 const requiredVars = [
@@ -14,14 +15,22 @@ for (const varName of requiredVars) {
   }
 }
 
-const resolvedEncryptionKey = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || '';
+const explicitEncryptionKey = process.env.ENCRYPTION_KEY || '';
+const encryptionKeySource = explicitEncryptionKey || process.env.JWT_SECRET || '';
+const resolvedEncryptionKey = explicitEncryptionKey
+  ? explicitEncryptionKey
+  : createHash('sha256').update(encryptionKeySource).digest('hex');
 
-if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
-  console.warn('⚠️ ENCRYPTION_KEY is not set in production. Falling back to JWT_SECRET. Set ENCRYPTION_KEY to a dedicated 32+ character value.');
+if (process.env.NODE_ENV === 'production' && !explicitEncryptionKey) {
+  console.warn('⚠️ ENCRYPTION_KEY is not set in production. Using a derived key from JWT_SECRET. Set ENCRYPTION_KEY to a dedicated 32+ character value.');
 }
 
-if (process.env.NODE_ENV === 'production' && String(resolvedEncryptionKey).length < 32) {
-  console.error('❌ ENCRYPTION_KEY (or fallback JWT_SECRET) must be at least 32 characters in production');
+if (process.env.NODE_ENV === 'production' && String(process.env.JWT_SECRET).length < 32) {
+  console.warn('⚠️ JWT_SECRET is shorter than 32 characters. Rotate to a stronger secret for production security.');
+}
+
+if (process.env.NODE_ENV === 'production' && explicitEncryptionKey && String(explicitEncryptionKey).length < 32) {
+  console.error('❌ ENCRYPTION_KEY must be at least 32 characters in production when explicitly set');
   process.exit(1);
 }
 
