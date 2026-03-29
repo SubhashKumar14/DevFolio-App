@@ -161,6 +161,7 @@ PUT /profile/me allowed fields:
 | POST | /integrations/dsa/connect | User | Connect/update all supported platform handles |
 | POST | /integrations/github/connect | User | GitHub connect path (delegates to auth/link flow) |
 | PATCH | /integrations/platforms/:platform/disconnect | User | Soft-disconnect one platform handle (history retained, reconnect later) |
+| POST | /integrations/platforms/:platform/disconnect | User | Compatibility alias for disconnect in environments that do not forward PATCH |
 
 PATCH /integrations/platforms/:platform/disconnect path params:
 

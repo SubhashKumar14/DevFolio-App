@@ -21,7 +21,16 @@ export const integrationService = {
   },
 
   async disconnectPlatform(platformId) {
-    const response = await apiClient.patch(`/integrations/platforms/${platformId}/disconnect`);
-    return response;
+    try {
+      const response = await apiClient.patch(`/integrations/platforms/${platformId}/disconnect`);
+      return response;
+    } catch (error) {
+      const status = Number(error?.status);
+      if (status === 404 || status === 405) {
+        // Compatibility fallback for runtimes/proxies where PATCH path is not available.
+        return apiClient.post(`/integrations/platforms/${platformId}/disconnect`);
+      }
+      throw error;
+    }
   },
 };

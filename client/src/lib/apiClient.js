@@ -56,7 +56,13 @@ apiClient.interceptors.response.use(
       }
     }
     
-    const apiError = error.response?.data?.error || { message: error.message };
+    const responsePayload = error.response?.data || {};
+    const payloadError = responsePayload.error || responsePayload;
+    const apiError = {
+      ...payloadError,
+      status: Number(error.response?.status || payloadError?.status || 0) || undefined,
+      message: payloadError?.message || error.message,
+    };
     return Promise.reject(apiError);
   }
 );
