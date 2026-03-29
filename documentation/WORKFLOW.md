@@ -56,6 +56,22 @@ flowchart TD
   S7 --> S8[Dashboard and analytics queries refresh]
 ```
 
+Disconnect flow (soft delete):
+
+```mermaid
+flowchart TD
+  D1[User clicks Disconnect in Settings] --> D2[PATCH /api/integrations/platforms/:platform/disconnect]
+  D2 --> D3[User handle cleared on User document]
+  D3 --> D4[Historical stats retained]
+  D4 --> D5[Platform hidden from connected views]
+  D5 --> D6[User can reconnect later via handle save + sync]
+```
+
+Notes:
+
+- disconnect is non-destructive for historical stats rows
+- reconnect uses existing connect endpoint and new handle submission
+
 ## 3. DevScore Lifecycle
 
 Primary computation triggers:

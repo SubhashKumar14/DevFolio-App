@@ -13,13 +13,13 @@ import { CheckCircle } from 'lucide-react';
 
 // ─── Supported platforms ─────────────────────────
 const ALL_PLATFORMS = [
-  { field: 'githubUsername', label: 'GitHub', placeholder: 'your_github_username', color: '#39d353' },
-  { field: 'leetcodeUsername', label: 'LeetCode', placeholder: 'your_leetcode_username', color: '#FFA116' },
-  { field: 'codeforcesUsername', label: 'Codeforces', placeholder: 'your_codeforces_username', color: '#3B82F6' },
-  { field: 'hackerrankUsername', label: 'HackerRank', placeholder: 'your_hackerrank_username', color: '#00C38C' },
-  { field: 'codechefUsername', label: 'CodeChef', placeholder: 'your_codechef_username', color: '#B57044' },
-  { field: 'kaggleUsername', label: 'Kaggle', placeholder: 'your_kaggle_username', color: '#20BEFF' },
-  { field: 'huggingfaceUsername', label: 'Hugging Face', placeholder: 'your_huggingface_username', color: '#FFD533' },
+  { id: 'github', field: 'githubUsername', label: 'GitHub', placeholder: 'your_github_username', color: '#39d353' },
+  { id: 'leetcode', field: 'leetcodeUsername', label: 'LeetCode', placeholder: 'your_leetcode_username', color: '#FFA116' },
+  { id: 'codeforces', field: 'codeforcesUsername', label: 'Codeforces', placeholder: 'your_codeforces_username', color: '#3B82F6' },
+  { id: 'hackerrank', field: 'hackerrankUsername', label: 'HackerRank', placeholder: 'your_hackerrank_username', color: '#00C38C' },
+  { id: 'codechef', field: 'codechefUsername', label: 'CodeChef', placeholder: 'your_codechef_username', color: '#B57044' },
+  { id: 'kaggle', field: 'kaggleUsername', label: 'Kaggle', placeholder: 'your_kaggle_username', color: '#20BEFF' },
+  { id: 'huggingface', field: 'huggingfaceUsername', label: 'Hugging Face', placeholder: 'your_huggingface_username', color: '#FFD533' },
 ];
 
 // ─── 6 Archetypes ─────────────────────────────────
@@ -52,6 +52,7 @@ export default function SettingsPage() {
 
   // Platform form state
   const [platformHandles, setPlatformHandles] = useState({});
+  const [disconnectingPlatformId, setDisconnectingPlatformId] = useState(null);
 
   const displayName = displayNameDraft ?? user?.displayName ?? '';
   const bio = bioDraft ?? profile?.bio ?? '';
@@ -108,6 +109,35 @@ export default function SettingsPage() {
     },
   });
 
+  const disconnectPlatformMutation = useMutation({
+    mutationFn: (platformId) => integrationService.disconnectPlatform(platformId),
+    onMutate: (platformId) => {
+      setDisconnectingPlatformId(platformId);
+    },
+    onSuccess: (response, platformId) => {
+      const updatedUser = response?.data?._id
+        ? response.data
+        : (response?._id ? response : null);
+
+      if (updatedUser?._id) {
+        setUser(updatedUser);
+      }
+
+      const disconnectedPlatform = ALL_PLATFORMS.find((platform) => platform.id === platformId);
+      if (disconnectedPlatform) {
+        setPlatformHandles((prev) => ({
+          ...prev,
+          [disconnectedPlatform.field]: '',
+        }));
+      }
+
+      queryClient.invalidateQueries();
+    },
+    onSettled: () => {
+      setDisconnectingPlatformId(null);
+    },
+  });
+
   const handleSaveProfile = () => {
     const updates = {};
     if (displayName && displayName !== user?.displayName) updates.displayName = displayName;
@@ -133,6 +163,11 @@ export default function SettingsPage() {
       if (value) data[p.field] = value;
     }
     if (Object.keys(data).length > 0) connectPlatformsMutation.mutate(data);
+  };
+
+  const handleDisconnectPlatform = (platformId) => {
+    if (!platformId || disconnectPlatformMutation.isPending) return;
+    disconnectPlatformMutation.mutate(platformId);
   };
 
   const tabs = ['profile', 'platforms', 'archetype', 'privacy'];
@@ -207,7 +242,7 @@ export default function SettingsPage() {
             <Card className="animate-slide-up">
               <CardHeader>
                 <CardTitle>Connected Platforms ({ALL_PLATFORMS.filter((p) => user?.[p.field]).length}/{ALL_PLATFORMS.length})</CardTitle>
-                <CardDescription>Enter your platform usernames or IDs to connect and sync your stats.</CardDescription>
+                <CardDescription>Enter your platform usernames to connect and sync. Use Disconnect for soft-delete (history retained, reconnect anytime).</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {ALL_PLATFORMS.map((p) => (
@@ -218,9 +253,21 @@ export default function SettingsPage() {
                         <h4 className="font-semibold text-sm">{p.label}</h4>
                       </div>
                       {user?.[p.field] && (
-                        <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Connected
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Connected
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 border-accent-red/40 px-2 text-xs text-accent-red hover:bg-accent-red/10"
+                            onClick={() => handleDisconnectPlatform(p.id)}
+                            disabled={disconnectPlatformMutation.isPending}
+                          >
+                            {disconnectingPlatformId === p.id ? 'Disconnecting...' : 'Disconnect'}
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <Input

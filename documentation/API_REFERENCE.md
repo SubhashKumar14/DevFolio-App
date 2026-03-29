@@ -160,6 +160,17 @@ PUT /profile/me allowed fields:
 | --- | --- | --- | --- |
 | POST | /integrations/dsa/connect | User | Connect/update all supported platform handles |
 | POST | /integrations/github/connect | User | GitHub connect path (delegates to auth/link flow) |
+| PATCH | /integrations/platforms/:platform/disconnect | User | Soft-disconnect one platform handle (history retained, reconnect later) |
+
+PATCH /integrations/platforms/:platform/disconnect path params:
+
+- platform in {github, leetcode, codeforces, hackerrank, codechef, kaggle, huggingface}
+
+Soft-disconnect behavior:
+
+- clears the active handle from User (and GitHub token/id for github)
+- does not hard-delete historical stats documents
+- user can reconnect later by saving handle again via /integrations/dsa/connect
 
 ### Stats
 

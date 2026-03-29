@@ -74,6 +74,7 @@ Current behavior notes:
 
 - Profile data edit
 - Platform handle updates and save/sync
+- Platform disconnect action (soft delete via PATCH, reconnect anytime)
 - Archetype + secondary archetype assignment
 - Privacy toggle for profile visibility
 

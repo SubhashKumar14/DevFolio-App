@@ -19,4 +19,9 @@ export const integrationService = {
     const response = await apiClient.post('/integrations/github/connect', { code });
     return response.data;
   },
+
+  async disconnectPlatform(platformId) {
+    const response = await apiClient.patch(`/integrations/platforms/${platformId}/disconnect`);
+    return response;
+  },
 };
