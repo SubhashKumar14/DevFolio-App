@@ -3,16 +3,23 @@ import Profile from '../models/Profile.js';
 import DevScore from '../models/DevScore.js';
 import PortfolioCode from '../models/PortfolioCode.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { normalizeSearchTerm } from '../utils/inputValidation.js';
 
 // ─── Search Developers ───────────────────────────
 export const searchDevelopers = asyncHandler(async (req, res) => {
   const { name, techStack, college, minScore, archetype, sortBy = 'devScore' } = req.query;
+  const safeSortBy = sortBy === 'name' ? 'name' : 'devScore';
 
   // Build profile filter
   const profileFilter = { isPublic: true };
-  if (college) profileFilter.college = { $regex: college, $options: 'i' };
+  const normalizedCollege = normalizeSearchTerm(college, { minLength: 1, maxLength: 80 });
+  if (normalizedCollege) profileFilter.college = { $regex: normalizedCollege, $options: 'i' };
   if (techStack) {
-    const techs = techStack.split(',').map((t) => t.trim());
+    const techs = String(techStack)
+      .split(',')
+      .map((t) => t.trim().slice(0, 40))
+      .filter(Boolean)
+      .slice(0, 10);
     profileFilter.techStack = { $in: techs };
   }
 
@@ -22,7 +29,8 @@ export const searchDevelopers = asyncHandler(async (req, res) => {
 
   // Filter by user name and archetype
   let userFilter = { _id: { $in: profileUserIds } };
-  if (name) userFilter.displayName = { $regex: name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+  const normalizedName = normalizeSearchTerm(name, { minLength: 1, maxLength: 64 });
+  if (normalizedName) userFilter.displayName = { $regex: normalizedName, $options: 'i' };
   if (archetype) {
     userFilter.$or = [{ archetype }, { secondaryArchetype: archetype }];
   }
@@ -71,12 +79,13 @@ export const searchDevelopers = asyncHandler(async (req, res) => {
   });
 
   // Filter by minimum score
-  if (minScore) {
-    results = results.filter((r) => r.devScore >= parseInt(minScore, 10));
+  const parsedMinScore = Number(minScore);
+  if (Number.isFinite(parsedMinScore) && parsedMinScore > 0) {
+    results = results.filter((r) => r.devScore >= parsedMinScore);
   }
 
   // Sort
-  if (sortBy === 'name') {
+  if (safeSortBy === 'name') {
     results.sort((a, b) => a.displayName.localeCompare(b.displayName));
   } else {
     results.sort((a, b) => b.devScore - a.devScore);

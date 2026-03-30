@@ -5,6 +5,8 @@ import GithubStats from '../models/GithubStats.js';
 import DsaStats from '../models/DsaStats.js';
 import { computeDevScore } from '../services/devscoreEngine.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { assertPublicOrOwner } from '../utils/privacyAccess.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
@@ -144,6 +146,8 @@ export const computeScore = asyncHandler(async (req, res) => {
     await DevScore.deleteMany({ _id: { $in: oldest.map(d => d._id) } });
   }
 
+  await invalidateLeaderboardCache();
+
   res.json({
     success: true,
     data: result,
@@ -156,6 +160,8 @@ export const getScore = asyncHandler(async (req, res) => {
 
   const user = await User.findById(userId);
   if (!user) throw new AppError('User not found', 404);
+
+  await assertPublicOrOwner({ targetUserId: user._id, requester: req.user });
 
   // Try stored score first
   const latest = await DevScore.findOne({ userId }).sort({ createdAt: -1 }).lean();
@@ -200,6 +206,11 @@ export const getScore = asyncHandler(async (req, res) => {
 // ─── Get DevScore history ─────────────────────────
 export const getScoreHistory = asyncHandler(async (req, res) => {
   const userId = req.params.userId || req.user._id;
+  const user = await User.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  await assertPublicOrOwner({ targetUserId: user._id, requester: req.user });
+
   const limit = Math.min(parseInt(req.query.limit) || SCORE_RETENTION_LIMIT, SCORE_RETENTION_LIMIT);
 
   const history = await DevScore.find({ userId })
@@ -217,6 +228,10 @@ export const getScoreHistory = asyncHandler(async (req, res) => {
 // ─── Get Domain Benchmark (anonymous aggregate) ──
 export const getScoreBenchmark = asyncHandler(async (req, res) => {
   const userId = req.params.userId || req.user._id;
+  const user = await User.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  await assertPublicOrOwner({ targetUserId: user._id, requester: req.user });
 
   const latest = await DevScore.findOne({ userId }).sort({ createdAt: -1 }).lean();
   if (!latest) {

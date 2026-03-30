@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 // ─── Serialise user data for response ─────────────
 function serializeUser(user) {
@@ -56,6 +57,8 @@ export const updateMe = asyncHandler(async (req, res) => {
     new: true,
     runValidators: true,
   });
+
+  await invalidateLeaderboardCache();
 
   res.json({
     success: true,

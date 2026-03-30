@@ -25,27 +25,26 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const storedRefreshToken = localStorage.getItem('refreshToken');
-        if (!storedRefreshToken) {
-          throw new Error('No refresh token available');
-        }
+        const refreshPayload = storedRefreshToken ? { refreshToken: storedRefreshToken } : {};
 
         const refreshRes = await axios.post(
           `${apiClient.defaults.baseURL}/auth/refresh`,
-          { refreshToken: storedRefreshToken },
+          refreshPayload,
           { withCredentials: true }
         );
+
+        // Cleanup for legacy clients that previously persisted refresh tokens.
+        if (storedRefreshToken) {
+          localStorage.removeItem('refreshToken');
+        }
         
         const newAccessToken = refreshRes.data?.data?.accessToken || refreshRes.data?.accessToken;
-        const newRefreshToken = refreshRes.data?.data?.refreshToken || refreshRes.data?.refreshToken;
         
         if (!newAccessToken) {
           throw new Error('No token in refresh response');
         }
         
         useAuthStore.getState().setAccessToken(newAccessToken);
-        if (newRefreshToken) {
-          useAuthStore.getState().setRefreshToken(newRefreshToken);
-        }
         
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return axios(originalRequest).then(res => res.data);

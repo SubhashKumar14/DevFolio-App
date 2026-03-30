@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDefaultRouteForRole } from '@/lib/roleRoutes';
 
 export function useAuth() {
-  const { setAccessToken, setRefreshToken, setUser, logout: clearStore, isAuthenticated, user: storeUser } = useAuthStore();
+  const { setAccessToken, setUser, logout: clearStore, isAuthenticated, user: storeUser } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -13,7 +13,6 @@ export function useAuth() {
     mutationFn: ({ email, password }) => authService.login(email, password),
     onSuccess: (data) => {
       setAccessToken(data.accessToken);
-      if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
       queryClient.setQueryData(['user', 'me'], data.user);
       navigate(getDefaultRouteForRole(data.user?.role));
@@ -24,7 +23,6 @@ export function useAuth() {
     mutationFn: (data) => authService.register(data),
     onSuccess: (data) => {
       setAccessToken(data.accessToken);
-      if (data.refreshToken) setRefreshToken(data.refreshToken);
       setUser(data.user);
       queryClient.setQueryData(['user', 'me'], data.user);
       if (data.user?.role === 'developer') {

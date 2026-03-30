@@ -4,6 +4,65 @@ import User from '../models/User.js';
 import Profile from '../models/Profile.js';
 import env from '../config/env.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { encryptTokenAtRest } from '../utils/secureToken.js';
+
+const REFRESH_COOKIE_NAME = 'refreshToken';
+
+function parseExpiryToMs(expiry) {
+  const fallbackMs = 7 * 24 * 60 * 60 * 1000;
+  if (!expiry) return fallbackMs;
+
+  const value = String(expiry).trim();
+  const match = value.match(/^(\d+)([smhd])$/i);
+  if (!match) return fallbackMs;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const unitMs = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  }[unit];
+
+  if (!unitMs) return fallbackMs;
+  return amount * unitMs;
+}
+
+function getRefreshCookieOptions() {
+  const isProduction = env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/api/auth',
+    maxAge: parseExpiryToMs(env.JWT_REFRESH_EXPIRY),
+  };
+}
+
+function setRefreshCookie(res, token) {
+  res.cookie(REFRESH_COOKIE_NAME, token, getRefreshCookieOptions());
+}
+
+function clearRefreshCookie(res) {
+  const { maxAge, ...clearOptions } = getRefreshCookieOptions();
+  void maxAge;
+  res.clearCookie(REFRESH_COOKIE_NAME, clearOptions);
+}
+
+function getCookieValue(req, key) {
+  const rawCookie = req.headers.cookie;
+  if (!rawCookie) return null;
+
+  const prefix = `${key}=`;
+  for (const part of rawCookie.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(prefix)) continue;
+    return decodeURIComponent(trimmed.slice(prefix.length));
+  }
+
+  return null;
+}
 
 // ─── Helper: Generate Tokens ─────────────────────
 function generateAccessToken(user) {
@@ -50,6 +109,8 @@ export const register = asyncHandler(async (req, res) => {
   // Store refresh token via update (avoid user.save() which fails with select:false password)
   await User.findByIdAndUpdate(user._id, { refreshToken });
 
+  setRefreshCookie(res, refreshToken);
+
   res.status(201).json({
     success: true,
     data: {
@@ -60,7 +121,6 @@ export const register = asyncHandler(async (req, res) => {
         role: user.role,
       },
       accessToken,
-      refreshToken,
     },
   });
 });
@@ -88,6 +148,8 @@ export const login = asyncHandler(async (req, res) => {
 
   await User.findByIdAndUpdate(user._id, { refreshToken });
 
+  setRefreshCookie(res, refreshToken);
+
   res.json({
     success: true,
     data: {
@@ -98,14 +160,15 @@ export const login = asyncHandler(async (req, res) => {
         role: user.role,
       },
       accessToken,
-      refreshToken,
     },
   });
 });
 
 // ─── Refresh Token ────────────────────────────────
 export const refreshToken = asyncHandler(async (req, res) => {
-  const { refreshToken: token } = req.body;
+  const tokenFromCookie = getCookieValue(req, REFRESH_COOKIE_NAME);
+  const tokenFromBody = req.body?.refreshToken;
+  const token = tokenFromCookie || tokenFromBody;
 
   if (!token) {
     throw new AppError('Refresh token is required', 400);
@@ -123,15 +186,18 @@ export const refreshToken = asyncHandler(async (req, res) => {
 
   await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
 
+  setRefreshCookie(res, newRefreshToken);
+
   res.json({
     success: true,
-    data: { accessToken, refreshToken: newRefreshToken },
+    data: { accessToken },
   });
 });
 
 // ─── Logout ───────────────────────────────────────
 export const logout = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
+  clearRefreshCookie(res);
 
   res.json({ success: true, message: 'Logged out successfully' });
 });
@@ -188,7 +254,7 @@ export const githubCallback = asyncHandler(async (req, res) => {
 
   // Update GitHub info
   user.githubUsername = githubUsername;
-  user.githubAccessToken = githubAccessToken;
+  user.githubAccessToken = encryptTokenAtRest(githubAccessToken);
   await user.save();
 
   // Generate tokens and redirect to frontend
@@ -231,7 +297,7 @@ export const linkGithub = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).select('+githubAccessToken');
   user.githubId = String(githubId);
   user.githubUsername = githubUsername;
-  user.githubAccessToken = githubAccessToken;
+  user.githubAccessToken = encryptTokenAtRest(githubAccessToken);
   await user.save();
 
   res.json({

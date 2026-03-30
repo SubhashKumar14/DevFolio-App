@@ -17,6 +17,8 @@ import { fetchKaggleStats } from '../services/kaggleService.js';
 import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
 
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { decryptTokenAtRest } from '../utils/secureToken.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
@@ -120,7 +122,8 @@ export const triggerGlobalSync = asyncHandler(async (req, res) => {
     try {
       // GitHub
       if (user.githubUsername) {
-        const stats = await fetchGithubStats(user.githubUsername, user.githubAccessToken);
+        const githubAccessToken = decryptTokenAtRest(user.githubAccessToken);
+        const stats = await fetchGithubStats(user.githubUsername, githubAccessToken);
         await GithubStats.findOneAndUpdate({ userId: user._id }, { ...stats, userId: user._id }, { upsert: true });
       }
 
@@ -220,6 +223,8 @@ export const triggerGlobalSync = asyncHandler(async (req, res) => {
       errorCount++;
     }
   }
+
+  await invalidateLeaderboardCache();
 
   res.json({
     success: true,

@@ -1,6 +1,6 @@
 ﻿# Fixes Log
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## Purpose
 
@@ -27,27 +27,28 @@ Track implemented fixes and open remediation items in a single place.
 - strengthened encryption key resolution logic and production warnings
 - refreshed docs around setup and api behavior
 
+### P0 security and privacy completion
+
+- enforced strict project read authorization (owner-only, with admin override)
+- unified owner-or-public privacy enforcement across profile, stats, score, search, compare, and leaderboard surfaces
+- migrated refresh-token flow to cookie-first (httpOnly cookie rotation and logout clear)
+- hardened scheduler with distributed lock to reduce multi-instance duplicate runs
+
+### P1 reliability and security implementation
+
+- added route-level integration tests for auth, privacy boundaries, and role-critical access control
+- encrypted GitHub OAuth access token at rest and added decrypt-on-read for sync paths
+- improved cache invalidation wiring for leaderboard-related write paths
+- hardened regex handling and URL validation policies for user search, recruiter filters, profile URLs, and project URLs
+
 ### Quality validation
 
 - frontend lint/build passing in current baseline
 - backend smoke tests passing
+- backend route-integration tests passing
 - dependency audits currently clean
 
 ## Open Fixes (Prioritized)
-
-### P0
-
-1. enforce strict project read authorization boundaries
-2. unify privacy enforcement across profile/stats/score/search surfaces
-3. migrate refresh token storage away from localStorage
-4. harden scheduler for multi-instance deployments
-
-### P1
-
-1. add integration tests for auth/privacy/role-critical routes
-2. encrypt GitHub access token at rest
-3. improve cache invalidation strategy and write-path wiring
-4. harden regex and URL validation policies
 
 ### P2
 

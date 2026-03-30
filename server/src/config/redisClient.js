@@ -1,14 +1,18 @@
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 
 let redis = null;
 let redisDisabledLogged = false;
+const NO_LOCK_BACKEND = '__NO_LOCK_BACKEND__';
+const RELEASE_LOCK_SCRIPT = 'if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) else return 0 end';
 
 const redisUrl = process.env.REDIS_URL?.trim();
 const isCloudHost = Boolean(process.env.RENDER || process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === 'production' || isCloudHost;
+const isTest = process.env.NODE_ENV === 'test';
 
 // On production hosts (e.g. Render), only enable Redis if REDIS_URL is provided.
-const shouldEnableRedis = Boolean(redisUrl) || !isProduction;
+const shouldEnableRedis = !isTest && (Boolean(redisUrl) || !isProduction);
 
 if (!shouldEnableRedis) {
   console.log('ℹ️  Redis disabled (set REDIS_URL to enable caching)');
@@ -82,5 +86,37 @@ export async function cacheInvalidate(pattern) {
     if (keys.length > 0) await redis.del(...keys);
   } catch { /* ignore */ }
 }
+
+/**
+ * Acquire a distributed lock. Returns:
+ * - lock token string when acquired
+ * - null when lock could not be acquired
+ * - NO_LOCK_BACKEND when Redis is unavailable
+ */
+export async function acquireLock(key, ttlSeconds = 1800) {
+  if (!redis) return NO_LOCK_BACKEND;
+
+  const token = randomUUID();
+  try {
+    const result = await redis.set(key, token, 'EX', ttlSeconds, 'NX');
+    return result === 'OK' ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Release a lock only if the token matches the current owner.
+ */
+export async function releaseLock(key, token) {
+  if (!redis || !token || token === NO_LOCK_BACKEND) return;
+  try {
+    await redis.eval(RELEASE_LOCK_SCRIPT, 1, key, token);
+  } catch {
+    // Ignore release failures to avoid crashing background jobs.
+  }
+}
+
+export { NO_LOCK_BACKEND };
 
 export default redis;

@@ -14,7 +14,10 @@ import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
 
 import { computeDevScore } from '../services/devscoreEngine.js';
 import DevScore from '../models/DevScore.js';
-import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { assertPublicOrOwner } from '../utils/privacyAccess.js';
+import { decryptTokenAtRest } from '../utils/secureToken.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
@@ -148,6 +151,9 @@ async function persistScore(userId, result) {
 // ─── Get GitHub Stats ─────────────────────────────
 export const getGithubStats = asyncHandler(async (req, res) => {
   const userId = await resolveUserId(req.params.userId);
+  if (userId) {
+    await assertPublicOrOwner({ targetUserId: userId, requester: req.user });
+  }
   const stats = userId ? await GithubStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
@@ -155,6 +161,9 @@ export const getGithubStats = asyncHandler(async (req, res) => {
 // ─── Get DSA Stats ────────────────────────────────
 export const getDsaStats = asyncHandler(async (req, res) => {
   const userId = await resolveUserId(req.params.userId);
+  if (userId) {
+    await assertPublicOrOwner({ targetUserId: userId, requester: req.user });
+  }
   const stats = userId ? await DsaStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
@@ -162,6 +171,9 @@ export const getDsaStats = asyncHandler(async (req, res) => {
 // ─── Get Platform Stats ───────────────────────────
 export const getPlatformStats = asyncHandler(async (req, res) => {
   const userId = await resolveUserId(req.params.userId);
+  if (userId) {
+    await assertPublicOrOwner({ targetUserId: userId, requester: req.user });
+  }
   const stats = userId ? await PlatformStats.findOne({ userId }) : null;
   res.json({ success: true, data: stats || null });
 });
@@ -174,7 +186,8 @@ export const syncStats = asyncHandler(async (req, res) => {
   // Group 1: GitHub
   if (user.githubUsername) {
     try {
-      const stats = await fetchGithubStats(user.githubUsername, user.githubAccessToken);
+      const githubAccessToken = decryptTokenAtRest(user.githubAccessToken);
+      const stats = await fetchGithubStats(user.githubUsername, githubAccessToken);
       await GithubStats.findOneAndUpdate(
         { userId: user._id },
         { ...stats, userId: user._id },
@@ -253,6 +266,8 @@ export const syncStats = asyncHandler(async (req, res) => {
   } catch (err) {
     console.error('DevScore recompute after sync failed:', err.message);
   }
+
+  await invalidateLeaderboardCache();
 
   res.json({
     success: true,

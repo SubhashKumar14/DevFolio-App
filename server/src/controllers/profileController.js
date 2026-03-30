@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Profile from '../models/Profile.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { isOwner } from '../utils/privacyAccess.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
+import { normalizeOptionalHttpUrl } from '../utils/inputValidation.js';
 
 // ─── Helper: resolve userId param (ObjectId or displayName) ──
 async function resolveUserId(param) {
@@ -44,7 +47,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   }
 
   // If profile is private and requester is not the owner
-  if (!profile.isPublic && (!req.user || req.user._id.toString() !== profile.userId._id.toString())) {
+  if (!profile.isPublic && !isOwner(req.user, profile.userId?._id || profile.userId)) {
     throw new AppError('This profile is private', 403);
   }
 
@@ -53,7 +56,7 @@ export const getProfile = asyncHandler(async (req, res) => {
 
 // ─── Update Own Profile ──────────────────────────
 export const updateProfile = asyncHandler(async (req, res) => {
-  const allowedFields = ['bio', 'avatarUrl', 'techStack', 'socialLinks', 'college', 'isPublic'];
+  const allowedFields = ['bio', 'techStack', 'college', 'isPublic'];
   const updates = {};
 
   for (const field of allowedFields) {
@@ -62,11 +65,37 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
   }
 
+  if (req.body.avatarUrl !== undefined) {
+    const avatarUrl = normalizeOptionalHttpUrl(req.body.avatarUrl);
+    if (avatarUrl === null) {
+      throw new AppError('avatarUrl must be a valid http/https URL', 400);
+    }
+    updates.avatarUrl = avatarUrl || null;
+  }
+
+  if (req.body.socialLinks !== undefined) {
+    if (!req.body.socialLinks || typeof req.body.socialLinks !== 'object' || Array.isArray(req.body.socialLinks)) {
+      throw new AppError('socialLinks must be an object', 400);
+    }
+
+    const socialFields = ['linkedin', 'website', 'resumeUrl', 'twitter'];
+    for (const field of socialFields) {
+      if (req.body.socialLinks[field] === undefined) continue;
+      const socialUrl = normalizeOptionalHttpUrl(req.body.socialLinks[field]);
+      if (socialUrl === null) {
+        throw new AppError(`socialLinks.${field} must be a valid http/https URL`, 400);
+      }
+      updates[`socialLinks.${field}`] = socialUrl;
+    }
+  }
+
   const profile = await Profile.findOneAndUpdate(
     { userId: req.user._id },
     updates,
     { new: true, runValidators: true, upsert: true }
   );
+
+  await invalidateLeaderboardCache();
 
   res.json({ success: true, data: profile });
 });

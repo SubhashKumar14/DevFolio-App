@@ -3,6 +3,7 @@ import PortfolioCode from '../models/PortfolioCode.js';
 import User from '../models/User.js';
 import { sanitizeHtml } from '../utils/sanitizer.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 // ─── Get Portfolio by User ID ─────────────────────
 export const getPortfolio = asyncHandler(async (req, res) => {
@@ -55,6 +56,8 @@ export const savePortfolio = asyncHandler(async (req, res) => {
     { upsert: true, new: true, runValidators: true }
   );
 
+  await invalidateLeaderboardCache();
+
   res.json({
     success: true,
     message: 'Portfolio saved',
@@ -79,6 +82,8 @@ export const toggleVisibility = asyncHandler(async (req, res) => {
   if (!portfolio) {
     throw new AppError('Portfolio not found. Save your portfolio first.', 404);
   }
+
+  await invalidateLeaderboardCache();
 
   res.json({
     success: true,

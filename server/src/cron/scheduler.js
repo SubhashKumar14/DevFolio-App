@@ -14,6 +14,9 @@ import { fetchKaggleStats } from '../services/kaggleService.js';
 import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
 
 import { computeDevScore } from '../services/devscoreEngine.js';
+import { acquireLock, releaseLock, NO_LOCK_BACKEND } from '../config/redisClient.js';
+import { decryptTokenAtRest } from '../utils/secureToken.js';
+import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
@@ -158,6 +161,18 @@ async function persistScore(userId, result) {
  * Recomputes DevScore v2 after sync.
  */
 cron.schedule('0 2 * * *', async () => {
+  const lockKey = 'cron:nightly-sync:all-platforms';
+  const lockToken = await acquireLock(lockKey, 2 * 60 * 60);
+
+  if (lockToken === null) {
+    console.log('⏭️ Skipping nightly sync: lock is held by another instance');
+    return;
+  }
+
+  if (lockToken === NO_LOCK_BACKEND) {
+    console.log('ℹ️ Nightly sync running without distributed lock (Redis unavailable)');
+  }
+
   console.log('🔄 Starting nightly sync (supported platforms)...');
 
   try {
@@ -182,7 +197,8 @@ cron.schedule('0 2 * * *', async () => {
 
         // ─── GitHub ───────────────────────────
         if (user.githubUsername) {
-          const stats = await fetchGithubStats(user.githubUsername, user.githubAccessToken);
+          const githubAccessToken = decryptTokenAtRest(user.githubAccessToken);
+          const stats = await fetchGithubStats(user.githubUsername, githubAccessToken);
           await GithubStats.findOneAndUpdate(
             { userId: user._id },
             { ...stats, userId: user._id },
@@ -262,9 +278,13 @@ cron.schedule('0 2 * * *', async () => {
       }
     }
 
+    await invalidateLeaderboardCache();
+
     console.log(`✅ Nightly sync complete: ${successCount} synced, ${errorCount} errors`);
   } catch (error) {
     console.error('❌ Nightly sync job failed:', error.message);
+  } finally {
+    await releaseLock(lockKey, lockToken);
   }
 });
 

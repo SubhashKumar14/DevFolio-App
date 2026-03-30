@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Project from '../models/Project.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { normalizeOptionalHttpUrl } from '../utils/inputValidation.js';
 
 // Helper: extract GitHub owner/repo from URL and fetch star count
 async function fetchGithubStars(repoLink) {
@@ -18,7 +19,15 @@ async function fetchGithubStars(repoLink) {
 
 // ─── Get All Projects for a User ──────────────────
 export const getProjects = asyncHandler(async (req, res) => {
-  const projects = await Project.find({ userId: req.params.userId })
+  const requestedUserId = String(req.params.userId || '');
+  const requesterId = String(req.user?._id || '');
+  const isAdmin = req.user?.role === 'admin';
+
+  if (!isAdmin && requestedUserId !== requesterId) {
+    throw new AppError('Not authorized to read projects for this user', 403);
+  }
+
+  const projects = await Project.find({ userId: requestedUserId })
     .sort({ createdAt: -1 });
 
   res.json({ success: true, data: projects });
@@ -32,15 +41,25 @@ export const createProject = asyncHandler(async (req, res) => {
     throw new AppError('Project name is required', 400);
   }
 
+  const normalizedRepoLink = normalizeOptionalHttpUrl(repoLink, { allowedHosts: ['github.com'] });
+  if (normalizedRepoLink === null) {
+    throw new AppError('repoLink must be a valid GitHub URL', 400);
+  }
+
+  const normalizedLiveUrl = normalizeOptionalHttpUrl(liveUrl);
+  if (normalizedLiveUrl === null) {
+    throw new AppError('liveUrl must be a valid http/https URL', 400);
+  }
+
   // Auto-fetch GitHub stars
-  const githubStars = await fetchGithubStars(repoLink);
+  const githubStars = await fetchGithubStars(normalizedRepoLink);
 
   const project = await Project.create({
     userId: req.user._id,
     name,
     description: description || '',
-    repoLink: repoLink || '',
-    liveUrl: liveUrl || '',
+    repoLink: normalizedRepoLink || '',
+    liveUrl: normalizedLiveUrl || '',
     techStack: techStack || [],
     githubStars,
   });
@@ -64,6 +83,24 @@ export const updateProject = asyncHandler(async (req, res) => {
   const allowedFields = ['name', 'description', 'repoLink', 'liveUrl', 'techStack'];
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
+      if (field === 'repoLink') {
+        const normalizedRepoLink = normalizeOptionalHttpUrl(req.body[field], { allowedHosts: ['github.com'] });
+        if (normalizedRepoLink === null) {
+          throw new AppError('repoLink must be a valid GitHub URL', 400);
+        }
+        project[field] = normalizedRepoLink;
+        continue;
+      }
+
+      if (field === 'liveUrl') {
+        const normalizedLiveUrl = normalizeOptionalHttpUrl(req.body[field]);
+        if (normalizedLiveUrl === null) {
+          throw new AppError('liveUrl must be a valid http/https URL', 400);
+        }
+        project[field] = normalizedLiveUrl;
+        continue;
+      }
+
       project[field] = req.body[field];
     }
   }

@@ -287,7 +287,7 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
         'kaggleUsername',
         'huggingfaceUsername',
       ].join(' ')),
-      Profile.find({ userId: { $in: userIds } }).select('userId college avatarUrl'),
+      Profile.find({ userId: { $in: userIds }, isPublic: true }).select('userId college avatarUrl isPublic'),
       PortfolioCode.find({ userId: { $in: userIds }, isPublic: true }).select('userId'),
     ]);
 
@@ -319,6 +319,10 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
     let rankings = scores.map((s, idx) => {
       const user = userMap.get(s._id.toString());
       const profile = profileMap.get(s._id.toString());
+
+      if (!profile?.isPublic) {
+        return null;
+      }
 
       const baseEntry = {
         rank: idx + 1,

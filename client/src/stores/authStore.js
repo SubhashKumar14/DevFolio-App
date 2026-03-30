@@ -13,15 +13,8 @@ export const useAuthStore = create((set) => ({
       set({ accessToken: token, isAuthenticated: true });
     } else {
       localStorage.removeItem('accessToken');
-      set({ accessToken: null, isAuthenticated: false, user: null });
-    }
-  },
-
-  setRefreshToken: (token) => {
-    if (token) {
-      localStorage.setItem('refreshToken', token);
-    } else {
       localStorage.removeItem('refreshToken');
+      set({ accessToken: null, isAuthenticated: false, user: null });
     }
   },
   

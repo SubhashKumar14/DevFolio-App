@@ -5,7 +5,9 @@ import DsaStats from '../models/DsaStats.js';
 import PlatformStats from '../models/PlatformStats.js';
 import DevScore from '../models/DevScore.js';
 import PortfolioCode from '../models/PortfolioCode.js';
+import Profile from '../models/Profile.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { isOwner } from '../utils/privacyAccess.js';
 import axios from 'axios';
 
 const COMPARE_MODES = new Set([
@@ -480,6 +482,18 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
   ]);
 
   if (!user1 || !user2) throw new AppError('One or both users not found', 404);
+
+  const [profile1, profile2] = await Promise.all([
+    Profile.findOne({ userId: user1._id }).select('isPublic').lean(),
+    Profile.findOne({ userId: user2._id }).select('isPublic').lean(),
+  ]);
+
+  const canReadUser1 = Boolean(profile1?.isPublic) || isOwner(req.user, user1._id);
+  const canReadUser2 = Boolean(profile2?.isPublic) || isOwner(req.user, user2._id);
+
+  if (!canReadUser1 || !canReadUser2) {
+    throw new AppError('One or both profiles are private', 403);
+  }
 
   const [
     github1, github2,

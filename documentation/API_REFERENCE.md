@@ -6,6 +6,7 @@ Base URL (dev): http://localhost:5000/api
 ## Conventions
 
 - Auth header: Authorization: Bearer <accessToken>
+- Refresh token transport: httpOnly cookie (`refreshToken`) scoped to `/api/auth` (legacy body token still accepted for migration)
 - Success envelope: { success: true, data: ... }
 - Error envelope: { success: false, message: string }
 - JSON body limit: 10mb
@@ -80,10 +81,10 @@ flowchart TD
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| POST | /auth/register | Public | Register user, create profile, issue access+refresh tokens |
-| POST | /auth/login | Public | Login and issue tokens |
-| POST | /auth/refresh | Public (rate limited) | Rotate access token using refresh token in body |
-| POST | /auth/logout | User | Clear persisted refresh token |
+| POST | /auth/register | Public | Register user, create profile, issue access token, set refresh cookie |
+| POST | /auth/login | Public | Login and issue access token, set refresh cookie |
+| POST | /auth/refresh | Public (rate limited) | Rotate access token using refresh cookie (body token accepted for legacy migration) |
+| POST | /auth/logout | User | Clear persisted refresh token and refresh cookie |
 | GET | /auth/github | Public | Redirect to GitHub OAuth authorize URL |
 | GET | /auth/github/callback | Public | OAuth callback exchange and redirect |
 | POST | /auth/github/link | User | Link GitHub account using OAuth code |
@@ -108,7 +109,7 @@ Login request body:
 }
 ```
 
-Refresh request body:
+Refresh request body (legacy fallback; cookie-first flow can use empty body):
 
 ```json
 {
@@ -116,13 +117,19 @@ Refresh request body:
 }
 ```
 
+Auth token transport notes:
+
+- access token is returned in JSON response body
+- refresh token is stored in an httpOnly cookie (`refreshToken`) scoped to `/api/auth`
+- logout clears both persisted refresh token and refresh cookie
+
 ### User
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | GET | /user/me | User | Return current user profile + platform handles |
 | PUT | /user/me | User | Update displayName/archetypes/platform handles |
-| GET | /user/search | Public | Search users by displayName prefix/contains |
+| GET | /user/search | Public | Search public users by displayName prefix/contains |
 | GET | /user/export | User | Export current user data package |
 
 Update /user/me allowed fields:
@@ -142,7 +149,7 @@ Update /user/me allowed fields:
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /profile/:userId | Optional auth | Fetch profile by ObjectId or displayName |
+| GET | /profile/:userId | Optional auth | Fetch profile by ObjectId/displayName (public profiles, or owner access) |
 | PUT | /profile/me | User | Update profile fields and visibility |
 
 PUT /profile/me allowed fields:
@@ -153,6 +160,11 @@ PUT /profile/me allowed fields:
 - socialLinks
 - college
 - isPublic
+
+Validation notes:
+
+- `avatarUrl` must be a valid `http://` or `https://` URL (or null/empty)
+- `socialLinks.{linkedin|website|resumeUrl|twitter}` must be valid `http://` or `https://` URLs when provided
 
 ### Integrations
 
@@ -177,25 +189,25 @@ Soft-disconnect behavior:
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /stats/github/:userId | Optional auth | Return GithubStats document |
-| GET | /stats/dsa/:userId | Optional auth | Return DsaStats document |
-| GET | /stats/platforms/:userId | Optional auth | Return PlatformStats document |
+| GET | /stats/github/:userId | Optional auth | Return GithubStats for public profile, or owner access |
+| GET | /stats/dsa/:userId | Optional auth | Return DsaStats for public profile, or owner access |
+| GET | /stats/platforms/:userId | Optional auth | Return PlatformStats for public profile, or owner access |
 | POST | /stats/sync | User (sync limiter) | Manual platform sync + devscore recompute |
 
 ### Score
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /score/:userId | Optional auth | Get latest score or compute ephemeral if missing |
-| GET | /score/:userId/history | Optional auth | Get recent score history (max 30) |
-| GET | /score/:userId/benchmark | Optional auth | Get domain benchmark percentile summary |
+| GET | /score/:userId | Optional auth | Get latest score for public profile, or owner access |
+| GET | /score/:userId/history | Optional auth | Get recent score history (max 30) for public profile, or owner access |
+| GET | /score/:userId/benchmark | Optional auth | Get domain benchmark percentile summary for public profile, or owner access |
 | POST | /score/recompute | User | Force recompute and persist new score |
 
 ### Projects
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /projects/:userId | User | Fetch projects for userId (current behavior) |
+| GET | /projects/:userId | User | Fetch projects for userId (owner-only; admin override) |
 | POST | /projects | User | Create project for authenticated user |
 | PUT | /projects/:projectId | User | Update own project |
 | DELETE | /projects/:projectId | User | Delete own project |
@@ -211,6 +223,11 @@ POST /projects body:
   "techStack": ["React", "Node.js", "MongoDB"]
 }
 ```
+
+Validation notes:
+
+- `repoLink` must be a valid GitHub URL when provided
+- `liveUrl` must be a valid `http://` or `https://` URL when provided
 
 ### Portfolio
 
@@ -242,8 +259,8 @@ PATCH /portfolio/visibility body:
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /leaderboard | Optional auth | Multi-mode leaderboard with filters + pagination |
-| GET | /leaderboard/college/:collegeName | Optional auth | College-scoped leaderboard |
+| GET | /leaderboard | Optional auth | Multi-mode leaderboard over public profiles with filters + pagination |
+| GET | /leaderboard/college/:collegeName | Optional auth | College-scoped leaderboard over public profiles |
 
 Query params:
 
@@ -257,7 +274,7 @@ Query params:
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | /compare/:userId1/:userId2 | User | Compare two developers and return radar-friendly payload |
+| GET | /compare/:userId1/:userId2 | User | Compare two developers (requires both profiles public, unless requester is owner for that profile) |
 
 Query params:
 

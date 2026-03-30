@@ -21,7 +21,8 @@ export const authService = {
   },
 
   async refreshToken(token) {
-    const response = await apiClient.post('/auth/refresh', { refreshToken: token });
+    const payload = token ? { refreshToken: token } : {};
+    const response = await apiClient.post('/auth/refresh', payload);
     return response.data;
   },
 };
