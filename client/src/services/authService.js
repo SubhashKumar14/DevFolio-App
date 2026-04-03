@@ -1,28 +1,24 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const authService = {
   async register(data) {
-    const response = await apiClient.post('/auth/register', data);
-    return response.data;
+    return unwrapApiData(await apiClient.post('/auth/register', data));
   },
 
   async login(email, password) {
-    const response = await apiClient.post('/auth/login', { email, password });
-    return response.data;
+    return unwrapApiData(await apiClient.post('/auth/login', { email, password }));
   },
 
   async logout() {
-    return await apiClient.post('/auth/logout');
+    return unwrapApiData(await apiClient.post('/auth/logout'));
   },
 
   async getMe() {
-    const response = await apiClient.get('/user/me');
-    return response.data;
+    return unwrapApiData(await apiClient.get('/user/me'));
   },
 
-  async refreshToken(token) {
-    const payload = token ? { refreshToken: token } : {};
-    const response = await apiClient.post('/auth/refresh', payload);
-    return response.data;
+  async refreshToken() {
+    return unwrapApiData(await apiClient.post('/auth/refresh', {}));
   },
 };

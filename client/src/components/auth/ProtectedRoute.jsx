@@ -5,12 +5,21 @@ import { getDefaultRouteForRole } from '@/lib/roleRoutes';
 
 export function ProtectedRoute({ children, allowedRoles }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthHydrated = useAuthStore((state) => state.isAuthHydrated);
   const storeUser = useAuthStore((state) => state.user);
   const location = useLocation();
 
   // This calls getMe to fetch user data on mount whenever user is authenticated
   const { isLoading, user: queryUser } = useAuth();
   const user = queryUser || storeUser;
+
+  if (!isAuthHydrated) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent-cyan border-t-transparent"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -25,7 +34,11 @@ export function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
-  if (allowedRoles?.length && user && !allowedRoles.includes(user.role)) {
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
     return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
   }
 

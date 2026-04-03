@@ -616,8 +616,13 @@ function ScoreSparkline({ data }) {
     return <p className="text-[11px] text-muted">No historical score trend yet.</p>;
   }
 
+  const first = Math.round(toNumber(data[0]?.value));
+  const last = Math.round(toNumber(data[data.length - 1]?.value));
+  const direction = last > first ? 'upward' : (last < first ? 'downward' : 'flat');
+  const ariaLabel = `Score sparkline across ${data.length} points. Starts at ${first} and ends at ${last}, trending ${direction}.`;
+
   return (
-    <div className="h-8 w-32">
+    <div className="h-8 w-32" role="img" tabIndex={0} aria-label={ariaLabel}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <Line type="monotone" dataKey="value" stroke="#7f77dd" strokeWidth={2} dot={false} />
@@ -694,10 +699,15 @@ function PlatformSection({
   rightChart,
   footer,
   onViewFull,
+  leftChartAriaLabel,
+  rightChartAriaLabel,
 }) {
   const meta = PLATFORMS[platformId];
   const platformColor = meta?.color || '#7f77dd';
   const logoText = platformId === 'github' ? 'GH' : meta?.name?.slice(0, 2).toUpperCase();
+  const platformName = meta?.name || platformId;
+  const resolvedLeftAriaLabel = leftChartAriaLabel || `${platformName} chart: ${leftTitle}`;
+  const resolvedRightAriaLabel = rightChartAriaLabel || `${platformName} chart: ${rightTitle}`;
 
   return (
     <Card className="overflow-hidden border-border/80 bg-card/60">
@@ -738,12 +748,12 @@ function PlatformSection({
       <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
         <div className="min-w-0">
           <p className="mb-2 text-[11px] font-medium text-muted">{leftTitle}</p>
-          <div className="h-40 min-w-0">{leftChart}</div>
+          <div className="h-40 min-w-0" role="img" tabIndex={0} aria-label={resolvedLeftAriaLabel}>{leftChart}</div>
         </div>
 
         <div className="min-w-0">
           <p className="mb-2 text-[11px] font-medium text-muted">{rightTitle}</p>
-          <div className="h-40 min-w-0">{rightChart}</div>
+          <div className="h-40 min-w-0" role="img" tabIndex={0} aria-label={resolvedRightAriaLabel}>{rightChart}</div>
         </div>
       </div>
 
@@ -1103,9 +1113,9 @@ export default function AnalyticsPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => statsService.syncStats(),
-    onSuccess: async () => {
-      toast.success('All platforms synced');
+    mutationFn: () => statsService.syncStatsAndWait(),
+    onSuccess: async (job) => {
+      toast.success(job?.message || 'All platforms synced');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['githubStats', userId] }),
         queryClient.invalidateQueries({ queryKey: ['dsaStats', userId] }),
@@ -1115,8 +1125,8 @@ export default function AnalyticsPage() {
         queryClient.invalidateQueries({ queryKey: ['scoreBenchmark', userId] }),
       ]);
     },
-    onError: () => {
-      toast.error('Sync failed. Please try again.');
+    onError: (error) => {
+      toast.error(error?.message || 'Sync failed. Please try again.');
     },
   });
 
@@ -2015,15 +2025,22 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="h-72">
               {selectedTrend.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={selectedTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke={selectedPlatformMeta?.color || '#06b6d4'} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div
+                  className="h-full"
+                  role="img"
+                  tabIndex={0}
+                  aria-label={`${selectedPlatformMeta?.name || 'Platform'} trend over time chart with ${selectedTrend.length} points.`}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={selectedTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="value" stroke={selectedPlatformMeta?.color || '#06b6d4'} strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <EmptyChart msg="No trend data available for this platform." />
               )}
@@ -2037,7 +2054,7 @@ export default function AnalyticsPage() {
             <CardTitle>Platform-Specific Breakdown</CardTitle>
             <CardDescription>Custom chart by platform capabilities</CardDescription>
           </CardHeader>
-          <CardContent className="h-72">
+          <CardContent className="h-72" role="img" tabIndex={0} aria-label={`${selectedPlatformMeta?.name || 'Platform'} specific breakdown chart`}>
             <PlatformBreakdown platformId={activePlatformId} platformData={selectedPlatformData} />
           </CardContent>
         </Card>
@@ -2113,18 +2130,25 @@ export default function AnalyticsPage() {
             <CardDescription>Across 6 competency axes</CardDescription>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} outerRadius="68%">
-                <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis
-                  dataKey="axis"
-                  stroke="var(--muted-foreground)"
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12, fontWeight: 500 }}
-                />
-                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                <Radar dataKey="value" stroke="#7f77dd" fill="#7f77dd" fillOpacity={0.28} />
-              </RadarChart>
-            </ResponsiveContainer>
+            <div
+              className="h-full"
+              role="img"
+              tabIndex={0}
+              aria-label={`Domain strength radar chart. Strongest axis ${strongestAxis?.axis || 'N/A'} at ${Math.round(toNumber(strongestAxis?.value))}. Weakest axis ${weakestAxis?.axis || 'N/A'} at ${Math.round(toNumber(weakestAxis?.value))}.`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} outerRadius="68%">
+                  <PolarGrid stroke="var(--border)" />
+                  <PolarAngleAxis
+                    dataKey="axis"
+                    stroke="var(--muted-foreground)"
+                    tick={{ fill: 'var(--muted-foreground)', fontSize: 12, fontWeight: 500 }}
+                  />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar dataKey="value" stroke="#7f77dd" fill="#7f77dd" fillOpacity={0.28} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
             <p className="mt-4 text-center text-[11px] text-muted">
               Strongest in {strongestAxis?.axis || 'N/A'}.
               {' '}Weakest in {weakestAxis?.axis || 'N/A'}.
@@ -2149,15 +2173,22 @@ export default function AnalyticsPage() {
           <CardContent>
             <div className="h-48">
               {trendWindow.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendWindow} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 1000]} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="score" stroke="#7f77dd" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div
+                  className="h-full"
+                  role="img"
+                  tabIndex={0}
+                  aria-label={`Score over time chart for the last 90 days. Latest ${Math.round(latestScore)}, peak ${peakScore}, average ${averageScore}.`}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendWindow} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 1000]} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="score" stroke="#7f77dd" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <EmptyChart msg="No score history available yet." />
               )}

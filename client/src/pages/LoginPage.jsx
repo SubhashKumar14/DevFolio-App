@@ -54,6 +54,7 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const { login, isLoggingIn } = useAuth();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthHydrated = useAuthStore((state) => state.isAuthHydrated);
   const user = useAuthStore((state) => state.user);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
@@ -69,6 +70,14 @@ export default function LoginPage() {
       setErrorMsg(err.message || 'Login failed. Please check your credentials.');
     }
   };
+
+  if (!isAuthHydrated) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent-cyan border-t-transparent" />
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;

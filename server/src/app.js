@@ -23,6 +23,7 @@ import exportRoutes from './routes/exportRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { csrfOriginProtection } from './middleware/csrfOriginProtection.js';
+import { attachRequestContext, requestLogger } from './middleware/observability.js';
 
 // ─── Express App ────────────────────────────────────────
 const app = express();
@@ -32,7 +33,10 @@ app.use(helmet());
 app.use(cors({
   origin: env.CLIENT_URL,
   credentials: true,
+  exposedHeaders: ['x-request-id'],
 }));
+app.use(attachRequestContext);
+app.use(requestLogger);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -42,7 +46,11 @@ app.use('/api/', csrfOriginProtection);
 
 // ─── Health Check ───────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    requestId: req.requestId || null,
+  });
 });
 
 // ─── API Routes ─────────────────────────────────────────

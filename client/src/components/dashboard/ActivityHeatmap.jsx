@@ -103,6 +103,32 @@ function getActiveEntries(day, platformKeys) {
     .sort((a, b) => b.count - a.count);
 }
 
+function formatDayLabel(dateKey) {
+  return new Date(`${dateKey}T00:00:00`).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function buildDayAriaLabel(day, platformKeys) {
+  if (!day?.date) return 'Inactive day';
+
+  const activeEntries = getActiveEntries(day, platformKeys);
+  if (day.total <= 0 || activeEntries.length === 0) {
+    return `${formatDayLabel(day.date)}: no activity`;
+  }
+
+  const breakdown = activeEntries
+    .map((entry) => {
+      const platformName = PLATFORMS[entry.key]?.name || entry.key;
+      return `${platformName} ${entry.count}`;
+    })
+    .join(', ');
+
+  return `${formatDayLabel(day.date)}: ${day.total} total activities. ${breakdown}`;
+}
+
 function circularMeanHue(weightedHues) {
   let x = 0;
   let y = 0;
@@ -324,7 +350,11 @@ export default function ActivityHeatmap({
   );
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div
+      className="rounded-xl border border-border bg-card p-4"
+      role="group"
+      aria-label="Cross-platform activity heatmap"
+    >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
           {summary.totalActivities} activities in {selectedYearLabel.toLowerCase()}
@@ -370,9 +400,14 @@ export default function ActivityHeatmap({
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border bg-card-elevated p-3 dark:border-[#21262d] dark:bg-[#0d1117]">
-        <div className="flex items-start" style={{ gap: '8px', minWidth: 'max-content' }}>
+        <div className="flex items-start" style={{ gap: '8px', minWidth: 'max-content' }} role="grid" aria-label="Daily contribution cells by month">
           {monthBlocks.map((monthBlock) => (
-            <div key={monthBlock.key} className="flex shrink-0 flex-col items-start gap-2">
+            <div
+              key={monthBlock.key}
+              className="flex shrink-0 flex-col items-start gap-2"
+              role="group"
+              aria-label={`${MONTH_NAMES[monthBlock.month]} activity`}
+            >
               <div
                 style={{
                   display: 'grid',
@@ -400,6 +435,9 @@ export default function ActivityHeatmap({
                         border: '1px solid var(--border)',
                       }}
                       className={interactive ? 'cursor-pointer transition-all duration-200 hover:border-foreground' : ''}
+                      role={interactive ? 'button' : 'presentation'}
+                      tabIndex={interactive ? 0 : -1}
+                      aria-label={interactive ? buildDayAriaLabel(day, platformKeys) : undefined}
                       onMouseEnter={
                         interactive
                           ? (event) => {
@@ -409,6 +447,31 @@ export default function ActivityHeatmap({
                           : undefined
                       }
                       onMouseLeave={interactive ? () => setTooltip(null) : undefined}
+                      onFocus={
+                        interactive
+                          ? (event) => {
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              setTooltip({ x: rect.left + rect.width / 2, y: rect.top, day });
+                            }
+                          : undefined
+                      }
+                      onBlur={interactive ? () => setTooltip(null) : undefined}
+                      onKeyDown={
+                        interactive
+                          ? (event) => {
+                              if (event.key === 'Escape') {
+                                setTooltip(null);
+                                return;
+                              }
+
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                setTooltip({ x: rect.left + rect.width / 2, y: rect.top, day });
+                              }
+                            }
+                          : undefined
+                      }
                     />
                   );
                 })}
@@ -423,6 +486,7 @@ export default function ActivityHeatmap({
           {[0.2, 0.4, 0.6, 0.8, 1].map((intensityValue) => (
             <span
               key={intensityValue}
+              aria-hidden="true"
               className="inline-block h-2.5 w-2.5 rounded-[3px] border border-white/5"
               style={{ backgroundColor: colorFromHslAndIntensity([210, 13, 47], intensityValue) }}
             />
@@ -430,6 +494,12 @@ export default function ActivityHeatmap({
           <span>More</span>
           <span className="ml-2 rounded border border-border px-1.5 py-0.5">Striped = 4+ platforms</span>
         </div>
+
+        <p className="sr-only" aria-live="polite">
+          {tooltip
+            ? buildDayAriaLabel(tooltip.day, platformKeys)
+            : `${summary.totalActivities} total activities across ${summary.activeDays} active days in ${selectedYearLabel.toLowerCase()}.`}
+        </p>
       </div>
 
       {tooltip && tooltipRoot && createPortal(

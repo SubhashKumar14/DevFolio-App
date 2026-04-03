@@ -1,12 +1,52 @@
 ﻿# Fixes Log
 
-Last updated: 2026-03-30
+Last updated: 2026-04-03
 
 ## Purpose
 
 Track implemented fixes and open remediation items in a single place.
 
 ## Recently Completed Fixes
+
+### Phase 1 (2026-03-30) - API contract and cache refresh stability
+
+- added shared client response unwrapping helper to normalize service payload handling
+- refactored all frontend service modules to use a consistent return contract
+- replaced broad `queryClient.invalidateQueries()` calls in dashboard, goals, onboarding, and settings flows with scoped query-key invalidation
+- fixed admin sync success banner to read the actual API message payload shape
+
+Validation:
+
+- frontend lint passing
+- frontend production build passing
+- backend e2e tests passing (9/9)
+
+### Phase 2 (2026-03-30) - immutable public handle migration
+
+- added `publicHandle` to user identity model with unique index and immutable constraints
+- implemented safe public-handle generation and lazy backfill for legacy users
+- migrated public profile and portfolio resolution to prefer `publicHandle` (with temporary displayName fallback)
+- updated auth/user/integration/recruiter/compare payloads to include `publicHandle`
+- migrated frontend public URL generation (navbar, recruiter cards, profile links, and portfolio links) to use `publicHandle` first
+
+Validation:
+
+- frontend lint passing
+- frontend production build passing
+- backend e2e tests passing (9/9)
+
+### Phase 3 (2026-03-30) - access-token storage hardening
+
+- removed `localStorage` persistence for access tokens and migrated client auth state to runtime memory only
+- added startup auth bootstrap flow to rehydrate session using secure httpOnly refresh cookie
+- updated protected-route gating to wait for auth bootstrap completion before redirect decisions
+- removed client-side refresh-token localStorage fallback and made refresh interceptor cookie-first only
+
+Validation:
+
+- frontend lint passing
+- frontend production build passing
+- backend e2e tests passing (9/9)
 
 ### Platform and analytics improvements
 
@@ -41,6 +81,27 @@ Track implemented fixes and open remediation items in a single place.
 - improved cache invalidation wiring for leaderboard-related write paths
 - hardened regex handling and URL validation policies for user search, recruiter filters, profile URLs, and project URLs
 
+### P2 accessibility, recruiter filtering, and observability completion
+
+- improved chart accessibility across analytics and compare surfaces (keyboard focus regions, ARIA labels, and heatmap keyboard tooltip support)
+- expanded recruiter search with advanced filters (score range, primary/secondary archetypes, portfolio-only toggle, tech match mode, sort controls, and pagination metadata)
+- added backend observability middleware with request correlation IDs (`x-request-id`) and structured JSON logs for requests and errors
+
+### Phase 4 (2026-04-03) - P1 performance and sync offloading completion
+
+- moved recruiter search heavy filtering/sorting/pagination fully into Mongo aggregation pipelines with faceted pagination and metadata
+- moved leaderboard mode rankings to Mongo aggregation-based filtering/sorting/pagination across devscore, github, leetcode, codeforces, hackerrank, codechef, kaggle, and huggingface
+- introduced persisted sync-job model and background worker queue for manual user sync and admin/cron global sync workflows
+- changed manual and global sync endpoints to enqueue background jobs and exposed job-status polling endpoints
+- switched nightly scheduler from inline global sync execution to enqueue-only job trigger under distributed lock
+- updated frontend sync flows (dashboard, analytics, goals, onboarding, settings, admin panel) to poll job completion before showing success and refreshing data
+
+Validation:
+
+- frontend lint passing
+- frontend production build passing
+- backend e2e tests passing (9/9)
+
 ### Quality validation
 
 - frontend lint/build passing in current baseline
@@ -50,11 +111,13 @@ Track implemented fixes and open remediation items in a single place.
 
 ## Open Fixes (Prioritized)
 
+### P1
+
+- no remaining P1 items in current scope (completed 2026-04-03)
+
 ### P2
 
-1. accessibility polish (alt text, keyboard/aria for chart-heavy components)
-2. recruiter advanced filtering features
-3. observability improvements (structured logs and request correlation)
+- no remaining P2 items in current scope (completed 2026-03-30)
 
 ## Verification Checklist for Each Fix
 

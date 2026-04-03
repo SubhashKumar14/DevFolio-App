@@ -71,6 +71,7 @@ export default function LivePreview({ html, css, js }) {
         <iframe
           ref={iframeRef}
           srcDoc={previewDoc}
+          onLoad={() => setLogs([])}
           title="Portfolio Preview"
           sandbox="allow-scripts"
           className="absolute inset-0 w-full h-full border-0"

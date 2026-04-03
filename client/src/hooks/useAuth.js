@@ -5,7 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import { getDefaultRouteForRole } from '@/lib/roleRoutes';
 
 export function useAuth() {
-  const { setAccessToken, setUser, logout: clearStore, isAuthenticated, user: storeUser } = useAuthStore();
+  const {
+    setAccessToken,
+    setUser,
+    logout: clearStore,
+    isAuthenticated,
+    isAuthHydrated,
+    accessToken,
+    user: storeUser,
+  } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -50,7 +58,7 @@ export function useAuth() {
       setUser(data);
       return data;
     },
-    enabled: isAuthenticated && !storeUser,
+    enabled: isAuthHydrated && isAuthenticated && !!accessToken && !storeUser,
     retry: false,
     staleTime: 5 * 60 * 1000,
     initialData: storeUser || undefined,

@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Code2, Share2, Mail, ExternalLink, FileCode, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getPublicPortfolioPath, getPublicIdentifier } from '@/lib/publicRoutes';
 
 function PublicProfileSkeleton() {
   return (
@@ -36,6 +37,9 @@ export default function PublicProfilePage() {
   const resolvedUserId = profile?.userId?._id || profile?.userId;
   const userName = profile?.userId?.displayName || handle;
   const userData = useMemo(() => profile?.userId || {}, [profile?.userId]);
+  const publicPortfolioPath = getPublicPortfolioPath(profile?.userId || { publicHandle: handle })
+    || `/portfolio/${encodeURIComponent(handle || userName)}`;
+  const publicIdentifier = getPublicIdentifier(profile?.userId || { publicHandle: handle }) || handle || userName;
 
   const { data: devScore } = useQuery({
     queryKey: ['publicDevScore', resolvedUserId],
@@ -213,6 +217,7 @@ export default function PublicProfilePage() {
         )}
         <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{profile.bio || 'No bio yet.'}</p>
         {profile.college && <p className="mt-2 text-sm text-muted">{profile.college}</p>}
+        <p className="mt-1 text-xs text-muted">@{publicIdentifier}</p>
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           <Button
@@ -238,7 +243,7 @@ export default function PublicProfilePage() {
             <Mail className="h-4 w-4" /> Contact
           </Button>
           <Button asChild variant="outline" className="gap-2">
-            <Link to={`/portfolio/${encodeURIComponent(userName)}`} target="_blank">
+            <Link to={publicPortfolioPath} target="_blank">
               <ExternalLink className="h-4 w-4" /> View Portfolio
             </Link>
           </Button>
@@ -352,7 +357,7 @@ export default function PublicProfilePage() {
           </div>
           <div className="rounded-xl border border-border bg-card p-6 space-y-3">
             <Button asChild className="w-full gap-2">
-              <Link to={`/portfolio/${encodeURIComponent(userName)}`} target="_blank">
+              <Link to={publicPortfolioPath} target="_blank">
                 <ExternalLink className="h-4 w-4" /> View Portfolio
               </Link>
             </Button>

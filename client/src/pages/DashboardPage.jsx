@@ -22,6 +22,25 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const userId = user?._id;
 
+  const invalidateUserDataQueries = async () => {
+    if (!userId) return;
+
+    const queryKeys = [
+      ['user', 'me'],
+      ['profile', userId],
+      ['portfolio', userId],
+      ['githubStats', userId],
+      ['dsaStats', userId],
+      ['platformStats', userId],
+      ['devScore', userId],
+      ['scoreHistory', userId],
+      ['scoreBenchmark', userId],
+      ['leaderboard'],
+    ];
+
+    await Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  };
+
   // ─── Data queries ────────────────────────
   const { data: githubStats } = useQuery({
     queryKey: ['githubStats', userId],
@@ -61,12 +80,17 @@ export default function DashboardPage() {
 
   // ─── Sync mutation ──────────────────────
   const syncMutation = useMutation({
-    mutationFn: () => statsService.syncStats(),
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      toast.success('All platforms synced!');
+    mutationFn: () => statsService.syncStatsAndWait(),
+    onSuccess: async (job) => {
+      await invalidateUserDataQueries();
+      if (job?.errorCount > 0) {
+        toast.success(job.message || `Sync completed with ${job.errorCount} warning(s).`);
+        return;
+      }
+
+      toast.success(job?.message || 'All platforms synced!');
     },
-    onError: () => toast.error('Sync failed. Please try again.'),
+    onError: (error) => toast.error(error?.message || 'Sync failed. Please try again.'),
   });
 
   // ─── Computed data ──────────────────────

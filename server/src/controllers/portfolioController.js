@@ -5,22 +5,41 @@ import { sanitizeHtml } from '../utils/sanitizer.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
 
-// ─── Get Portfolio by User ID ─────────────────────
+async function resolvePortfolioUserId(identifier) {
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    return identifier;
+  }
+
+  const normalizedHandle = String(identifier || '').trim().toLowerCase();
+  const isHandleLike = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedHandle);
+  if (isHandleLike) {
+    const byHandle = await User.findOne({ publicHandle: normalizedHandle }).select('_id');
+    if (byHandle?._id) {
+      return byHandle._id;
+    }
+  }
+
+  // Backward-compatibility fallback for legacy displayName links.
+  const escaped = String(identifier || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const legacyUser = await User.findOne({ displayName: { $regex: new RegExp(`^${escaped}$`, 'i') } }).select('_id publicHandle displayName email');
+  if (!legacyUser) {
+    return null;
+  }
+
+  if (!legacyUser.publicHandle) {
+    await User.ensurePublicHandle(legacyUser);
+  }
+
+  return legacyUser._id;
+}
+
+// ─── Get Portfolio by User ID/Public Handle ─────────────────────
 export const getPortfolio = asyncHandler(async (req, res) => {
   const param = req.params.identifier;
-  let userId;
+  const userId = await resolvePortfolioUserId(param);
 
-  // Check if param is a valid MongoDB ObjectId
-  if (mongoose.Types.ObjectId.isValid(param)) {
-    userId = param;
-  } else {
-    // Otherwise, look up user by displayName (case-insensitive)
-    const escaped = param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const user = await User.findOne({ displayName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-    if (!user) {
-      return res.json({ success: true, data: null });
-    }
-    userId = user._id;
+  if (!userId) {
+    return res.json({ success: true, data: null });
   }
 
   const portfolio = await PortfolioCode.findOne({ userId });
@@ -53,7 +72,7 @@ export const savePortfolio = asyncHandler(async (req, res) => {
       cssContent: cssContent || '',
       jsContent: jsContent || '',
     },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 
   await invalidateLeaderboardCache();
@@ -76,7 +95,7 @@ export const toggleVisibility = asyncHandler(async (req, res) => {
   const portfolio = await PortfolioCode.findOneAndUpdate(
     { userId: req.user._id },
     { isPublic },
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   if (!portfolio) {

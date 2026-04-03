@@ -434,6 +434,7 @@ async function resolveUser(param) {
   if (mongoose.Types.ObjectId.isValid(param)) {
     return await User.findById(param).select([
       'displayName',
+      'publicHandle',
       'archetype',
       'githubUsername',
       'leetcodeUsername',
@@ -444,10 +445,33 @@ async function resolveUser(param) {
       'huggingfaceUsername',
     ].join(' '));
   }
+  const normalizedHandle = String(param || '').trim().toLowerCase();
+  const isHandleLike = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedHandle);
+
+  if (isHandleLike) {
+    const byHandle = await User.findOne({ publicHandle: normalizedHandle }).select([
+      'displayName',
+      'publicHandle',
+      'archetype',
+      'githubUsername',
+      'leetcodeUsername',
+      'codeforcesUsername',
+      'hackerrankUsername',
+      'codechefUsername',
+      'kaggleUsername',
+      'huggingfaceUsername',
+    ].join(' '));
+
+    if (byHandle) {
+      return byHandle;
+    }
+  }
+
   return await User.findOne({
     displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
   }).select([
     'displayName',
+    'publicHandle',
     'archetype',
     'githubUsername',
     'leetcodeUsername',
@@ -482,6 +506,14 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
   ]);
 
   if (!user1 || !user2) throw new AppError('One or both users not found', 404);
+
+  const [resolvedHandle1, resolvedHandle2] = await Promise.all([
+    User.ensurePublicHandle(user1),
+    User.ensurePublicHandle(user2),
+  ]);
+
+  user1.publicHandle = user1.publicHandle || resolvedHandle1 || null;
+  user2.publicHandle = user2.publicHandle || resolvedHandle2 || null;
 
   const [profile1, profile2] = await Promise.all([
     Profile.findOne({ userId: user1._id }).select('isPublic').lean(),
@@ -555,6 +587,7 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
     data: {
       user1: {
         displayName: user1.displayName,
+        publicHandle: user1.publicHandle || null,
         archetype: user1.archetype || 'none',
         devScore: score1?.score || 0,
         maxScore: 1000,
@@ -567,6 +600,7 @@ export const compareDevelopers = asyncHandler(async (req, res) => {
       },
       user2: {
         displayName: user2.displayName,
+        publicHandle: user2.publicHandle || null,
         archetype: user2.archetype || 'none',
         devScore: score2?.score || 0,
         maxScore: 1000,

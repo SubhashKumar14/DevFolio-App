@@ -11,9 +11,24 @@ async function resolveUserId(param) {
   if (mongoose.Types.ObjectId.isValid(param)) {
     return param;
   }
+
+  const normalizedHandle = String(param || '').trim().toLowerCase();
+  const isHandleLike = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedHandle);
+  if (isHandleLike) {
+    const byHandle = await User.findOne({ publicHandle: normalizedHandle }).select('_id');
+    if (byHandle?._id) {
+      return byHandle._id;
+    }
+  }
+
   const user = await User.findOne({
     displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-  });
+  }).select('_id displayName email publicHandle');
+
+  if (user?._id && !user.publicHandle) {
+    await User.ensurePublicHandle(user);
+  }
+
   return user?._id || null;
 }
 
@@ -29,6 +44,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     'userId',
     [
       'displayName',
+      'publicHandle',
       'email',
       'archetype',
       'secondaryArchetype',
@@ -92,7 +108,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const profile = await Profile.findOneAndUpdate(
     { userId: req.user._id },
     updates,
-    { new: true, runValidators: true, upsert: true }
+    { returnDocument: 'after', runValidators: true, upsert: true }
   );
 
   await invalidateLeaderboardCache();

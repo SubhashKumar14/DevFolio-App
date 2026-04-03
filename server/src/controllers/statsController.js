@@ -14,16 +14,27 @@ import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
 
 import { computeDevScore } from '../services/devscoreEngine.js';
 import DevScore from '../models/DevScore.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
+import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { assertPublicOrOwner } from '../utils/privacyAccess.js';
 import { decryptTokenAtRest } from '../utils/secureToken.js';
 import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
+import { enqueueUserSyncJob, getSyncJobSnapshot } from '../services/syncJobQueue.js';
 
 const SCORE_RETENTION_LIMIT = 30;
 
 // ─── Helper: resolve userId param ─────────────────
 async function resolveUserId(param) {
   if (mongoose.Types.ObjectId.isValid(param)) return param;
+
+  const normalizedHandle = String(param || '').trim().toLowerCase();
+  const isHandleLike = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedHandle);
+  if (isHandleLike) {
+    const byHandle = await User.findOne({ publicHandle: normalizedHandle }).select('_id');
+    if (byHandle?._id) {
+      return byHandle._id;
+    }
+  }
+
   const user = await User.findOne({
     displayName: { $regex: new RegExp(`^${param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
   });
@@ -180,97 +191,39 @@ export const getPlatformStats = asyncHandler(async (req, res) => {
 
 // ─── Manual Sync All Stats + Recompute DevScore ───
 export const syncStats = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select('+githubAccessToken');
-  const synced = [];
+  const job = await enqueueUserSyncJob({
+    targetUserId: req.user._id,
+    requestedBy: req.user._id,
+    meta: { source: 'manual' },
+  });
 
-  // Group 1: GitHub
-  if (user.githubUsername) {
-    try {
-      const githubAccessToken = decryptTokenAtRest(user.githubAccessToken);
-      const stats = await fetchGithubStats(user.githubUsername, githubAccessToken);
-      await GithubStats.findOneAndUpdate(
-        { userId: user._id },
-        { ...stats, userId: user._id },
-        { upsert: true, new: true }
-      );
-      synced.push('GitHub');
-    } catch (err) { console.error('GitHub sync error:', err.message); }
+  res.status(202).json({
+    success: true,
+    message: 'Sync job queued',
+    data: job,
+  });
+});
+
+// ─── Get Manual Sync Job Status ───────────────────
+export const getSyncJobStatus = asyncHandler(async (req, res) => {
+  const job = await getSyncJobSnapshot(req.params.jobId);
+
+  if (!job || job.type !== 'user-sync') {
+    throw new AppError('Sync job not found', 404);
   }
 
-  // Group 2: DSA (LeetCode, Codeforces)
-  if (user.leetcodeUsername || user.codeforcesUsername) {
-    const dsaUpdates = {};
-    if (user.leetcodeUsername) {
-      try {
-        dsaUpdates.leetcode = await fetchLeetcodeStats(user.leetcodeUsername);
-        synced.push('LeetCode');
-      } catch (err) { console.error('LeetCode sync error:', err.message); }
-    }
-    if (user.codeforcesUsername) {
-      try {
-        const stats = await fetchCodeforcesStats(user.codeforcesUsername);
-        const { ratingHistory, ...cfData } = stats;
-        dsaUpdates.codeforces = { ...cfData, ratingHistory: ratingHistory?.slice(-50) || [] };
-        synced.push('Codeforces');
-      } catch (err) { console.error('Codeforces sync error:', err.message); }
-    }
-    if (Object.keys(dsaUpdates).length > 0) {
-      await DsaStats.findOneAndUpdate(
-        { userId: user._id },
-        { $set: { ...dsaUpdates, lastSyncedAt: new Date() }, $setOnInsert: { userId: user._id } },
-        { upsert: true, new: true }
-      );
-    }
-  }
-
-  // Group 3: All other platforms (parallel)
-  const platformUpdates = {};
-  const platformFetchers = [
-    { field: 'hackerrankUsername', key: 'hackerrank', fn: fetchHackerRankStats },
-    { field: 'codechefUsername', key: 'codechef', fn: fetchCodeChefStats },
-    { field: 'kaggleUsername', key: 'kaggle', fn: fetchKaggleStats },
-    { field: 'huggingfaceUsername', key: 'huggingface', fn: fetchHuggingfaceStats },
-  ];
-
-  await Promise.allSettled(
-    platformFetchers.map(async ({ field, key, fn }) => {
-      if (user[field]) {
-        try {
-          const stats = await fn(user[field]);
-          platformUpdates[key] = stats;
-          synced.push(key);
-        } catch (err) {
-          console.error(`${key} sync error:`, err.message);
-        }
-      }
-    })
+  const requesterId = req.user?._id?.toString();
+  const isAdmin = req.user?.role === 'admin';
+  const isOwner = requesterId && (
+    job.requestedBy === requesterId || job.targetUserId === requesterId
   );
 
-  if (Object.keys(platformUpdates).length > 0) {
-    await PlatformStats.findOneAndUpdate(
-      { userId: user._id },
-      { $set: { ...platformUpdates, lastSyncedAt: new Date() }, $setOnInsert: { userId: user._id } },
-      { upsert: true, new: true }
-    );
+  if (!isAdmin && !isOwner) {
+    throw new AppError('Access denied. Insufficient permissions.', 403);
   }
-
-  // ─── Auto-recompute DevScore v2 after sync ──────
-  try {
-    const platformData = await buildPlatformData(user._id);
-    const result = computeDevScore({
-      archetype: user.archetype,
-      secondaryArchetype: user.secondaryArchetype,
-      platformData,
-    });
-    await persistScore(user._id, result);
-  } catch (err) {
-    console.error('DevScore recompute after sync failed:', err.message);
-  }
-
-  await invalidateLeaderboardCache();
 
   res.json({
     success: true,
-    message: `Sync triggered for: ${synced.join(', ') || 'no platforms connected'}`,
+    data: job,
   });
 });

@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Eye, ExternalLink, PenTool, FileCode, Loader2, Globe, Lock } from 'lucide-react';
 import { buildPortfolioHtml } from '@/utils/portfolioUtils';
+import { getPublicIdentifier, getPublicPortfolioPreviewPath } from '@/lib/publicRoutes';
 
 export default function PortfolioPage() {
   const { user } = useAuthStore();
   const userId = user?._id;
   const isRecruiter = user?.role === 'recruiter';
+  const publicIdentifier = getPublicIdentifier(user);
+  const publicPreviewPath = getPublicPortfolioPreviewPath(user);
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', userId],
@@ -56,9 +59,9 @@ export default function PortfolioPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {user?.displayName && portfolio && (
+          {publicPreviewPath && portfolio && (
             <Button variant="outline" size="sm" asChild className="gap-1.5">
-              <Link to={`/portfolio/preview/${encodeURIComponent(user.displayName)}`} target="_blank">
+              <Link to={publicPreviewPath} target="_blank">
                 <ExternalLink className="h-3.5 w-3.5" /> Open Live
               </Link>
             </Button>
@@ -82,7 +85,7 @@ export default function PortfolioPage() {
               <div className="w-3 h-3 rounded-full bg-green-500/60" />
             </div>
             <span className="text-xs text-muted ml-2">
-              {user?.displayName ? `devfolio.dev/portfolio/${user.displayName}` : 'portfolio preview'}
+              {publicIdentifier ? `devfolio.dev/portfolio/${publicIdentifier}` : 'portfolio preview'}
             </span>
           </div>
           <div className="h-[70vh] bg-white">

@@ -1,4 +1,5 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const integrationService = {
   async connectDsa(data) {
@@ -12,23 +13,21 @@ export const integrationService = {
       kaggleUsername: data.kaggleUsername,
       huggingfaceUsername: data.huggingfaceUsername,
     });
-    return response;
+    return unwrapApiData(response);
   },
 
   async connectGithub(code) {
-    const response = await apiClient.post('/integrations/github/connect', { code });
-    return response.data;
+    return unwrapApiData(await apiClient.post('/integrations/github/connect', { code }));
   },
 
   async disconnectPlatform(platformId) {
     try {
-      const response = await apiClient.patch(`/integrations/platforms/${platformId}/disconnect`);
-      return response;
+      return unwrapApiData(await apiClient.patch(`/integrations/platforms/${platformId}/disconnect`));
     } catch (error) {
       const status = Number(error?.status);
       if (status === 404 || status === 405) {
         // Compatibility fallback for runtimes/proxies where PATCH path is not available.
-        return apiClient.post(`/integrations/platforms/${platformId}/disconnect`);
+        return unwrapApiData(await apiClient.post(`/integrations/platforms/${platformId}/disconnect`));
       }
       throw error;
     }

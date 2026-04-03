@@ -6,21 +6,9 @@ import PlatformStats from '../models/PlatformStats.js';
 import Project from '../models/Project.js';
 import DevScore from '../models/DevScore.js';
 import PortfolioCode from '../models/PortfolioCode.js';
-import { computeDevScore } from '../services/devscoreEngine.js';
-
-import { fetchGithubStats } from '../services/githubService.js';
-import { fetchLeetcodeStats } from '../services/leetcodeService.js';
-import { fetchCodeforcesStats } from '../services/codeforcesService.js';
-import { fetchHackerRankStats } from '../services/hackerrankService.js';
-import { fetchCodeChefStats } from '../services/codechefService.js';
-import { fetchKaggleStats } from '../services/kaggleService.js';
-import { fetchHuggingfaceStats } from '../services/huggingfaceService.js';
 
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
-import { decryptTokenAtRest } from '../utils/secureToken.js';
-import { invalidateLeaderboardCache } from '../utils/cacheInvalidation.js';
-
-const SCORE_RETENTION_LIMIT = 30;
+import { enqueueGlobalSyncJob, getSyncJobSnapshot } from '../services/syncJobQueue.js';
 
 // ─── List All Users ──────────────────────────────
 export const listUsers = asyncHandler(async (req, res) => {
@@ -69,7 +57,7 @@ export const changeRole = asyncHandler(async (req, res) => {
   if (!validRoles.includes(role)) throw new AppError(`Invalid role. Must be one of: ${validRoles.join(', ')}`, 400);
   if (userId === req.user._id.toString()) throw new AppError('Cannot change your own role', 400);
 
-  const user = await User.findByIdAndUpdate(userId, { role }, { new: true }).select('email displayName role');
+  const user = await User.findByIdAndUpdate(userId, { role }, { returnDocument: 'after' }).select('email displayName role');
   if (!user) throw new AppError('User not found', 404);
   res.json({ success: true, data: user });
 });
@@ -103,131 +91,28 @@ export const getStats = asyncHandler(async (req, res) => {
 
 // ─── Trigger Global Sync ──────────────────────────
 export const triggerGlobalSync = asyncHandler(async (req, res) => {
-  const users = await User.find({
-    $or: [
-      { githubUsername: { $ne: null } },
-      { leetcodeUsername: { $ne: null } },
-      { codeforcesUsername: { $ne: null } },
-      { hackerrankUsername: { $ne: null } },
-      { codechefUsername: { $ne: null } },
-      { kaggleUsername: { $ne: null } },
-      { huggingfaceUsername: { $ne: null } },
-    ],
-  }).select('+githubAccessToken');
+  const job = await enqueueGlobalSyncJob({
+    requestedBy: req.user._id,
+    meta: { source: 'admin-panel' },
+  });
 
-  let successCount = 0;
-  let errorCount = 0;
+  res.status(202).json({
+    success: true,
+    message: 'Global sync job queued',
+    data: job,
+  });
+});
 
-  for (const user of users) {
-    try {
-      // GitHub
-      if (user.githubUsername) {
-        const githubAccessToken = decryptTokenAtRest(user.githubAccessToken);
-        const stats = await fetchGithubStats(user.githubUsername, githubAccessToken);
-        await GithubStats.findOneAndUpdate({ userId: user._id }, { ...stats, userId: user._id }, { upsert: true });
-      }
+// ─── Get Global Sync Job Status ──────────────────
+export const getGlobalSyncJobStatus = asyncHandler(async (req, res) => {
+  const job = await getSyncJobSnapshot(req.params.jobId);
 
-      // DSA
-      const dsaUpdates = {};
-      if (user.leetcodeUsername) {
-        dsaUpdates.leetcode = await fetchLeetcodeStats(user.leetcodeUsername);
-      }
-      if (user.codeforcesUsername) {
-        const stats = await fetchCodeforcesStats(user.codeforcesUsername);
-        const { ratingHistory, ...cfData } = stats;
-        dsaUpdates.codeforces = { ...cfData, ratingHistory: ratingHistory?.slice(-50) || [] };
-      }
-      if (Object.keys(dsaUpdates).length > 0) {
-        await DsaStats.findOneAndUpdate(
-          { userId: user._id },
-          { $set: { ...dsaUpdates, lastSyncedAt: new Date() }, $setOnInsert: { userId: user._id } },
-          { upsert: true }
-        );
-      }
-
-      // All other platforms
-      const platformFetchers = [
-        { field: 'hackerrankUsername', key: 'hackerrank', fn: fetchHackerRankStats },
-        { field: 'codechefUsername', key: 'codechef', fn: fetchCodeChefStats },
-        { field: 'kaggleUsername', key: 'kaggle', fn: fetchKaggleStats },
-        { field: 'huggingfaceUsername', key: 'huggingface', fn: fetchHuggingfaceStats },
-      ];
-
-      const platformUpdates = {};
-      await Promise.allSettled(
-        platformFetchers.map(async ({ field, key, fn }) => {
-          if (user[field]) {
-            try { platformUpdates[key] = await fn(user[field]); }
-            catch (err) { console.error(`  ${key} sync error:`, err.message); }
-          }
-        })
-      );
-
-      if (Object.keys(platformUpdates).length > 0) {
-        await PlatformStats.findOneAndUpdate(
-          { userId: user._id },
-          { $set: { ...platformUpdates, lastSyncedAt: new Date() }, $setOnInsert: { userId: user._id } },
-          { upsert: true }
-        );
-      }
-
-      // DevScore v2 recompute
-      const [githubStats, dsaStats, platformStats] = await Promise.all([
-        GithubStats.findOne({ userId: user._id }).lean(),
-        DsaStats.findOne({ userId: user._id }).lean(),
-        PlatformStats.findOne({ userId: user._id }).lean(),
-      ]);
-
-      const platformData = {};
-      if (githubStats) platformData.github = githubStats;
-      if (dsaStats?.leetcode) platformData.leetcode = dsaStats.leetcode;
-      if (dsaStats?.codeforces) platformData.codeforces = { rating: dsaStats.codeforces.currentRating, ...dsaStats.codeforces };
-      if (platformStats) {
-        for (const key of ['hackerrank', 'codechef', 'kaggle', 'huggingface']) {
-          if (platformStats[key] && Object.keys(platformStats[key]).length > 0) {
-            platformData[key] = platformStats[key];
-          }
-        }
-      }
-
-      const result = computeDevScore({ archetype: user.archetype, secondaryArchetype: user.secondaryArchetype, platformData });
-      await DevScore.create({
-        userId: user._id,
-        score: result.overallScore,
-        rawScore: result.rawScore,
-        weightedRawScore: result.weightedRawScore,
-        breakdown: result.pillars,
-        archetype: result.archetype,
-        secondaryArchetype: result.secondaryArchetype,
-        connectedPlatforms: result.connectedPlatforms,
-        domain: result.domain,
-        domainLabel: result.domainLabel,
-        platformScores: result.platformScores,
-        strengths: result.strengths,
-        improvements: result.improvements,
-        diagnostics: result.diagnostics,
-      });
-
-      const count = await DevScore.countDocuments({ userId: user._id });
-      if (count > SCORE_RETENTION_LIMIT) {
-        const oldest = await DevScore.find({ userId: user._id })
-          .sort({ createdAt: 1 })
-          .limit(count - SCORE_RETENTION_LIMIT)
-          .select('_id');
-        await DevScore.deleteMany({ _id: { $in: oldest.map(d => d._id) } });
-      }
-
-      successCount++;
-    } catch (error) {
-      console.error(`Admin sync failed for user ${user._id}:`, error.message);
-      errorCount++;
-    }
+  if (!job || job.type !== 'global-sync') {
+    throw new AppError('Global sync job not found', 404);
   }
-
-  await invalidateLeaderboardCache();
 
   res.json({
     success: true,
-    message: `Global sync complete: ${successCount} synced, ${errorCount} errors`,
+    data: job,
   });
 });

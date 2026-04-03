@@ -1,4 +1,5 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const leaderboardService = {
   async getLeaderboard({ page = 1, limit = 20, college, archetype, mode = 'devscore' } = {}) {
@@ -6,12 +7,10 @@ export const leaderboardService = {
     if (college) params.append('college', college);
     if (archetype) params.append('archetype', archetype);
     if (mode) params.append('mode', mode);
-    const response = await apiClient.get(`/leaderboard?${params}`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/leaderboard?${params}`));
   },
 
   async getCollegeLeaderboard(collegeName) {
-    const response = await apiClient.get(`/leaderboard/college/${encodeURIComponent(collegeName)}`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/leaderboard/college/${encodeURIComponent(collegeName)}`));
   },
 };

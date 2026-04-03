@@ -50,6 +50,7 @@ function toUserPlatformPayload(user) {
     _id: user._id,
     email: user.email,
     displayName: user.displayName,
+    publicHandle: user.publicHandle || null,
     role: user.role,
     githubUsername: user.githubUsername,
     leetcodeUsername: user.leetcodeUsername,
@@ -77,9 +78,12 @@ export const connectDsa = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   });
+
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
 
   res.json({
     success: true,
@@ -117,9 +121,12 @@ export const disconnectPlatform = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   });
+
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
 
   res.json({
     success: true,

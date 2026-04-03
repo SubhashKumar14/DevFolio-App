@@ -16,8 +16,15 @@ export const searchUsers = asyncHandler(async (req, res) => {
   const users = await User.find({
     displayName: { $regex: normalizedQuery, $options: 'i' },
   })
-    .select('_id displayName')
+    .select('_id displayName publicHandle email')
     .limit(10);
+
+  await Promise.all(users.map(async (user) => {
+    if (!user.publicHandle) {
+      const handle = await User.ensurePublicHandle(user);
+      user.publicHandle = handle;
+    }
+  }));
 
   // Only public profiles should be discoverable on this surface.
   const userIds = users.map((u) => u._id);
@@ -29,6 +36,7 @@ export const searchUsers = asyncHandler(async (req, res) => {
     .map((u) => ({
       _id: u._id,
       displayName: u.displayName,
+      publicHandle: u.publicHandle || null,
       avatarUrl: profileMap.get(u._id.toString())?.avatarUrl || null,
       college: profileMap.get(u._id.toString())?.college || '',
     }));

@@ -8,6 +8,16 @@ import { encryptTokenAtRest } from '../utils/secureToken.js';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 
+function buildAuthUserPayload(user) {
+  return {
+    _id: user._id,
+    email: user.email,
+    displayName: user.displayName,
+    publicHandle: user.publicHandle || null,
+    role: user.role,
+  };
+}
+
 function parseExpiryToMs(expiry) {
   const fallbackMs = 7 * 24 * 60 * 60 * 1000;
   if (!expiry) return fallbackMs;
@@ -98,7 +108,8 @@ export const register = asyncHandler(async (req, res) => {
     throw new AppError('Email already registered', 409);
   }
 
-  const user = await User.create({ email, password, displayName, role: userRole });
+  const publicHandle = await User.generateUniquePublicHandle(displayName || email);
+  const user = await User.create({ email, password, displayName, publicHandle, role: userRole });
 
   // Create empty profile
   await Profile.create({ userId: user._id });
@@ -114,12 +125,7 @@ export const register = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     data: {
-      user: {
-        _id: user._id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-      },
+      user: buildAuthUserPayload(user),
       accessToken,
     },
   });
@@ -143,6 +149,9 @@ export const login = asyncHandler(async (req, res) => {
     throw new AppError('Invalid email or password', 401);
   }
 
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
+
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
@@ -153,12 +162,7 @@ export const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      user: {
-        _id: user._id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-      },
+      user: buildAuthUserPayload(user),
       accessToken,
     },
   });
@@ -180,6 +184,9 @@ export const refreshToken = asyncHandler(async (req, res) => {
   if (!user || user.refreshToken !== token) {
     throw new AppError('Invalid refresh token', 401);
   }
+
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
 
   const accessToken = generateAccessToken(user);
   const newRefreshToken = generateRefreshToken(user);

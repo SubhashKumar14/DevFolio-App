@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { RootLayout } from '@/components/layout/RootLayout';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AuthBootstrap } from '@/components/auth/AuthBootstrap';
 
 // Lazy loaded pages
 const LandingPage = lazy(() => import('@/pages/LandingPage'));
@@ -35,9 +36,14 @@ const PageLoader = () => (
 );
 
 function App() {
+  const DEVELOPER_ROLES = ['developer', 'mentor'];
+  const ALL_ROLES = ['developer', 'mentor', 'recruiter', 'admin'];
+
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
+    <>
+      <AuthBootstrap />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
         {/* Public Routes */}
         <Route element={<RootLayout />}>
           <Route path="/" element={<LandingPage />} />
@@ -47,40 +53,146 @@ function App() {
         </Route>
 
         {/* Public: Portfolio Preview (no auth needed) */}
-        <Route path="/portfolio/preview/:username" element={<PortfolioPreview />} />
-        <Route path="/portfolio/:username" element={<PortfolioPreview />} />
+        <Route path="/portfolio/preview/:handle" element={<PortfolioPreview />} />
+        <Route path="/portfolio/:handle" element={<PortfolioPreview />} />
 
         {/* Protected: Onboarding (no sidebar) */}
         <Route element={<RootLayout />}>
-          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+          <Route
+            path="/onboarding"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <OnboardingPage />
+              </ProtectedRoute>
+            )}
+          />
         </Route>
 
         {/* Protected: Portfolio Editor (no sidebar) */}
         <Route element={<RootLayout />}>
-          <Route path="/portfolio/editor" element={<ProtectedRoute><PortfolioEditor /></ProtectedRoute>} />
+          <Route
+            path="/portfolio/editor"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <PortfolioEditor />
+              </ProtectedRoute>
+            )}
+          />
         </Route>
 
         {/* Protected Dashboard Routes with Sidebar */}
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/dashboard/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/dashboard/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/contests" element={<ProtectedRoute><ContestsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
-          <Route path="/dashboard/compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
-          <Route path="/dashboard/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/wrapped" element={<ProtectedRoute><WrappedPage /></ProtectedRoute>} />
-          <Route path="/dashboard/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-          <Route path="/dashboard/recruiter" element={<ProtectedRoute><RecruiterPage /></ProtectedRoute>} />
-          <Route path="/dashboard/portfolio" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
+          <Route
+            path="/dashboard"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <DashboardPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/profile"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <ProfilePage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/settings"
+            element={(
+              <ProtectedRoute allowedRoles={ALL_ROLES}>
+                <SettingsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/analytics"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/projects"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <ProjectsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/contests"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <ContestsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/leaderboard"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <LeaderboardPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/compare"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <ComparePage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/goals"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <GoalsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/wrapped"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <WrappedPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/admin"
+            element={(
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/recruiter"
+            element={(
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <RecruiterPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dashboard/portfolio"
+            element={(
+              <ProtectedRoute allowedRoles={DEVELOPER_ROLES}>
+                <PortfolioPage />
+              </ProtectedRoute>
+            )}
+          />
         </Route>
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

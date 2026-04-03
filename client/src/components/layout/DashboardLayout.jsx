@@ -3,8 +3,10 @@ import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { Code2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 export function DashboardLayout() {
+  const userRole = useAuthStore((state) => state.user?.role);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -28,6 +30,24 @@ export function DashboardLayout() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isMobileMenuOpen]);
+
+  const footerLabel = userRole === 'recruiter'
+    ? 'Recruiter Workspace'
+    : userRole === 'admin'
+      ? 'Admin Workspace'
+      : 'DevFolio Dashboard';
+
+  const footerDescription = userRole === 'recruiter'
+    ? 'Discover and evaluate candidates using role-aware filters'
+    : userRole === 'admin'
+      ? 'Manage users, governance, and platform operations'
+      : 'Track core coding platforms with a unified DevScore';
+
+  const footerSummary = userRole === 'recruiter'
+    ? 'Recruiter tools only · Role-filtered navigation'
+    : userRole === 'admin'
+      ? 'Admin tools only · Role-filtered navigation'
+      : 'All metrics tracked · All scores earned';
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground">
@@ -80,11 +100,11 @@ export function DashboardLayout() {
             <div className="container mx-auto flex flex-col gap-2 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-accent-cyan" />
-                <span className="text-foreground">DevFolio Dashboard</span>
+                <span className="text-foreground">{footerLabel}</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">Track core coding platforms with a unified DevScore</span>
+                <span className="hidden sm:inline">{footerDescription}</span>
               </div>
-              <span>All metrics tracked · All scores earned</span>
+              <span>{footerSummary}</span>
             </div>
           </footer>
         </main>

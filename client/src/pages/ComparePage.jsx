@@ -193,6 +193,20 @@ function getModeRows(userData, mode) {
   return [];
 }
 
+function buildRadarSummary(radarData, user1Name, user2Name) {
+  const rows = Array.isArray(radarData) ? radarData : [];
+  if (rows.length === 0) {
+    return 'No comparison radar data is available yet.';
+  }
+
+  const summaries = rows
+    .slice(0, 8)
+    .map((row) => `${row.metric}: ${user1Name} ${Math.round(toNumber(row.user1))}, ${user2Name} ${Math.round(toNumber(row.user2))}`)
+    .join('. ');
+
+  return `Comparison radar across ${rows.length} metrics. ${summaries}.`;
+}
+
 export default function ComparePage() {
   const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -253,6 +267,11 @@ export default function ComparePage() {
   const modePrimaryValueUser2 = platformMode === 'devscore'
     ? `${comparison?.user2?.devScore || 0} DevScore`
     : modeMeta?.user2MetricDisplay || 'N/A';
+  const radarSummary = buildRadarSummary(
+    comparison?.radarData,
+    comparison?.user1?.displayName || 'You',
+    comparison?.user2?.displayName || 'Opponent'
+  );
 
   return (
     <div className="space-y-8 animate-fade-in max-w-5xl mx-auto p-2 md:p-0">
@@ -329,6 +348,7 @@ export default function ComparePage() {
                   <Input
                     placeholder="Search by name..."
                     className="pl-9 bg-transparent border-muted/30 focus-visible:ring-accent-cyan/50"
+                    aria-label="Search developer name"
                     value={searchQuery}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -394,7 +414,7 @@ export default function ComparePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="h-96 min-w-0">
-            <div className="h-full w-full min-w-0">
+            <div className="h-full w-full min-w-0" role="img" tabIndex={0} aria-label={radarSummary}>
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <RadarChart data={comparison.radarData}>
                   <PolarGrid stroke="var(--border)" />
@@ -406,6 +426,7 @@ export default function ComparePage() {
                 </RadarChart>
               </ResponsiveContainer>
             </div>
+            <p className="sr-only">{radarSummary}</p>
           </CardContent>
         </Card>
       )}

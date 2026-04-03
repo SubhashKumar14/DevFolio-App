@@ -1,6 +1,6 @@
 ﻿# Folder Structure
 
-Last updated: 2026-03-29
+Last updated: 2026-04-03
 
 ## Root Layout
 
@@ -58,10 +58,10 @@ client/
 
 ```text
 server/
+  .env (local-only, not tracked)
   src/
     app.js
     server.js
-    .env (local-only, not tracked)
     config/
       db.js
       env.js

@@ -41,7 +41,26 @@ export default function OnboardingPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
+
+  const invalidateUserDataQueries = async (targetUserId = user?._id) => {
+    if (!targetUserId) return;
+
+    const queryKeys = [
+      ['user', 'me'],
+      ['profile', targetUserId],
+      ['portfolio', targetUserId],
+      ['githubStats', targetUserId],
+      ['dsaStats', targetUserId],
+      ['platformStats', targetUserId],
+      ['devScore', targetUserId],
+      ['scoreHistory', targetUserId],
+      ['scoreBenchmark', targetUserId],
+      ['leaderboard'],
+    ];
+
+    await Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  };
 
   const archetypeInfo = ARCHETYPES.find((a) => a.id === selectedArchetype);
   const recommendedIds = archetypeInfo?.recommended || [];
@@ -77,13 +96,17 @@ export default function OnboardingPage() {
       const updatedUser = response?.data?._id
         ? response.data
         : (response?._id ? response : null);
-      if (updatedUser?._id) setUser(updatedUser);
+      const resolvedUserId = updatedUser?._id || user?._id;
+      if (updatedUser?._id) {
+        setUser(updatedUser);
+        queryClient.setQueryData(['user', 'me'], updatedUser);
+      }
 
       setStep(4);
       setIsSyncing(true);
       try {
-        await statsService.syncStats();
-        queryClient.invalidateQueries();
+        await statsService.syncStatsAndWait();
+        await invalidateUserDataQueries(resolvedUserId);
       } catch (err) {
         console.error('Auto-sync after onboarding failed:', err);
       }

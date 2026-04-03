@@ -8,6 +8,7 @@ function serializeUser(user) {
     _id: user._id,
     email: user.email,
     displayName: user.displayName,
+    publicHandle: user.publicHandle || null,
     role: user.role,
     archetype: user.archetype,
     secondaryArchetype: user.secondaryArchetype,
@@ -19,6 +20,8 @@ function serializeUser(user) {
 // ─── Get Current User ─────────────────────────────
 export const getMe = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
 
   res.json({
     success: true,
@@ -54,9 +57,12 @@ export const updateMe = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   });
+
+  const resolvedHandle = await User.ensurePublicHandle(user);
+  user.publicHandle = user.publicHandle || resolvedHandle || null;
 
   await invalidateLeaderboardCache();
 

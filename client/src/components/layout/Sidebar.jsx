@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   LayoutDashboard, LineChart, Calendar, Trophy, Settings,
   Target, GitCompare, Sparkles, Eye, PenTool, PanelLeftClose, PanelLeftOpen,
+  FolderGit2, Users, Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -54,28 +55,48 @@ function NavGroup({ label, items, badge, pathname, collapsed, onNavigate }) {
 export function Sidebar({ className, collapsed = false, onNavigate, onToggleCollapse }) {
   const location = useLocation();
   const { user } = useAuthStore();
-  const isRecruiter = user?.role === 'recruiter';
+  const role = user?.role || 'developer';
+  const isDeveloperRole = role === 'developer' || role === 'mentor';
+  const isRecruiterRole = role === 'recruiter';
 
-  const mainNav = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart },
-    { name: 'Contests', href: '/dashboard/contests', icon: Calendar },
-    { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: Trophy },
-  ];
+  const mainNav = isDeveloperRole
+    ? [
+        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart },
+        { name: 'Projects', href: '/dashboard/projects', icon: FolderGit2 },
+        { name: 'Contests', href: '/dashboard/contests', icon: Calendar },
+        { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: Trophy },
+      ]
+    : isRecruiterRole
+      ? [
+          { name: 'Recruiter Workspace', href: '/dashboard/recruiter', icon: Users },
+        ]
+      : [
+          { name: 'Admin Panel', href: '/dashboard/admin', icon: Shield },
+        ];
 
-  const portfolioNav = [
-    { name: 'Portfolio Preview', href: '/dashboard/portfolio', icon: Eye },
-    ...(!isRecruiter ? [{ name: 'Portfolio Editor', href: '/portfolio/editor', icon: PenTool }] : []),
-  ];
+  const portfolioNav = isDeveloperRole
+    ? [
+        { name: 'Portfolio Preview', href: '/dashboard/portfolio', icon: Eye },
+        { name: 'Portfolio Editor', href: '/portfolio/editor', icon: PenTool },
+      ]
+    : [];
 
-  const toolsNav = [
-    { name: 'Goals', href: '/dashboard/goals', icon: Target },
-    { name: 'Compare', href: '/dashboard/compare', icon: GitCompare },
-    { name: 'Wrapped', href: '/dashboard/wrapped', icon: Sparkles },
-    ...(user?.role === 'admin' ? [{ name: 'Admin Panel', href: '/dashboard/admin', icon: Settings }] : []),
-    ...(user?.role === 'recruiter' ? [{ name: 'Recruiter', href: '/dashboard/recruiter', icon: Settings }] : []),
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-  ];
+  const toolsNav = isDeveloperRole
+    ? [
+        { name: 'Goals', href: '/dashboard/goals', icon: Target },
+        { name: 'Compare', href: '/dashboard/compare', icon: GitCompare },
+        { name: 'Wrapped', href: '/dashboard/wrapped', icon: Sparkles },
+        { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+      ]
+    : isRecruiterRole
+      ? [
+          { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+        ]
+      : [
+          { name: 'Recruiter Workspace', href: '/dashboard/recruiter', icon: Users },
+          { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+        ];
 
   return (
     <div className={cn('pb-12 min-h-screen', className)}>
@@ -113,7 +134,7 @@ export function Sidebar({ className, collapsed = false, onNavigate, onToggleColl
         <NavGroup
           label="Tools"
           items={toolsNav}
-          badge="Beta"
+          badge={isDeveloperRole ? 'Beta' : undefined}
           pathname={location.pathname}
           collapsed={collapsed}
           onNavigate={onNavigate}

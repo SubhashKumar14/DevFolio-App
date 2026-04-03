@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { profileService } from '@/services/profileService';
+import { getDefaultRouteForRole } from '@/lib/roleRoutes';
+import { getPublicProfilePath } from '@/lib/publicRoutes';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Code2, Menu, Sparkles } from 'lucide-react';
@@ -12,6 +14,8 @@ export function Navbar({ onMenuClick }) {
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isLanding = location.pathname === '/';
   const userId = user?._id;
+  const dashboardPath = getDefaultRouteForRole(user?.role);
+  const publicProfilePath = getPublicProfilePath(user);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
@@ -69,7 +73,7 @@ export function Navbar({ onMenuClick }) {
             ) : (
               <>
                 {!isDashboard && (
-                  <Link to="/dashboard">
+                  <Link to={dashboardPath}>
                     <Button variant="ghost" size="sm">Dashboard</Button>
                   </Link>
                 )}
@@ -77,9 +81,9 @@ export function Navbar({ onMenuClick }) {
                   Logout
                 </Button>
 
-                {user?.displayName && (
+                {publicProfilePath && (
                   <Link
-                    to={`/p/${encodeURIComponent(user.displayName)}`}
+                    to={publicProfilePath}
                     title="Open public profile"
                     className="inline-flex"
                   >

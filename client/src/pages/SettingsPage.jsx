@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { profileService } from '@/services/profileService';
@@ -32,10 +32,55 @@ const ARCHETYPES = [
   { id: 'competitor', label: 'Competitive Programmer', icon: '⚔️', desc: 'Pure contest performance, ratings', color: '#ec4899' },
 ];
 
+const DISCONNECTED_HANDLES_STORAGE_PREFIX = 'devfolio:disconnected-platform-handles';
+const PLATFORM_FIELDS = ALL_PLATFORMS.map((platform) => platform.field);
+
+function getDisconnectedHandlesStorageKey(userId) {
+  return `${DISCONNECTED_HANDLES_STORAGE_PREFIX}:${String(userId || '')}`;
+}
+
+function sanitizeDisconnectedHandles(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const next = {};
+  for (const field of PLATFORM_FIELDS) {
+    const handle = value[field];
+    if (typeof handle !== 'string') continue;
+    const trimmed = handle.trim();
+    if (trimmed) {
+      next[field] = trimmed;
+    }
+  }
+
+  return next;
+}
+
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
+  const isDeveloperRole = user?.role === 'developer' || user?.role === 'mentor';
   const [activeTab, setActiveTab] = useState('profile');
+
+  const invalidateUserDataQueries = async (targetUserId = user?._id) => {
+    if (!targetUserId) return;
+
+    const queryKeys = [
+      ['user', 'me'],
+      ['profile', targetUserId],
+      ['portfolio', targetUserId],
+      ['githubStats', targetUserId],
+      ['dsaStats', targetUserId],
+      ['platformStats', targetUserId],
+      ['devScore', targetUserId],
+      ['scoreHistory', targetUserId],
+      ['scoreBenchmark', targetUserId],
+      ['leaderboard'],
+    ];
+
+    await Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  };
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?._id],
@@ -52,7 +97,10 @@ export default function SettingsPage() {
 
   // Platform form state
   const [platformHandles, setPlatformHandles] = useState({});
+  const [disconnectedHandles, setDisconnectedHandles] = useState({});
+  const [hasHydratedDisconnectedHandles, setHasHydratedDisconnectedHandles] = useState(false);
   const [disconnectingPlatformId, setDisconnectingPlatformId] = useState(null);
+  const [reconnectingPlatformId, setReconnectingPlatformId] = useState(null);
 
   const displayName = displayNameDraft ?? user?.displayName ?? '';
   const bio = bioDraft ?? profile?.bio ?? '';
@@ -64,13 +112,63 @@ export default function SettingsPage() {
     setPlatformHandles((prev) => ({ ...prev, [field]: value }));
   };
 
+  useEffect(() => {
+    if (!user?._id) {
+      setDisconnectedHandles({});
+      setHasHydratedDisconnectedHandles(false);
+      return;
+    }
+
+    setHasHydratedDisconnectedHandles(false);
+
+    if (typeof window === 'undefined') {
+      setDisconnectedHandles({});
+      setHasHydratedDisconnectedHandles(true);
+      return;
+    }
+
+    try {
+      const storageKey = getDisconnectedHandlesStorageKey(user._id);
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      setDisconnectedHandles(sanitizeDisconnectedHandles(parsed));
+    } catch {
+      setDisconnectedHandles({});
+    } finally {
+      setHasHydratedDisconnectedHandles(true);
+    }
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (!user?._id || !hasHydratedDisconnectedHandles || typeof window === 'undefined') {
+      return;
+    }
+
+    const storageKey = getDisconnectedHandlesStorageKey(user._id);
+    const sanitized = sanitizeDisconnectedHandles(disconnectedHandles);
+
+    if (Object.keys(sanitized).length === 0) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(sanitized));
+  }, [disconnectedHandles, hasHydratedDisconnectedHandles, user?._id]);
+
+  const resolvePlatformHandleValue = (platform) => {
+    const drafted = platformHandles[platform.field];
+    if (drafted !== undefined) return drafted;
+    if (user?.[platform.field]) return user[platform.field];
+    return disconnectedHandles[platform.field] ?? '';
+  };
+
   // Mutations
   const updateProfileMutation = useMutation({
     mutationFn: (data) => profileService.updateProfile(data),
     onSuccess: () => {
       setBioDraft(undefined);
       setAvatarUrlDraft(undefined);
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', user?._id] });
     },
   });
 
@@ -82,27 +180,58 @@ export default function SettingsPage() {
     onSuccess: (data) => {
       if (data.success) {
         setUser(data.data);
+        queryClient.setQueryData(['user', 'me'], data.data);
         setDisplayNameDraft(undefined);
         setSelectedArchetypeDraft(undefined);
         setSelectedSecondaryArchetypeDraft(undefined);
-        queryClient.invalidateQueries({ queryKey: ['user'] });
+        queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
       }
     },
   });
 
   const connectPlatformsMutation = useMutation({
     mutationFn: (data) => integrationService.connectDsa(data),
-    onSuccess: async (response) => {
+    onSuccess: async (response, submittedData) => {
       const updatedUser = response?.data?._id
         ? response.data
         : (response?._id ? response : null);
-      if (updatedUser?._id) setUser(updatedUser);
-      setPlatformHandles({});
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      const resolvedUserId = updatedUser?._id || user?._id;
+      if (updatedUser?._id) {
+        setUser(updatedUser);
+        queryClient.setQueryData(['user', 'me'], updatedUser);
+      }
+
+      setPlatformHandles((prev) => {
+        if (!submittedData || !updatedUser) return prev;
+        const next = { ...prev };
+        let changed = false;
+        for (const field of Object.keys(submittedData)) {
+          if (updatedUser[field] && Object.prototype.hasOwnProperty.call(next, field)) {
+            delete next[field];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      setDisconnectedHandles((prev) => {
+        if (!submittedData || !updatedUser) return prev;
+        const next = { ...prev };
+        let changed = false;
+        for (const field of Object.keys(submittedData)) {
+          if (updatedUser[field] && Object.prototype.hasOwnProperty.call(next, field)) {
+            delete next[field];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
 
       try {
-        await statsService.syncStats();
-        queryClient.invalidateQueries();
+        await statsService.syncStatsAndWait();
+        await invalidateUserDataQueries(resolvedUserId);
       } catch (err) {
         console.error('Auto-sync after connect failed:', err);
       }
@@ -114,24 +243,18 @@ export default function SettingsPage() {
     onMutate: (platformId) => {
       setDisconnectingPlatformId(platformId);
     },
-    onSuccess: (response, platformId) => {
+    onSuccess: async (response) => {
       const updatedUser = response?.data?._id
         ? response.data
         : (response?._id ? response : null);
+      const resolvedUserId = updatedUser?._id || user?._id;
 
       if (updatedUser?._id) {
         setUser(updatedUser);
+        queryClient.setQueryData(['user', 'me'], updatedUser);
       }
 
-      const disconnectedPlatform = ALL_PLATFORMS.find((platform) => platform.id === platformId);
-      if (disconnectedPlatform) {
-        setPlatformHandles((prev) => ({
-          ...prev,
-          [disconnectedPlatform.field]: '',
-        }));
-      }
-
-      queryClient.invalidateQueries();
+      await invalidateUserDataQueries(resolvedUserId);
     },
     onSettled: () => {
       setDisconnectingPlatformId(null);
@@ -140,14 +263,20 @@ export default function SettingsPage() {
 
   const handleSaveProfile = () => {
     const updates = {};
-    if (displayName && displayName !== user?.displayName) updates.displayName = displayName;
-    if (selectedArchetype && selectedArchetype !== user?.archetype) updates.archetype = selectedArchetype;
-    if (selectedSecondaryArchetype !== (user?.secondaryArchetype ?? '')) {
-      updates.secondaryArchetype = selectedSecondaryArchetype || null;
+    if (displayName && displayName !== user?.displayName) {
+      updates.displayName = displayName;
     }
-    if (updates.secondaryArchetype && updates.secondaryArchetype === updates.archetype) {
-      updates.secondaryArchetype = null;
+
+    if (isDeveloperRole) {
+      if (selectedArchetype && selectedArchetype !== user?.archetype) updates.archetype = selectedArchetype;
+      if (selectedSecondaryArchetype !== (user?.secondaryArchetype ?? '')) {
+        updates.secondaryArchetype = selectedSecondaryArchetype || null;
+      }
+      if (updates.secondaryArchetype && updates.secondaryArchetype === updates.archetype) {
+        updates.secondaryArchetype = null;
+      }
     }
+
     if (Object.keys(updates).length > 0) updateUserMutation.mutate(updates);
 
     const profileUpdates = {};
@@ -159,24 +288,60 @@ export default function SettingsPage() {
   const handleConnectPlatforms = () => {
     const data = {};
     for (const p of ALL_PLATFORMS) {
-      const value = (platformHandles[p.field] ?? user?.[p.field] ?? '').trim();
+      const value = resolvePlatformHandleValue(p).trim();
       if (value) data[p.field] = value;
     }
     if (Object.keys(data).length > 0) connectPlatformsMutation.mutate(data);
   };
 
+  const handleReconnectPlatform = (platform) => {
+    if (!platform || connectPlatformsMutation.isPending) return;
+    const username = resolvePlatformHandleValue(platform).trim();
+    if (!username) return;
+
+    setReconnectingPlatformId(platform.id);
+    connectPlatformsMutation.mutate(
+      { [platform.field]: username },
+      {
+        onSettled: () => {
+          setReconnectingPlatformId(null);
+        },
+      }
+    );
+  };
+
   const handleDisconnectPlatform = (platformId) => {
     if (!platformId || disconnectPlatformMutation.isPending) return;
+
+    const platform = ALL_PLATFORMS.find((item) => item.id === platformId);
+    if (platform) {
+      const previousHandle = (resolvePlatformHandleValue(platform) || '').trim();
+      if (previousHandle) {
+        setDisconnectedHandles((prev) => ({
+          ...prev,
+          [platform.field]: previousHandle,
+        }));
+        setPlatformHandles((prev) => ({
+          ...prev,
+          [platform.field]: previousHandle,
+        }));
+      }
+    }
+
     disconnectPlatformMutation.mutate(platformId);
   };
 
-  const tabs = ['profile', 'platforms', 'archetype', 'privacy'];
+  const tabs = isDeveloperRole ? ['profile', 'platforms', 'archetype', 'privacy'] : ['profile'];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in p-2 md:p-0">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted mt-1">Manage your account, platforms, and developer identity.</p>
+        <p className="text-muted mt-1">
+          {isDeveloperRole
+            ? 'Manage your account, platforms, and developer identity.'
+            : 'Manage your account details for your current role workspace.'}
+        </p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -246,17 +411,31 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {ALL_PLATFORMS.map((p) => (
-                  <div key={p.field} className="p-4 border border-border rounded-xl space-y-3 hover:border-opacity-60 transition-colors">
+                  <div
+                    key={p.field}
+                    className={`p-4 border rounded-xl space-y-3 transition-colors ${
+                      user?.[p.field]
+                        ? 'border-border hover:border-opacity-60'
+                        : 'border-border/70 bg-card-elevated/30'
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
                         <h4 className="font-semibold text-sm">{p.label}</h4>
                       </div>
-                      {user?.[p.field] && (
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        {user?.[p.field] ? (
                           <span className="text-xs bg-accent-green/20 text-accent-green py-1 px-3 rounded-full font-medium flex items-center gap-1">
                             <CheckCircle className="w-3 h-3" /> Connected
                           </span>
+                        ) : (
+                          <span className="text-xs bg-muted/20 text-muted py-1 px-3 rounded-full font-medium">
+                            Disconnected
+                          </span>
+                        )}
+
+                        {user?.[p.field] ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -267,13 +446,25 @@ export default function SettingsPage() {
                           >
                             {disconnectingPlatformId === p.id ? 'Disconnecting...' : 'Disconnect'}
                           </Button>
-                        </div>
-                      )}
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 border-accent-cyan/40 px-2 text-xs text-accent-cyan hover:bg-accent-cyan/10"
+                            onClick={() => handleReconnectPlatform(p)}
+                            disabled={connectPlatformsMutation.isPending || !resolvePlatformHandleValue(p).trim()}
+                          >
+                            {reconnectingPlatformId === p.id ? 'Reconnecting...' : 'Reconnect'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <Input
                       placeholder={p.placeholder}
-                      value={platformHandles[p.field] ?? user?.[p.field] ?? ''}
+                      value={resolvePlatformHandleValue(p)}
                       onChange={(e) => updatePlatformHandle(p.field, e.target.value)}
+                      className={user?.[p.field] ? '' : 'text-foreground/55 placeholder:text-muted/70'}
                     />
                   </div>
                 ))}

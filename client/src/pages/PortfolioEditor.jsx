@@ -6,10 +6,13 @@ import { useBeforeUnload } from '@/hooks/useBeforeUnload';
 import EditorHeader from '@/components/portfolio/EditorHeader';
 import CodePanel from '@/components/portfolio/CodePanel';
 import LivePreview from '@/components/portfolio/LivePreview';
+import { getPublicIdentifier } from '@/lib/publicRoutes';
 
 export default function PortfolioEditor() {
   const { user } = useAuthStore();
+  const publicIdentifier = getPublicIdentifier(user);
   const queryClient = useQueryClient();
+  const portfolioQueryKey = ['portfolio', user?._id];
   const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState('html');
   const [draft, setDraft] = useState(null);
@@ -18,7 +21,7 @@ export default function PortfolioEditor() {
 
   // Load existing portfolio
   const { data: portfolio, isLoading } = useQuery({
-    queryKey: ['portfolio', user?._id],
+    queryKey: portfolioQueryKey,
     queryFn: () => portfolioService.getPortfolio(user._id),
     enabled: !!user?._id,
   });
@@ -42,12 +45,33 @@ export default function PortfolioEditor() {
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: () => portfolioService.savePortfolio({ rawHtml: html, cssContent: css, jsContent: js }),
-    onSuccess: () => {
+    mutationFn: (nextCode) => portfolioService.savePortfolio(nextCode),
+    onMutate: async (nextCode) => {
+      await queryClient.cancelQueries({ queryKey: portfolioQueryKey });
+
+      const previousPortfolio = queryClient.getQueryData(portfolioQueryKey);
+
+      queryClient.setQueryData(portfolioQueryKey, (current) => ({
+        ...(current || {}),
+        rawHtml: nextCode.rawHtml,
+        htmlContent: nextCode.rawHtml,
+        cssContent: nextCode.cssContent,
+        jsContent: nextCode.jsContent,
+      }));
+
+      return { previousPortfolio };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousPortfolio) {
+        queryClient.setQueryData(portfolioQueryKey, context.previousPortfolio);
+      }
+    },
+    onSuccess: (savedPortfolio) => {
+      queryClient.setQueryData(portfolioQueryKey, savedPortfolio);
       setDraft(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: portfolioQueryKey });
     },
   });
 
@@ -56,7 +80,11 @@ export default function PortfolioEditor() {
     mutationFn: (val) => portfolioService.toggleVisibility(val),
     onSuccess: (_, val) => {
       setVisibilityOverride(val);
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.setQueryData(portfolioQueryKey, (current) => ({
+        ...(current || {}),
+        isPublic: val,
+      }));
+      queryClient.invalidateQueries({ queryKey: portfolioQueryKey });
     },
   });
 
@@ -92,7 +120,7 @@ export default function PortfolioEditor() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <EditorHeader
-        onSave={() => saveMutation.mutate()}
+        onSave={() => saveMutation.mutate({ rawHtml: html, cssContent: css, jsContent: js })}
         onTogglePreview={() => setShowPreview(!showPreview)}
         isSaving={saveMutation.isPending}
         saveSuccess={saveSuccess}
@@ -100,7 +128,7 @@ export default function PortfolioEditor() {
         isPublic={isPublic}
         onToggleVisibility={() => visibilityMutation.mutate(!isPublic)}
         dirty={dirty}
-        displayName={user?.displayName}
+        publicIdentifier={publicIdentifier}
       />
 
       <div className="flex-1 flex min-h-0">

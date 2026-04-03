@@ -25,6 +25,24 @@ export default function GoalsPage() {
   const queryClient = useQueryClient();
   const userId = user?._id;
 
+  const invalidateUserDataQueries = async () => {
+    if (!userId) return;
+
+    const queryKeys = [
+      ['user', 'me'],
+      ['profile', userId],
+      ['githubStats', userId],
+      ['dsaStats', userId],
+      ['platformStats', userId],
+      ['devScore', userId],
+      ['scoreHistory', userId],
+      ['scoreBenchmark', userId],
+      ['leaderboard'],
+    ];
+
+    await Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  };
+
   const { data: devScore } = useQuery({
     queryKey: ['devScore', userId],
     queryFn: () => scoreService.getScore(userId),
@@ -47,13 +65,18 @@ export default function GoalsPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => statsService.syncStats(),
-    onSuccess: () => {
-      queryClient.invalidateQueries();
+    mutationFn: () => statsService.syncStatsAndWait(),
+    onSuccess: async (job) => {
+      await invalidateUserDataQueries();
+      if (job?.errorCount > 0) {
+        toast.success(job.message || `Sync completed with ${job.errorCount} warning(s).`);
+        return;
+      }
+
       toast.success('Goals updated from latest backend data');
     },
-    onError: () => {
-      toast.error('Sync failed. Please try again.');
+    onError: (error) => {
+      toast.error(error?.message || 'Sync failed. Please try again.');
     },
   });
 

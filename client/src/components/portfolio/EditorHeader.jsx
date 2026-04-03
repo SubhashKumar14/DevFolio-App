@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Save, Eye, EyeOff, Loader2, ExternalLink, Globe, Lock, Check, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSuccess, showPreview, isPublic, onToggleVisibility, dirty, displayName }) {
+export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSuccess, showPreview, isPublic, onToggleVisibility, dirty, publicIdentifier }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
       <div className="flex items-center gap-3">
@@ -33,12 +33,12 @@ export default function EditorHeader({ onSave, onTogglePreview, isSaving, saveSu
         </Button>
 
         {/* Open public preview */}
-        {displayName && (
+        {publicIdentifier && (
           <Button
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => window.open(`/portfolio/${encodeURIComponent(displayName)}`, '_blank')}
+            onClick={() => window.open(`/portfolio/${encodeURIComponent(publicIdentifier)}`, '_blank')}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             View Live

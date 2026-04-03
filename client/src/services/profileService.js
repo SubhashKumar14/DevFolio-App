@@ -1,13 +1,12 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const profileService = {
   async getProfile(userId) {
-    const response = await apiClient.get(`/profile/${userId}`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/profile/${userId}`));
   },
 
   async updateProfile(data) {
-    const response = await apiClient.put('/profile/me', data);
-    return response.data;
+    return unwrapApiData(await apiClient.put('/profile/me', data));
   },
 };

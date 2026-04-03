@@ -51,6 +51,7 @@ export default function RegisterPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const { register: registerAction, isRegistering } = useAuth();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthHydrated = useAuthStore((state) => state.isAuthHydrated);
   const user = useAuthStore((state) => state.user);
 
   const { register, handleSubmit, formState: { errors }, setValue } = useForm({
@@ -71,6 +72,14 @@ export default function RegisterPage() {
       setErrorMsg(err.message || 'Registration failed. Please try again.');
     }
   };
+
+  if (!isAuthHydrated) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent-cyan border-t-transparent" />
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;

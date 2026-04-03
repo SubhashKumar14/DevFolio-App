@@ -5,12 +5,13 @@ import { useMemo } from 'react';
 import { buildPortfolioHtml } from '@/utils/portfolioUtils';
 
 export default function PortfolioPreview() {
-  const { username } = useParams();
+  const { username, handle } = useParams();
+  const identifier = handle || username;
 
   const { data: portfolio, isLoading, error } = useQuery({
-    queryKey: ['portfolioPreview', username],
-    queryFn: () => portfolioService.getPortfolio(username),
-    enabled: !!username,
+    queryKey: ['portfolioPreview', identifier],
+    queryFn: () => portfolioService.getPortfolio(identifier),
+    enabled: !!identifier,
     retry: false,
   });
 

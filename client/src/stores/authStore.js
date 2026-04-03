@@ -2,25 +2,22 @@ import { create } from 'zustand';
 
 export const useAuthStore = create((set) => ({
   user: null,
-  accessToken: localStorage.getItem('accessToken') || null,
-  isAuthenticated: !!localStorage.getItem('accessToken'),
-  
+  accessToken: null,
+  isAuthenticated: false,
+  isAuthHydrated: false,
+
   setUser: (user) => set({ user }),
-  
+  setAuthHydrated: (isAuthHydrated) => set({ isAuthHydrated }),
+
   setAccessToken: (token) => {
     if (token) {
-      localStorage.setItem('accessToken', token);
       set({ accessToken: token, isAuthenticated: true });
     } else {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       set({ accessToken: null, isAuthenticated: false, user: null });
     }
   },
-  
+
   logout: () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    set({ user: null, accessToken: null, isAuthenticated: false });
+    set({ user: null, accessToken: null, isAuthenticated: false, isAuthHydrated: true });
   },
 }));

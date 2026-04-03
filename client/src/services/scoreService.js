@@ -1,23 +1,20 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const scoreService = {
   async getScore(userId) {
-    const response = await apiClient.get(`/score/${userId}`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/score/${userId}`));
   },
 
   async getScoreHistory(userId) {
-    const response = await apiClient.get(`/score/${userId}/history`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/score/${userId}/history`));
   },
 
   async getScoreBenchmark(userId) {
-    const response = await apiClient.get(`/score/${userId}/benchmark`);
-    return response.data;
+    return unwrapApiData(await apiClient.get(`/score/${userId}/benchmark`));
   },
 
   async recomputeScore() {
-    const response = await apiClient.post('/score/recompute');
-    return response.data;
+    return unwrapApiData(await apiClient.post('/score/recompute'));
   },
 };

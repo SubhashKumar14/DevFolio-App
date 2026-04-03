@@ -5,6 +5,38 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Shield, Users, BarChart3, FolderGit2, FileCode2, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 
+const GLOBAL_SYNC_POLL_INTERVAL_MS = 2000;
+const GLOBAL_SYNC_POLL_TIMEOUT_MS = 12 * 60 * 1000;
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForGlobalSyncJobCompletion(jobId) {
+  const startedAt = Date.now();
+  let latestJob = null;
+
+  while (Date.now() - startedAt < GLOBAL_SYNC_POLL_TIMEOUT_MS) {
+    const response = await apiClient.get(`/admin/sync-jobs/${jobId}`);
+    latestJob = response?.data || null;
+    const status = String(latestJob?.status || '').toLowerCase();
+
+    if (status === 'completed') {
+      return latestJob;
+    }
+
+    if (status === 'failed') {
+      throw new Error(latestJob?.errorMessage || latestJob?.message || 'Global sync job failed');
+    }
+
+    await wait(GLOBAL_SYNC_POLL_INTERVAL_MS);
+  }
+
+  throw new Error('Global sync is taking longer than expected. Check back in a few minutes.');
+}
+
 export default function AdminPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -23,7 +55,16 @@ export default function AdminPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => apiClient.post('/admin/trigger-sync'),
+    mutationFn: async () => {
+      const response = await apiClient.post('/admin/trigger-sync');
+      const queuedJob = response?.data || null;
+
+      if (!queuedJob?.jobId) {
+        return queuedJob || { message: response?.message || 'Global sync queued' };
+      }
+
+      return waitForGlobalSyncJobCompletion(queuedJob.jobId);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminStats'] }),
   });
 
@@ -76,7 +117,7 @@ export default function AdminPage() {
 
       {syncMutation.isSuccess && (
         <div className="p-3 rounded-lg bg-accent-green/10 text-accent-green text-sm font-medium border border-accent-green/20">
-          ✅ {syncMutation.data?.data?.message}
+          ✅ {syncMutation.data?.message}
         </div>
       )}
 

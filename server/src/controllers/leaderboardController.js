@@ -1,10 +1,5 @@
 import DevScore from '../models/DevScore.js';
-import GithubStats from '../models/GithubStats.js';
-import DsaStats from '../models/DsaStats.js';
-import PlatformStats from '../models/PlatformStats.js';
-import Profile from '../models/Profile.js';
 import User from '../models/User.js';
-import PortfolioCode from '../models/PortfolioCode.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { cacheGet } from '../config/redisClient.js';
 
@@ -24,382 +19,750 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function parseStarCount(value) {
-  if (typeof value === 'number') return Math.max(0, value);
-  const str = String(value || '');
-  const direct = parseInt(str, 10);
-  if (Number.isFinite(direct) && direct > 0) return direct;
-  return (str.match(/★/g) || []).length;
-}
-
 function formatInteger(value) {
   return Math.round(toNumber(value)).toLocaleString();
 }
 
-function metricFromPlatform(mode, { github, dsa, platform }) {
-  if (mode === 'github') {
-    const contributions = toNumber(github?.totalContributionsLastYear || github?.totalContributionsAllTime);
-    const stars = toNumber(github?.starsReceived);
-    const followers = toNumber(github?.followers);
-    const available = contributions > 0 || stars > 0 || followers > 0;
+function parsePositiveInt(value, fallback, min = 1, max = 100) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
 
+function buildModePipeline(mode) {
+  if (mode === 'github') {
+    return [
+      {
+        $lookup: {
+          from: 'githubstats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'github',
+        },
+      },
+      { $addFields: { github: { $first: '$github' } } },
+      {
+        $addFields: {
+          githubContributions: {
+            $ifNull: ['$github.totalContributionsLastYear', { $ifNull: ['$github.totalContributionsAllTime', 0] }],
+          },
+          githubStars: { $ifNull: ['$github.starsReceived', 0] },
+          githubFollowers: { $ifNull: ['$github.followers', 0] },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: 'github',
+          metricLabel: 'Contributions (Last Year)',
+          metricPrimary: '$githubContributions',
+          metricSecondary: '$githubStars',
+          metricSortValue: {
+            $add: [
+              '$githubContributions',
+              { $multiply: ['$githubStars', 0.25] },
+              { $multiply: ['$githubFollowers', 2] },
+            ],
+          },
+          metricAvailable: {
+            $gt: [{ $add: ['$githubContributions', '$githubStars', '$githubFollowers'] }, 0],
+          },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'leetcode') {
+    return [
+      {
+        $lookup: {
+          from: 'dsastats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'dsa',
+        },
+      },
+      { $addFields: { dsa: { $first: '$dsa' } } },
+      {
+        $addFields: {
+          lcRank: { $ifNull: ['$dsa.leetcode.contestGlobalRanking', 0] },
+          lcRating: { $ifNull: ['$dsa.leetcode.contestRating', 0] },
+          lcSolved: { $ifNull: ['$dsa.leetcode.totalSolved', 0] },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$lcRank', 0] }, then: 'leetcode-rank' },
+                { case: { $gt: ['$lcRating', 0] }, then: 'leetcode-rating' },
+              ],
+              default: 'leetcode-solved',
+            },
+          },
+          metricLabel: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$lcRank', 0] }, then: 'Global Contest Rank' },
+                { case: { $gt: ['$lcRating', 0] }, then: 'Contest Rating' },
+              ],
+              default: 'Problems Solved',
+            },
+          },
+          metricPrimary: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$lcRank', 0] }, then: '$lcRank' },
+                { case: { $gt: ['$lcRating', 0] }, then: '$lcRating' },
+              ],
+              default: '$lcSolved',
+            },
+          },
+          metricSecondary: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$lcRank', 0] }, then: '$lcRating' },
+                { case: { $gt: ['$lcRating', 0] }, then: '$lcSolved' },
+              ],
+              default: 0,
+            },
+          },
+          metricSortValue: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$lcRank', 0] }, then: { $multiply: ['$lcRank', -1] } },
+                { case: { $gt: ['$lcRating', 0] }, then: '$lcRating' },
+              ],
+              default: '$lcSolved',
+            },
+          },
+          metricAvailable: { $gt: [{ $max: ['$lcRank', '$lcRating', '$lcSolved'] }, 0] },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'codeforces') {
+    return [
+      {
+        $lookup: {
+          from: 'dsastats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'dsa',
+        },
+      },
+      { $addFields: { dsa: { $first: '$dsa' } } },
+      {
+        $addFields: {
+          cfRating: { $ifNull: ['$dsa.codeforces.currentRating', { $ifNull: ['$dsa.codeforces.rating', 0] }] },
+          cfMaxRating: { $ifNull: ['$dsa.codeforces.maxRating', 0] },
+          cfSolved: { $ifNull: ['$dsa.codeforces.totalSolved', 0] },
+          cfContests: { $ifNull: ['$dsa.codeforces.contestsParticipated', 0] },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: {
+            $cond: [{ $gt: ['$cfRating', 0] }, 'codeforces-rating', 'codeforces-solved'],
+          },
+          metricLabel: {
+            $cond: [{ $gt: ['$cfRating', 0] }, 'Current Rating', 'Problems Solved'],
+          },
+          metricPrimary: {
+            $cond: [{ $gt: ['$cfRating', 0] }, '$cfRating', '$cfSolved'],
+          },
+          metricSecondary: {
+            $cond: [{ $gt: ['$cfRating', 0] }, '$cfMaxRating', '$cfContests'],
+          },
+          metricSortValue: {
+            $cond: [{ $gt: ['$cfRating', 0] }, '$cfRating', '$cfSolved'],
+          },
+          metricAvailable: { $gt: [{ $max: ['$cfRating', '$cfSolved'] }, 0] },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'hackerrank') {
+    return [
+      {
+        $lookup: {
+          from: 'platformstats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'platform',
+        },
+      },
+      { $addFields: { platform: { $first: '$platform' } } },
+      {
+        $addFields: {
+          hrContestRank: { $ifNull: ['$platform.hackerrank.contestRanking', 0] },
+          hrStars: { $ifNull: ['$platform.hackerrank.totalStars', 0] },
+          hrBadges: { $ifNull: ['$platform.hackerrank.totalBadges', 0] },
+          hrLevel: { $ifNull: ['$platform.hackerrank.level', 0] },
+          hrContests: { $ifNull: ['$platform.hackerrank.contestsParticipated', 0] },
+        },
+      },
+      {
+        $addFields: {
+          hrSignal: {
+            $add: [
+              { $multiply: ['$hrStars', 20] },
+              { $multiply: ['$hrBadges', 8] },
+              { $multiply: ['$hrLevel', 15] },
+              { $multiply: ['$hrContests', 2] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: {
+            $cond: [{ $gt: ['$hrContestRank', 0] }, 'hackerrank-rank', 'hackerrank-stars'],
+          },
+          metricLabel: {
+            $cond: [{ $gt: ['$hrContestRank', 0] }, 'Contest Ranking', 'Total Stars'],
+          },
+          metricPrimary: {
+            $cond: [{ $gt: ['$hrContestRank', 0] }, '$hrContestRank', '$hrStars'],
+          },
+          metricSecondary: {
+            $cond: [{ $gt: ['$hrContestRank', 0] }, '$hrStars', '$hrBadges'],
+          },
+          metricSortValue: {
+            $cond: [{ $gt: ['$hrContestRank', 0] }, { $multiply: ['$hrContestRank', -1] }, '$hrSignal'],
+          },
+          metricAvailable: {
+            $or: [
+              { $gt: ['$hrContestRank', 0] },
+              { $gt: ['$hrSignal', 0] },
+            ],
+          },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'codechef') {
+    return [
+      {
+        $lookup: {
+          from: 'platformstats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'platform',
+        },
+      },
+      { $addFields: { platform: { $first: '$platform' } } },
+      {
+        $addFields: {
+          ccGlobalRank: { $ifNull: ['$platform.codechef.globalRank', 0] },
+          ccRating: { $ifNull: ['$platform.codechef.currentRating', 0] },
+          ccSolved: { $ifNull: ['$platform.codechef.problemsSolved', 0] },
+          ccStarsCount: { $ifNull: ['$platform.codechef.starsCount', 0] },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$ccGlobalRank', 0] }, then: 'codechef-rank' },
+                { case: { $gt: ['$ccRating', 0] }, then: 'codechef-rating' },
+              ],
+              default: 'codechef-solved',
+            },
+          },
+          metricLabel: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$ccGlobalRank', 0] }, then: 'Global Rank' },
+                { case: { $gt: ['$ccRating', 0] }, then: 'Current Rating' },
+              ],
+              default: 'Problems Solved',
+            },
+          },
+          metricPrimary: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$ccGlobalRank', 0] }, then: '$ccGlobalRank' },
+                { case: { $gt: ['$ccRating', 0] }, then: '$ccRating' },
+              ],
+              default: '$ccSolved',
+            },
+          },
+          metricSecondary: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$ccGlobalRank', 0] }, then: '$ccRating' },
+                { case: { $gt: ['$ccRating', 0] }, then: '$ccSolved' },
+              ],
+              default: '$ccStarsCount',
+            },
+          },
+          metricSortValue: {
+            $switch: {
+              branches: [
+                { case: { $gt: ['$ccGlobalRank', 0] }, then: { $multiply: ['$ccGlobalRank', -1] } },
+                { case: { $gt: ['$ccRating', 0] }, then: '$ccRating' },
+              ],
+              default: '$ccSolved',
+            },
+          },
+          metricAvailable: { $gt: [{ $max: ['$ccGlobalRank', '$ccRating', '$ccSolved'] }, 0] },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'kaggle') {
+    return [
+      {
+        $lookup: {
+          from: 'platformstats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'platform',
+        },
+      },
+      { $addFields: { platform: { $first: '$platform' } } },
+      {
+        $addFields: {
+          kgRank: { $ifNull: ['$platform.kaggle.ranking', { $ifNull: ['$platform.kaggle.rank', 0] }] },
+          kgMedals: {
+            $add: [
+              { $ifNull: ['$platform.kaggle.competitionMedals.total', 0] },
+              { $ifNull: ['$platform.kaggle.notebookMedals.total', 0] },
+              { $ifNull: ['$platform.kaggle.datasetMedals.total', 0] },
+              { $ifNull: ['$platform.kaggle.goldMedals', 0] },
+              { $ifNull: ['$platform.kaggle.silverMedals', 0] },
+              { $ifNull: ['$platform.kaggle.bronzeMedals', 0] },
+            ],
+          },
+          kgNotebookVotes: { $ifNull: ['$platform.kaggle.notebookVotesReceived', { $ifNull: ['$platform.kaggle.notebookVotes', 0] }] },
+          kgDatasetDownloads: { $ifNull: ['$platform.kaggle.datasetDownloads', 0] },
+        },
+      },
+      {
+        $addFields: {
+          kgImpact: {
+            $add: [
+              { $multiply: ['$kgMedals', 15] },
+              { $multiply: ['$kgNotebookVotes', 0.4] },
+              { $multiply: ['$kgDatasetDownloads', 0.03] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: {
+            $cond: [{ $gt: ['$kgRank', 0] }, 'kaggle-rank', 'kaggle-impact'],
+          },
+          metricLabel: {
+            $cond: [{ $gt: ['$kgRank', 0] }, 'Global Rank', 'Medal + Impact Signal'],
+          },
+          metricPrimary: {
+            $cond: [{ $gt: ['$kgRank', 0] }, '$kgRank', '$kgMedals'],
+          },
+          metricSecondary: {
+            $cond: [{ $gt: ['$kgRank', 0] }, '$kgMedals', '$kgDatasetDownloads'],
+          },
+          metricSortValue: {
+            $cond: [{ $gt: ['$kgRank', 0] }, { $multiply: ['$kgRank', -1] }, '$kgImpact'],
+          },
+          metricAvailable: {
+            $or: [
+              { $gt: ['$kgRank', 0] },
+              { $gt: ['$kgImpact', 0] },
+            ],
+          },
+        },
+      },
+    ];
+  }
+
+  if (mode === 'huggingface') {
+    return [
+      {
+        $lookup: {
+          from: 'platformstats',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'platform',
+        },
+      },
+      { $addFields: { platform: { $first: '$platform' } } },
+      {
+        $addFields: {
+          hfDownloads: {
+            $ifNull: [
+              '$platform.huggingface.totalDownloads',
+              {
+                $add: [
+                  { $ifNull: ['$platform.huggingface.modelDownloads', 0] },
+                  { $ifNull: ['$platform.huggingface.datasetDownloads', 0] },
+                ],
+              },
+            ],
+          },
+          hfLikes: {
+            $add: [
+              { $ifNull: ['$platform.huggingface.totalLikes', 0] },
+              { $ifNull: ['$platform.huggingface.spacesLikes', 0] },
+            ],
+          },
+          hfFollowers: { $ifNull: ['$platform.huggingface.followers', 0] },
+        },
+      },
+      {
+        $addFields: {
+          metricKind: 'huggingface',
+          metricLabel: 'Total Downloads',
+          metricPrimary: '$hfDownloads',
+          metricSecondary: '$hfLikes',
+          metricSortValue: {
+            $add: [
+              '$hfDownloads',
+              { $multiply: ['$hfLikes', 50] },
+              { $multiply: ['$hfFollowers', 200] },
+            ],
+          },
+          metricAvailable: {
+            $gt: [{ $add: ['$hfDownloads', '$hfLikes', '$hfFollowers'] }, 0],
+          },
+        },
+      },
+    ];
+  }
+
+  return [];
+}
+
+function presentMetric(mode, row) {
+  if (mode === 'devscore') {
     return {
-      available,
-      sortValue: contributions + stars * 0.25 + followers * 2,
-      metricLabel: 'Contributions (Last Year)',
-      metricValue: contributions,
-      metricDisplay: `${formatInteger(contributions)} contributions`,
-      metricSecondary: `${formatInteger(stars)} stars`,
+      metricLabel: undefined,
+      metricDisplay: undefined,
+      metricSecondary: undefined,
+    };
+  }
+
+  if (mode === 'github') {
+    return {
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} contributions`,
+      metricSecondary: `${formatInteger(row.metricSecondary)} stars`,
     };
   }
 
   if (mode === 'leetcode') {
-    const contestRank = toNumber(dsa?.leetcode?.contestGlobalRanking);
-    const contestRating = toNumber(dsa?.leetcode?.contestRating);
-    const solved = toNumber(dsa?.leetcode?.totalSolved);
-
-    if (contestRank > 0) {
+    if (row.metricKind === 'leetcode-rank') {
       return {
-        available: true,
-        sortValue: -contestRank,
-        metricLabel: 'Global Contest Rank',
-        metricValue: contestRank,
-        metricDisplay: `#${formatInteger(contestRank)}`,
-        metricSecondary: contestRating > 0 ? `Rating ${formatInteger(contestRating)}` : `${formatInteger(solved)} solved`,
+        metricLabel: row.metricLabel,
+        metricDisplay: `#${formatInteger(row.metricPrimary)}`,
+        metricSecondary: row.metricSecondary > 0 ? `Rating ${formatInteger(row.metricSecondary)}` : '',
       };
     }
 
-    if (contestRating > 0) {
+    if (row.metricKind === 'leetcode-rating') {
       return {
-        available: true,
-        sortValue: contestRating,
-        metricLabel: 'Contest Rating',
-        metricValue: contestRating,
-        metricDisplay: formatInteger(contestRating),
-        metricSecondary: `${formatInteger(solved)} solved`,
+        metricLabel: row.metricLabel,
+        metricDisplay: formatInteger(row.metricPrimary),
+        metricSecondary: `${formatInteger(row.metricSecondary)} solved`,
       };
     }
 
     return {
-      available: solved > 0,
-      sortValue: solved,
-      metricLabel: 'Problems Solved',
-      metricValue: solved,
-      metricDisplay: `${formatInteger(solved)} solved`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} solved`,
       metricSecondary: '',
     };
   }
 
   if (mode === 'codeforces') {
-    const rating = toNumber(dsa?.codeforces?.currentRating || dsa?.codeforces?.rating);
-    const maxRating = toNumber(dsa?.codeforces?.maxRating);
-    const solved = toNumber(dsa?.codeforces?.totalSolved);
-    const contests = toNumber(dsa?.codeforces?.contestsParticipated);
-
-    if (rating > 0) {
+    if (row.metricKind === 'codeforces-rating') {
       return {
-        available: true,
-        sortValue: rating,
-        metricLabel: 'Current Rating',
-        metricValue: rating,
-        metricDisplay: formatInteger(rating),
-        metricSecondary: maxRating > 0 ? `Peak ${formatInteger(maxRating)}` : `${formatInteger(contests)} contests`,
+        metricLabel: row.metricLabel,
+        metricDisplay: formatInteger(row.metricPrimary),
+        metricSecondary: row.metricSecondary > 0 ? `Peak ${formatInteger(row.metricSecondary)}` : '',
       };
     }
 
     return {
-      available: solved > 0,
-      sortValue: solved,
-      metricLabel: 'Problems Solved',
-      metricValue: solved,
-      metricDisplay: `${formatInteger(solved)} solved`,
-      metricSecondary: `${formatInteger(contests)} contests`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} solved`,
+      metricSecondary: row.metricSecondary > 0 ? `${formatInteger(row.metricSecondary)} contests` : '',
     };
   }
 
   if (mode === 'hackerrank') {
-    const contestRank = toNumber(platform?.hackerrank?.contestRanking);
-    const stars = toNumber(platform?.hackerrank?.totalStars);
-    const badges = toNumber(platform?.hackerrank?.totalBadges);
-    const level = toNumber(platform?.hackerrank?.level);
-    const contests = toNumber(platform?.hackerrank?.contestsParticipated);
-
-    if (contestRank > 0) {
+    if (row.metricKind === 'hackerrank-rank') {
       return {
-        available: true,
-        sortValue: -contestRank,
-        metricLabel: 'Contest Ranking',
-        metricValue: contestRank,
-        metricDisplay: `#${formatInteger(contestRank)}`,
-        metricSecondary: `${formatInteger(stars)} stars`,
+        metricLabel: row.metricLabel,
+        metricDisplay: `#${formatInteger(row.metricPrimary)}`,
+        metricSecondary: `${formatInteger(row.metricSecondary)} stars`,
       };
     }
 
-    const scoreSignal = stars * 20 + badges * 8 + level * 15 + contests * 2;
     return {
-      available: scoreSignal > 0,
-      sortValue: scoreSignal,
-      metricLabel: 'Total Stars',
-      metricValue: stars,
-      metricDisplay: `${formatInteger(stars)} stars`,
-      metricSecondary: `${formatInteger(badges)} badges`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} stars`,
+      metricSecondary: `${formatInteger(row.metricSecondary)} badges`,
     };
   }
 
   if (mode === 'codechef') {
-    const globalRank = toNumber(platform?.codechef?.globalRank);
-    const rating = toNumber(platform?.codechef?.currentRating);
-    const stars = parseStarCount(platform?.codechef?.stars || platform?.codechef?.starsCount);
-    const solved = toNumber(platform?.codechef?.problemsSolved);
-
-    if (globalRank > 0) {
+    if (row.metricKind === 'codechef-rank') {
       return {
-        available: true,
-        sortValue: -globalRank,
-        metricLabel: 'Global Rank',
-        metricValue: globalRank,
-        metricDisplay: `#${formatInteger(globalRank)}`,
-        metricSecondary: rating > 0 ? `Rating ${formatInteger(rating)}` : `${stars} stars`,
+        metricLabel: row.metricLabel,
+        metricDisplay: `#${formatInteger(row.metricPrimary)}`,
+        metricSecondary: row.metricSecondary > 0 ? `Rating ${formatInteger(row.metricSecondary)}` : '',
       };
     }
 
-    if (rating > 0) {
+    if (row.metricKind === 'codechef-rating') {
       return {
-        available: true,
-        sortValue: rating,
-        metricLabel: 'Current Rating',
-        metricValue: rating,
-        metricDisplay: formatInteger(rating),
-        metricSecondary: `${formatInteger(solved)} solved`,
+        metricLabel: row.metricLabel,
+        metricDisplay: formatInteger(row.metricPrimary),
+        metricSecondary: `${formatInteger(row.metricSecondary)} solved`,
       };
     }
 
     return {
-      available: solved > 0,
-      sortValue: solved,
-      metricLabel: 'Problems Solved',
-      metricValue: solved,
-      metricDisplay: `${formatInteger(solved)} solved`,
-      metricSecondary: `${stars} stars`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} solved`,
+      metricSecondary: row.metricSecondary > 0 ? `${formatInteger(row.metricSecondary)} stars` : '',
     };
   }
 
   if (mode === 'kaggle') {
-    const ranking = toNumber(platform?.kaggle?.ranking || platform?.kaggle?.rank);
-    const medals = toNumber(platform?.kaggle?.competitionMedals?.total)
-      + toNumber(platform?.kaggle?.notebookMedals?.total)
-      + toNumber(platform?.kaggle?.datasetMedals?.total)
-      + toNumber(platform?.kaggle?.goldMedals)
-      + toNumber(platform?.kaggle?.silverMedals)
-      + toNumber(platform?.kaggle?.bronzeMedals);
-    const notebookVotes = toNumber(platform?.kaggle?.notebookVotesReceived || platform?.kaggle?.notebookVotes);
-    const datasetDownloads = toNumber(platform?.kaggle?.datasetDownloads);
-
-    if (ranking > 0) {
+    if (row.metricKind === 'kaggle-rank') {
       return {
-        available: true,
-        sortValue: -ranking,
-        metricLabel: 'Global Rank',
-        metricValue: ranking,
-        metricDisplay: `#${formatInteger(ranking)}`,
-        metricSecondary: `${formatInteger(medals)} medals`,
+        metricLabel: row.metricLabel,
+        metricDisplay: `#${formatInteger(row.metricPrimary)}`,
+        metricSecondary: `${formatInteger(row.metricSecondary)} medals`,
       };
     }
 
-    const impact = medals * 15 + notebookVotes * 0.4 + datasetDownloads * 0.03;
     return {
-      available: impact > 0,
-      sortValue: impact,
-      metricLabel: 'Medal + Impact Signal',
-      metricValue: medals,
-      metricDisplay: `${formatInteger(medals)} medals`,
-      metricSecondary: `${formatInteger(datasetDownloads)} dataset downloads`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} medals`,
+      metricSecondary: `${formatInteger(row.metricSecondary)} dataset downloads`,
     };
   }
 
   if (mode === 'huggingface') {
-    const downloads = toNumber(platform?.huggingface?.totalDownloads)
-      || (toNumber(platform?.huggingface?.modelDownloads) + toNumber(platform?.huggingface?.datasetDownloads));
-    const likes = toNumber(platform?.huggingface?.totalLikes) + toNumber(platform?.huggingface?.spacesLikes);
-    const followers = toNumber(platform?.huggingface?.followers);
-    const available = downloads > 0 || likes > 0 || followers > 0;
-
     return {
-      available,
-      sortValue: downloads + likes * 50 + followers * 200,
-      metricLabel: 'Total Downloads',
-      metricValue: downloads,
-      metricDisplay: `${formatInteger(downloads)} downloads`,
-      metricSecondary: `${formatInteger(likes)} likes`,
+      metricLabel: row.metricLabel,
+      metricDisplay: `${formatInteger(row.metricPrimary)} downloads`,
+      metricSecondary: `${formatInteger(row.metricSecondary)} likes`,
     };
   }
 
   return {
-    available: false,
-    sortValue: Number.NEGATIVE_INFINITY,
-    metricLabel: 'Metric',
-    metricValue: 0,
+    metricLabel: row.metricLabel,
     metricDisplay: 'N/A',
     metricSecondary: '',
   };
 }
 
-// ─── Get Global Leaderboard ──────────────────────
+// --- Get Global Leaderboard ----------------------
 export const getLeaderboard = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 20;
+  const page = parsePositiveInt(req.query.page, 1, 1, 500);
+  const limit = parsePositiveInt(req.query.limit, 20, 1, 100);
   const skip = (page - 1) * limit;
-  const college = req.query.college;
-  const archetype = req.query.archetype;
+
+  const college = typeof req.query.college === 'string' ? req.query.college.trim() : '';
+  const archetype = typeof req.query.archetype === 'string' ? req.query.archetype.trim() : '';
   const requestedMode = String(req.query.mode || 'devscore').toLowerCase();
   const mode = LEADERBOARD_MODES.has(requestedMode) ? requestedMode : 'devscore';
 
-  const cacheKey = `leaderboard:mode:${mode}:${college ? `college:${college.toLowerCase()}:` : ''}${archetype ? `archetype:${archetype}:` : ''}all`;
+  const cacheKey = `leaderboard:v2:${mode}:college:${college.toLowerCase() || 'all'}:archetype:${archetype || 'all'}:page:${page}:limit:${limit}`;
 
-  const allRankings = await cacheGet(cacheKey, async () => {
-    // Get latest score per user via aggregation
+  const payload = await cacheGet(cacheKey, async () => {
     const pipeline = [
       { $sort: { userId: 1, createdAt: -1 } },
-      { $group: {
-        _id: '$userId',
-        score: { $first: { $ifNull: ['$score', '$overallScore'] } },
-        breakdown: { $first: '$breakdown' },
-        computedAt: { $first: '$computedAt' },
-      }},
-      { $sort: { score: -1 } },
+      {
+        $group: {
+          _id: '$userId',
+          overallScore: { $first: { $ifNull: ['$score', '$overallScore'] } },
+        },
+      },
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { uid: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$userId', '$$uid'] },
+                    { $eq: ['$isPublic', true] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                college: '$college',
+                avatarUrl: '$avatarUrl',
+              },
+            },
+          ],
+          as: 'profile',
+        },
+      },
+      { $unwind: '$profile' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'portfoliocodes',
+          let: { uid: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$userId', '$$uid'] },
+                    { $eq: ['$isPublic', true] },
+                  ],
+                },
+              },
+            },
+            { $limit: 1 },
+            { $project: { _id: 1 } },
+          ],
+          as: 'portfolio',
+        },
+      },
+      {
+        $addFields: {
+          displayName: '$user.displayName',
+          publicHandle: '$user.publicHandle',
+          archetype: { $ifNull: ['$user.archetype', 'none'] },
+          secondaryArchetype: { $ifNull: ['$user.secondaryArchetype', 'none'] },
+          college: { $ifNull: ['$profile.college', ''] },
+          avatarUrl: '$profile.avatarUrl',
+          hasPortfolio: { $gt: [{ $size: '$portfolio' }, 0] },
+        },
+      },
     ];
 
-    const scores = await DevScore.aggregate(pipeline);
-
-    // Get user info
-    const userIds = scores.map((s) => s._id);
-    const [users, profiles, portfolios] = await Promise.all([
-      User.find({ _id: { $in: userIds } }).select([
-        'displayName',
-        'email',
-        'archetype',
-        'secondaryArchetype',
-        'githubUsername',
-        'leetcodeUsername',
-        'codeforcesUsername',
-        'hackerrankUsername',
-        'codechefUsername',
-        'kaggleUsername',
-        'huggingfaceUsername',
-      ].join(' ')),
-      Profile.find({ userId: { $in: userIds }, isPublic: true }).select('userId college avatarUrl isPublic'),
-      PortfolioCode.find({ userId: { $in: userIds }, isPublic: true }).select('userId'),
-    ]);
-
-    let githubMap = new Map();
-    let dsaMap = new Map();
-    let platformMap = new Map();
-
-    if (mode === 'github') {
-      const githubStats = await GithubStats.find({ userId: { $in: userIds } })
-        .select('userId totalContributionsLastYear totalContributionsAllTime starsReceived followers')
-        .lean();
-      githubMap = new Map(githubStats.map((row) => [row.userId.toString(), row]));
-    } else if (mode === 'leetcode' || mode === 'codeforces') {
-      const dsaStats = await DsaStats.find({ userId: { $in: userIds } })
-        .select('userId leetcode codeforces')
-        .lean();
-      dsaMap = new Map(dsaStats.map((row) => [row.userId.toString(), row]));
-    } else if (mode !== 'devscore') {
-      const platformStats = await PlatformStats.find({ userId: { $in: userIds } })
-        .select('userId hackerrank codechef kaggle huggingface')
-        .lean();
-      platformMap = new Map(platformStats.map((row) => [row.userId.toString(), row]));
-    }
-
-    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
-    const profileMap = new Map(profiles.map((p) => [p.userId.toString(), p]));
-    const portfolioSet = new Set(portfolios.map((p) => p.userId.toString()));
-
-    let rankings = scores.map((s, idx) => {
-      const user = userMap.get(s._id.toString());
-      const profile = profileMap.get(s._id.toString());
-
-      if (!profile?.isPublic) {
-        return null;
-      }
-
-      const baseEntry = {
-        rank: idx + 1,
-        userId: s._id,
-        displayName: user?.displayName || 'Unknown',
-        overallScore: s.score || 0,
-        archetype: user?.archetype || 'none',
-        secondaryArchetype: user?.secondaryArchetype || 'none',
-        college: profile?.college || '',
-        avatarUrl: profile?.avatarUrl || null,
-        hasPortfolio: portfolioSet.has(s._id.toString()),
-      };
-
-      if (mode === 'devscore') {
-        return baseEntry;
-      }
-
-      const metric = metricFromPlatform(mode, {
-        github: githubMap.get(s._id.toString()),
-        dsa: dsaMap.get(s._id.toString()),
-        platform: platformMap.get(s._id.toString()),
-      });
-
-      if (!metric.available) {
-        return null;
-      }
-
-      return {
-        ...baseEntry,
-        metricLabel: metric.metricLabel,
-        metricValue: metric.metricValue,
-        metricDisplay: metric.metricDisplay,
-        metricSecondary: metric.metricSecondary,
-        metricSortValue: metric.sortValue,
-      };
-    }).filter(Boolean);
-
-    if (mode !== 'devscore') {
-      rankings.sort((a, b) => {
-        const metricDiff = toNumber(b.metricSortValue, Number.NEGATIVE_INFINITY) - toNumber(a.metricSortValue, Number.NEGATIVE_INFINITY);
-        if (metricDiff !== 0) return metricDiff;
-        return toNumber(b.overallScore) - toNumber(a.overallScore);
-      });
-    }
-
-    // Filter by college if specified
     if (college) {
-      rankings = rankings.filter((r) =>
-        r.college.toLowerCase().includes(college.toLowerCase())
-      );
+      pipeline.push({
+        $match: {
+          college: { $regex: college, $options: 'i' },
+        },
+      });
     }
 
     if (archetype) {
-      rankings = rankings.filter((r) => r.archetype === archetype || r.secondaryArchetype === archetype);
+      pipeline.push({
+        $match: {
+          $or: [
+            { archetype },
+            { secondaryArchetype: archetype },
+          ],
+        },
+      });
     }
 
-    rankings = rankings.map((r, idx) => ({ ...r, rank: idx + 1 }));
+    if (mode !== 'devscore') {
+      pipeline.push(...buildModePipeline(mode));
+      pipeline.push({ $match: { metricAvailable: true } });
+      pipeline.push({ $sort: { metricSortValue: -1, overallScore: -1, displayName: 1 } });
+    } else {
+      pipeline.push({ $sort: { overallScore: -1, displayName: 1 } });
+    }
 
-    return rankings;
-  }, 600); // 10 minute TTL
+    pipeline.push(
+      {
+        $project: {
+          _id: 0,
+          userId: '$_id',
+          displayName: 1,
+          publicHandle: 1,
+          overallScore: 1,
+          archetype: 1,
+          secondaryArchetype: 1,
+          college: 1,
+          avatarUrl: 1,
+          hasPortfolio: 1,
+          metricKind: 1,
+          metricLabel: 1,
+          metricPrimary: 1,
+          metricSecondary: 1,
+        },
+      },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          rankings: [
+            { $skip: skip },
+            { $limit: limit },
+          ],
+        },
+      }
+    );
 
-  const totalItems = allRankings.length;
-  const totalPages = Math.ceil(totalItems / limit);
-  const paginatedRankings = allRankings.slice(skip, skip + limit);
+    const [aggregation] = await DevScore.aggregate(pipeline).collation({ locale: 'en', strength: 2 });
+
+    const totalItems = Number(aggregation?.metadata?.[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+    const rankings = aggregation?.rankings || [];
+
+    await Promise.all(rankings.map(async (entry) => {
+      if (entry.publicHandle) return;
+
+      const generated = await User.ensurePublicHandle(entry.userId);
+      entry.publicHandle = generated || null;
+    }));
+
+    const rankingsWithPresentation = rankings.map((entry, index) => {
+      const metricPresentation = presentMetric(mode, entry);
+
+      return {
+        rank: skip + index + 1,
+        userId: entry.userId,
+        displayName: entry.displayName || 'Unknown',
+        publicHandle: entry.publicHandle || null,
+        overallScore: toNumber(entry.overallScore),
+        archetype: entry.archetype || 'none',
+        secondaryArchetype: entry.secondaryArchetype || 'none',
+        college: entry.college || '',
+        avatarUrl: entry.avatarUrl || null,
+        hasPortfolio: Boolean(entry.hasPortfolio),
+        ...metricPresentation,
+      };
+    });
+
+    return {
+      mode,
+      rankings: rankingsWithPresentation,
+      totalPages,
+      currentPage: Math.min(page, totalPages),
+    };
+  }, 300);
 
   res.json({
     success: true,
-    data: {
-      mode,
-      rankings: paginatedRankings,
-      totalPages,
-      currentPage: page,
-    },
+    data: payload,
   });
 });
 
-// ─── Get College Leaderboard ─────────────────────
+// --- Get College Leaderboard ---------------------
 export const getCollegeLeaderboard = asyncHandler(async (req, res) => {
   req.query.college = req.params.collegeName;
   return getLeaderboard(req, res);

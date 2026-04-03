@@ -1,8 +1,8 @@
 import apiClient from '../lib/apiClient';
+import { unwrapApiData } from '../lib/apiResponse';
 
 export const contestService = {
   async getUpcomingContests() {
-    const response = await apiClient.get('/contests/upcoming');
-    return response.data;
+    return unwrapApiData(await apiClient.get('/contests/upcoming'));
   },
 };

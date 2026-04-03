@@ -1,6 +1,6 @@
 ﻿# Environment Setup
 
-Last updated: 2026-03-29
+Last updated: 2026-04-03
 
 ## Prerequisites
 
@@ -25,7 +25,8 @@ npm --prefix server install
 
 ## Environment Variables
 
-Backend reads env from server/src/config/env.js.
+Backend reads env via `dotenv.config()` from `server/src/config/env.js`.
+In local development, create `server/.env` and run backend commands with `npm --prefix server ...`.
 
 Required variables:
 
@@ -46,7 +47,7 @@ Optional but strongly recommended:
 - PORT
 - NODE_ENV
 
-### Example server env
+### Example `server/.env`
 
 ```env
 NODE_ENV=development
@@ -117,9 +118,15 @@ npm --prefix server run start
 ## Deployment Notes
 
 - client/vercel.json contains SPA rewrite to index.html
-- backend CORS origin is controlled by CLIENT_URL
+- backend CORS origin is controlled by `CLIENT_URL`
 - Redis auto-disables in production when REDIS_URL is not provided
 - scheduler is imported by server startup and runs nightly
+
+Important behavior note:
+
+- `csrfOriginProtection` supports comma-separated values in `CLIENT_URL`.
+- CORS middleware in `server/src/app.js` currently uses `origin: env.CLIENT_URL` as a single value.
+- Until CORS multi-origin hardening is completed, treat `CLIENT_URL` as a single origin for production CORS compatibility.
 
 ## Troubleshooting
 
@@ -132,6 +139,7 @@ Symptom:
 Fix:
 
 - ensure required vars from env.js are set before start
+- verify `server/.env` exists and includes `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`
 
 ### 401 loop on frontend
 
@@ -153,8 +161,8 @@ Symptom:
 
 Fix:
 
-- set CLIENT_URL to exact frontend origin
-- for multiple origins, use comma-separated CLIENT_URL list
+- set `CLIENT_URL` to exact frontend origin
+- if multiple frontend origins are required, update backend CORS implementation first, then document the approved format
 
 ### GitHub OAuth callback failures
 
