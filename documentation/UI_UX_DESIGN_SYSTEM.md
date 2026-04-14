@@ -1,157 +1,131 @@
-﻿# UI and UX Design System
+﻿# UI and UX Design System (Diagram First)
 
-Last updated: 2026-03-29
+This document describes visual tokens, component architecture, and UX interaction flows.
 
-## Design Intent
+## Theoretical Foundation
+UX system design applies cognitive-load management and consistency heuristics.
 
-DevFolio UI emphasizes:
+- Recognition-over-recall patterns reduce user effort on dense analytics surfaces.
+- Semantic token systems preserve visual coherence across themes and states.
+- Accessibility principles ensure inclusivity under different devices and abilities.
 
-- data readability for engineering metrics
-- high information density without losing clarity
-- consistent card-shell language across dashboard modules
-- platform-colored semantics for analytics scanning
+## 1. Design Intent Model
 
-## Theme System
+```mermaid
+flowchart LR
+  I[Design intent] --> C1[Clear data hierarchy]
+  I --> C2[Platform signal visibility]
+  I --> C3[Role-aware navigation]
+  I --> C4[Fast feedback and resilient states]
+```
 
-Source of truth:
+## 2. Theme and Token Architecture
 
-- client/src/index.css
-- client/src/stores/themeStore.js
-- client/tailwind.config.js
+```mermaid
+flowchart TD
+  T0[themeStore: light dark system] --> T1[documentElement class toggle]
+  T1 --> T2[CSS variables]
+  T2 --> T3[Tailwind semantic colors]
+  T3 --> T4[background card border foreground accent platform]
+  T4 --> T5[Components consume semantic tokens]
+```
 
-Theme modes:
+## 3. Token-to-Component Mapping
 
-- light
-- dark
-- system-derived fallback
+```mermaid
+classDiagram
+  class ThemeTokens {
+    +background
+    +card
+    +cardElevated
+    +border
+    +foreground
+    +muted
+    +accentCyanPurpleGreenRed
+    +platform colors
+  }
+  class LayoutShell {
+    +RootLayout
+    +DashboardLayout
+    +Sidebar
+    +Navbar
+  }
+  class DataCards {
+    +StatsCard
+    +PlatformCard
+    +QuickStats
+    +ScoreBadge
+  }
+  class Visualizations {
+    +ActivityHeatmap
+    +Recharts wrappers
+  }
+  class Forms {
+    +input
+    +label
+    +button
+  }
 
-Core CSS variables:
+  ThemeTokens --> LayoutShell
+  ThemeTokens --> DataCards
+  ThemeTokens --> Visualizations
+  ThemeTokens --> Forms
+```
 
-- --background
-- --card
-- --card-elevated
-- --border
-- --muted
-- --foreground
-- --foreground-bright
-- --glass-bg
-- --glass-border
-- --heatmap-empty
-- --accent-cyan
-- --accent-purple
-- --accent-green
-- --accent-red
-- --accent-yellow
-- --accent-orange
+## 4. Interaction Flow Standards
 
-## Typography
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI
+  participant State as Zustand and Query cache
+  participant API
 
-- Primary: Inter
-- Monospace: JetBrains Mono
+  User->>UI: Interact with form or action button
+  UI->>State: optimistic local state where safe
+  UI->>API: async request
+  API-->>UI: success or error payload
+  UI->>State: reconcile cache and auth state
+  UI-->>User: toast feedback + updated view
+```
 
-Usage:
+## 5. Surface Hierarchy
 
-- body and standard UI text use Inter
-- numerical/log/diagnostic snippets use mono utility class
+```mermaid
+flowchart TD
+  S1[Page shell] --> S2[Section containers]
+  S2 --> S3[Cards and charts]
+  S3 --> S4[Interactive controls]
+  S4 --> S5[Micro states: loading empty error success]
+```
 
-## Visual Language
+## 6. Responsive Behavior Model
 
-### Surface hierarchy
+```mermaid
+flowchart LR
+  M[Mobile] --> M1[Stacked sections]
+  M --> M2[Condensed nav patterns]
+  T[Tablet] --> T1[Two-column content where possible]
+  D[Desktop] --> D1[Sidebar persistent navigation]
+  D --> D2[Dense analytics grid]
+```
 
-- background: app-level canvas
-- card: standard component container
-- card-elevated: nested panel/highlight container
-- glass-card: translucent emphasized surfaces for hero analytics blocks
+## 7. Motion and Feedback Rules
 
-### Accent usage
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Loading: request starts
+  Loading --> Success: response ok
+  Loading --> Error: response failed
+  Error --> Idle: retry or dismiss
+  Success --> Idle
+```
 
-- cyan and purple are dominant analytical accents
-- green/yellow/red/orange communicate status and warnings
-- platform colors are used in charts and platform cards
+## 8. Accessibility and Usability Checklist
 
-### Motion
-
-Available utility animations:
-
-- animate-fade-in
-- animate-slide-up
-- animate-staggered-enter
-- animate-marquee
-
-Principles:
-
-- short transitions for feedback
-- avoid long blocking motion on data-heavy views
-
-## Component Patterns
-
-### Layout shells
-
-- RootLayout for public and simple authenticated routes
-- DashboardLayout for navigation + content + footer shell
-
-### Data cards
-
-Common card composition:
-
-- title/meta header
-- primary metric or visual
-- secondary contextual details
-- optional action row
-
-### Charts and heatmaps
-
-- Recharts for leaderboard/compare/analytics visualizations
-- custom ActivityHeatmap for cross-platform activity density
-- fallback and empty states for disconnected platforms
-
-### Portfolio UI
-
-- editor + preview split
-- iframe-based render isolation
-- console output panel for live preview troubleshooting
-
-## Accessibility and Usability Notes
-
-Current strengths:
-
-- focus-visible outline styling present
-- clear contrast pairs in dark mode
-- consistent spacing and typography hierarchy
-
-Known improvements needed:
-
-- several avatar images still use empty alt text and should be improved
-- keyboard interactions can be expanded in some visualization components
-- more explicit aria semantics can be added for complex chart widgets
-
-## Responsive Behavior
-
-- dashboard grid adapts from single to multi-column across breakpoints
-- sidebar collapses for mobile drawer interaction
-- major analytics components are designed to avoid forced horizontal overflow
-
-## Design Tokens (Tailwind Mapping)
-
-Tailwind maps CSS variables into utility names:
-
-- colors.background, colors.card, colors.border, colors.muted, colors.foreground
-- colors.accent.cyan/purple/green/red/yellow/orange
-- fontFamily.sans and fontFamily.mono
-- gradient utility: bg-gradient-devscore
-
-## UX Consistency Rules
-
-When adding new UI modules:
-
-1. use card or glass-card patterns to stay visually consistent
-2. use existing accent token palette before introducing new colors
-3. provide loading, empty, and error states
-4. include responsive behavior from first implementation
-5. ensure route-level pages have clear title and descriptive subtitle
-
-## Cross-References
-
-- [FEATURES.md](./FEATURES.md)
-- [platform_analytics_catalog.md](./platform_analytics_catalog.md)
-- [WORKFLOW.md](./WORKFLOW.md)
+- Keep semantic color tokens consistent across light and dark theme.
+- Preserve readable contrast for card, text, and border surfaces.
+- Provide keyboard reachable controls for all critical actions.
+- Ensure chart containers render only when dimensions are valid.
+- Render floating tooltips in portal layer to avoid clipping.

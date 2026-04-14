@@ -1,293 +1,201 @@
-﻿# Database Schema
+﻿# Database Schema (Diagram First)
 
-Last updated: 2026-03-29
-Database: MongoDB via Mongoose
+This schema view documents entity relationships, lineage, and operational access patterns.
 
-## Collection Overview
+## Theoretical Foundation
+The schema strategy balances normalization for integrity and denormalization for read performance.
 
-| Collection | Cardinality to User | Primary Use |
-| --- | --- | --- |
-| users | 1:1 base | Identity, auth, role, archetypes, platform handles |
-| profiles | 1:1 | Public profile metadata + visibility |
-| githubstats | 1:1 | GitHub metrics + activity history |
-| dsastats | 1:1 | LeetCode + Codeforces metrics |
-| platformstats | 1:1 | HackerRank, CodeChef, Kaggle, Hugging Face metrics |
-| devscores | 1:N history | DevScore snapshots and diagnostics |
-| projects | 1:N | User project cards |
-| portfoliocodes | 1:1 | Portfolio code payload and visibility |
+- One-to-one profile and stats documents preserve clear ownership boundaries.
+- Time-series score snapshots enable trend analysis and benchmarking.
+- Index design follows cardinality and access-pattern theory for predictable query cost.
 
-## Schema Relationship Diagram
+## 1. Collection Relationship ER Diagram
 
 ```mermaid
-flowchart LR
-	U[users] --> P[profiles]
-	U --> GS[githubstats]
-	U --> DS[dsastats]
-	U --> PS[platformstats]
-	U --> DV[devscores]
-	U --> PR[projects]
-	U --> PC[portfoliocodes]
+erDiagram
+  User ||--|| Profile : has
+  User ||--|| GithubStats : has
+  User ||--|| DsaStats : has
+  User ||--|| PlatformStats : has
+  User ||--|| PortfolioCode : has
+  User ||--o{ Project : owns
+  User ||--o{ DevScore : receives
+  User ||--o{ SyncJob : requests
+  User ||--o{ SyncJob : targets
+
+  User {
+    ObjectId _id PK
+    string email unique
+    string displayName
+    string publicHandle unique
+    string role
+    string archetype
+    string secondaryArchetype
+    string githubUsername
+    string leetcodeUsername
+    string codeforcesUsername
+    string hackerrankUsername
+    string codechefUsername
+    string kaggleUsername
+    string huggingfaceUsername
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  Profile {
+    ObjectId _id PK
+    ObjectId userId FK unique
+    string bio
+    string avatarUrl
+    string college
+    boolean isPublic
+    object socialLinks
+    array techStack
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  GithubStats {
+    ObjectId _id PK
+    ObjectId userId FK unique
+    number totalCommits
+    number totalContributionsLastYear
+    number starsReceived
+    number pullRequestsMerged
+    array languageDistribution
+    array contributionCalendar
+    datetime lastSyncedAt
+  }
+
+  DsaStats {
+    ObjectId _id PK
+    ObjectId userId FK unique
+    object leetcode
+    object codeforces
+    datetime lastSyncedAt
+  }
+
+  PlatformStats {
+    ObjectId _id PK
+    ObjectId userId FK unique
+    object hackerrank
+    object codechef
+    object kaggle
+    object huggingface
+    datetime lastSyncedAt
+  }
+
+  DevScore {
+    ObjectId _id PK
+    ObjectId userId FK
+    number score
+    number rawScore
+    number weightedRawScore
+    string domain
+    object platformScores
+    object diagnostics
+    datetime computedAt
+    datetime createdAt
+  }
+
+  Project {
+    ObjectId _id PK
+    ObjectId userId FK
+    string name
+    string description
+    string repoLink
+    string liveUrl
+    array techStack
+    number githubStars
+    number likes
+    number views
+  }
+
+  PortfolioCode {
+    ObjectId _id PK
+    ObjectId userId FK unique
+    string rawHtml
+    string htmlContent
+    string cssContent
+    string jsContent
+    boolean isPublic
+  }
+
+  SyncJob {
+    ObjectId _id PK
+    string type
+    string status
+    ObjectId requestedBy FK
+    ObjectId targetUserId FK
+    number totalTargets
+    number processedTargets
+    number successCount
+    number errorCount
+    datetime startedAt
+    datetime finishedAt
+    object meta
+  }
 ```
 
-## Key Field Lineage
+## 2. Key Lineage: From Platform Data To Recruiter Surface
 
 ```mermaid
 flowchart TD
-	UH[users: githubUsername, leetcodeUsername, codeforcesUsername, ...] --> AD[adapter fetch layer]
-	AD --> GSF[githubstats: contributions, repos, stars, streaks]
-	AD --> DSF[dsastats: leetcode/codeforces aggregates + daily series]
-	AD --> PSF[platformstats: hackerrank/codechef/kaggle/huggingface objects]
-	GSF --> SCORE[devscores: score, rawScore, weightedRawScore, pillars, diagnostics]
-	DSF --> SCORE
-	PSF --> SCORE
-	SCORE --> READS[leaderboard, compare, recruiter, analytics]
+  H1[User platform handles in User] --> H2[Adapters fetch external payloads]
+  H2 --> H3[GithubStats DsaStats PlatformStats collections]
+  H3 --> H4[DevScore compute and persist]
+  H4 --> H5[Leaderboard and benchmark APIs]
+  H3 --> H6[Analytics deep platform cards]
+  H3 --> H7[Recruiter search signal projection]
+  H4 --> H7
+  UserProfile[Profile public visibility and college] --> H7
 ```
 
-## users
-
-Source: server/src/models/User.js
-
-Fields:
-
-- email: String, required, unique, lowercase, trimmed
-- password: String, required, minlength 6, select false
-- displayName: String, required
-- role: Enum {developer, recruiter, mentor, admin}, default developer
-- archetype: Enum {builder, problem_solver, ai_engineer, security_expert, open_source, competitor, null}
-- secondaryArchetype: same enum as archetype
-- githubId: String
-- githubUsername: String
-- githubAccessToken: String, select false
-- leetcodeUsername: String
-- codeforcesUsername: String
-- hackerrankUsername: String
-- codechefUsername: String
-- kaggleUsername: String
-- huggingfaceUsername: String
-- refreshToken: String, select false
-
-Indexes:
-
-- unique email
-- sparse githubId
-- role
-- archetype
-- secondaryArchetype
-
-Hooks/Methods:
-
-- pre-save bcrypt hash for password
-- comparePassword(candidate)
-- getPlatformData()
-
-## profiles
-
-Source: server/src/models/Profile.js
-
-Fields:
-
-- userId: ObjectId ref User, required, unique
-- bio: String, max 500
-- avatarUrl: String
-- techStack: [String]
-- socialLinks.linkedin: String
-- socialLinks.website: String
-- socialLinks.resumeUrl: String
-- socialLinks.twitter: String
-- college: String
-- isPublic: Boolean, default true
-
-Indexes:
-
-- college
-- isPublic
-
-## githubstats
-
-Source: server/src/models/GithubStats.js
-
-Key scalar fields:
-
-- totalCommits
-- totalContributionsLastYear
-- totalContributionsAllTime
-- publicRepos
-- starsReceived
-- pullRequests
-- pullRequestsMerged
-- pullRequestsTotal
-- issuesOpened
-- issuesClosed
-- forksCount
-- followers
-- currentStreak
-- longestStreak
-
-Nested arrays:
-
-- organizations: [String]
-- languageDistribution[]: {language, count, bytes}
-- contributionCalendar[]: {date, count}
-
-Metadata:
-
-- githubAvatarUrl
-- githubProfileUrl
-- lastSyncedAt
-
-Constraint:
-
-- userId unique
-
-## dsastats
-
-Source: server/src/models/DsaStats.js
-
-leetcode fields include:
-
-- easySolved, mediumSolved, hardSolved, totalSolved
-- contestRating, contestGlobalRanking
-- acceptanceRate
-- currentStreak, activeDays, maxStreak
-- topPercentage
-- contestsParticipated, badgesEarned, solutionCount, reputation
-- categoryWiseProblemCount[]
-- languagesUsed[]
-- dailyActivity[]
-
-codeforces fields include:
-
-- currentRating, maxRating, rank
-- totalSolved
-- contestsParticipated
-- recentContestResults[]
-- ratingHistory[]
-- tagsDistribution[]
-- dailySubmissions[]
-
-Metadata:
-
-- lastSyncedAt
-
-Constraint:
-
-- userId unique
-
-## platformstats
-
-Source: server/src/models/PlatformStats.js
-
-Flexible object buckets (mixed shape):
-
-- hackerrank: Object
-- codechef: Object
-- kaggle: Object
-- huggingface: Object
-- lastSyncedAt: Date
-
-Constraint:
-
-- userId unique
-
-Note:
-
-- schema intentionally uses Object for adapter flexibility.
-
-## devscores
-
-Source: server/src/models/DevScore.js
-
-Core fields:
-
-- userId: ObjectId ref User
-- score: Number (0-1000)
-- rawScore: Number (0-100)
-- weightedRawScore: Number (0-100)
-- archetype
-- secondaryArchetype
-
-Pillar breakdown object:
-
-- problemSolving {score, max, percentile, grade}
-- building {score, max, percentile, grade}
-- community {score, max, percentile, grade}
-- consistency {score, max, percentile, grade}
-- specialization {score, max, percentile, grade}
-
-Diagnostics and metadata:
-
-- domain
-- domainLabel
-- connectedPlatforms
-- platformScores (mixed)
-- strengths [String]
-- improvements [String]
-- diagnostics (mixed)
-- computedAt
-
-Indexes:
-
-- score descending
-- compound {userId, createdAt desc}
-
-Retention policy (service/controller level):
-
-- latest 30 entries retained per user
-
-## projects
-
-Source: server/src/models/Project.js
-
-Fields:
-
-- userId: ObjectId ref User
-- name: String, required
-- description: String
-- repoLink: String
-- liveUrl: String
-- techStack: [String]
-- githubStars: Number
-- likes: Number
-- views: Number
-
-Indexes:
-
-- userId
-
-## portfoliocodes
-
-Source: server/src/models/PortfolioCode.js
-
-Fields:
-
-- userId: ObjectId ref User, unique
-- rawHtml: String max 100000
-- htmlContent: String max 100000 (sanitized)
-- cssContent: String max 100000
-- jsContent: String max 100000
-- isPublic: Boolean
-
-Indexes:
-
-- userId unique
-- isPublic
-
-## Relationship Notes
-
-- User to Profile: one-to-one
-- User to Stats documents: one-to-one per stats collection
-- User to DevScore: one-to-many time-series history
-- User to Projects: one-to-many
-- User to PortfolioCode: one-to-one
-
-## Data Access Patterns
-
-- Leaderboard and recruiter flows aggregate latest DevScore per user
-- Profile and stats are usually read by either userId or displayName resolution
-- Portfolio preview resolves ObjectId or displayName and enforces visibility checks
-
-## Integrity and Validation Notes
-
-- Many fields rely on application-level validation, especially mixed platformstats payloads
-- URL fields (profile social links, project links) are not strongly schema-constrained yet
-- Privacy enforcement for profile visibility exists in profile and portfolio routes; broader consistency hardening is tracked in tasks
+## 3. Access Pattern Diagram
+
+```mermaid
+flowchart LR
+  subgraph WritePaths
+    W1[Auth and onboarding] --> User
+    W2[Profile update] --> Profile
+    W3[Sync jobs] --> SyncJob
+    W4[Adapter sync] --> GithubStats
+    W4 --> DsaStats
+    W4 --> PlatformStats
+    W5[Score recompute] --> DevScore
+    W6[Project CRUD] --> Project
+    W7[Portfolio editor save] --> PortfolioCode
+  end
+
+  subgraph ReadPaths
+    R1[Dashboard] --> DevScore
+    R1 --> GithubStats
+    R1 --> DsaStats
+    R1 --> PlatformStats
+    R2[Public profile] --> User
+    R2 --> Profile
+    R2 --> DevScore
+    R3[Recruiter search] --> User
+    R3 --> Profile
+    R3 --> DevScore
+    R3 --> PlatformStats
+  end
+```
+
+## 4. Retention and Indexing Rules
+
+```mermaid
+flowchart TD
+  I1[Unique user identity indexes] --> I2[email publicHandle githubId googleId]
+  I2 --> I3[Fast identity lookup and collision prevention]
+  I4[DevScore index userId+createdAt] --> I5[Efficient score history reads]
+  I6[SyncJob TTL on finishedAt] --> I7[Auto cleanup after 7 days]
+  I8[Profile indexes college and isPublic] --> I9[Recruiter and leaderboard filtering]
+```
+
+## 5. Integrity Notes
+
+- One-to-one: User with Profile, GithubStats, DsaStats, PlatformStats, PortfolioCode.
+- One-to-many: User with Project and DevScore history.
+- SyncJob supports both per-user and global sync operations.
+- Visibility is enforced by owner-or-public checks, not by a separate public mirror table.

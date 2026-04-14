@@ -1,92 +1,104 @@
-﻿# Recruiter Platform Signals Catalog
+﻿# Recruiter Platform Signals Catalog (Diagram First)
 
-Last updated: 2026-03-29
+This document explains how recruiter search is powered by platform and score signals.
 
-## Purpose
+## Theoretical Foundation
+Recruiter intelligence is based on evidence synthesis rather than single-metric ranking.
 
-This document describes what platform-derived signals recruiters can use today through the recruiter search experience.
+- Signal detection theory motivates combining multiple weak and strong indicators.
+- Confidence-aware interpretation reduces false positives from sparse platform activity.
+- Explainability is essential so ranking outcomes can be audited and trusted.
 
-## Current Recruiter Surface
+## 1. Recruiter Search Surface
 
-Frontend route:
+```mermaid
+flowchart LR
+  R[Recruiter/Admin] --> UI[Recruiter dashboard filters]
+  UI --> API[GET /api/recruiter/search]
+  API --> AGG[Aggregate user + profile + score + stats]
+  AGG --> RANK[Signal projection and ranking]
+  RANK --> RESULT[Candidate cards]
+  RESULT --> PROFILE[Public profile and portfolio drilldown]
+```
 
-- /dashboard/recruiter
+## 2. Platform Signal Coverage
 
-Backend endpoint:
+```mermaid
+flowchart TD
+  S[Candidate signal envelope] --> GH[GitHub activity and quality]
+  S --> LC[LeetCode depth and contest quality]
+  S --> CF[Codeforces rating and trend]
+  S --> HR[HackerRank stars and badge quality]
+  S --> CC[CodeChef rating and contests]
+  S --> KG[Kaggle tier medals impact]
+  S --> HF[Hugging Face models downloads community]
+  S --> DS[DevScore domain and pillars]
+```
 
-- GET /api/recruiter/search
+## 3. Candidate Projection ER View
 
-Access control:
+```mermaid
+erDiagram
+  Candidate {
+    ObjectId userId
+    string displayName
+    string publicHandle
+    string role
+  }
 
-- recruiter or admin role
+  RecruiterView {
+    number overallScore
+    string grade
+    string domainLabel
+    object pillars
+    object platformSignals
+    string college
+    boolean profilePublic
+  }
 
-## Search Filters Available
+  Candidate ||--|| RecruiterView : projected_as
+```
 
-- name (displayName contains, escaped regex)
-- techStack (comma separated)
-- college
-- minScore
-- archetype (matches primary or secondary archetype)
-- sortBy (devScore or name)
+## 4. Recruiter Query Workflow
 
-## Returned Candidate Fields
+```mermaid
+sequenceDiagram
+  participant Recruiter
+  participant Frontend
+  participant API
+  participant DB
 
-- userId
-- displayName
-- archetype
-- secondaryArchetype
-- devScore
-- pillars (latest breakdown)
-- techStack
-- college
-- hasPortfolio
+  Recruiter->>Frontend: Enter filters and sorting
+  Frontend->>API: /api/recruiter/search?params
+  API->>DB: Aggregate Users Profiles DevScores Stats
+  DB-->>API: Matched candidates + signal fields
+  API-->>Frontend: Paged ranked result set
+  Frontend-->>Recruiter: Candidate cards + signal badges
+```
 
-## Platform Signal Sources Behind Recruiter Results
+## 5. Practical Interpretation Map
 
-Recruiter does not currently filter directly by platform toggle, but score and profile results are powered by these platform streams:
+```mermaid
+flowchart TD
+  A[High score + broad platform confidence] --> A1[Generalist strong signal]
+  B[High score + narrow platform concentration] --> B1[Specialist signal]
+  C[Medium score + strong recent trend] --> C1[Growth candidate]
+  D[Low score + sparse signals] --> D1[Insufficient evidence, request profile review]
+  E[Private profile indicators] --> E1[Respect visibility boundaries]
+```
 
-| Platform | Upstream model | Used in recruiter output |
-| --- | --- | --- |
-| GitHub | GithubStats + DevScore | contributes to devScore + pillar metrics |
-| LeetCode | DsaStats.leetcode + DevScore | contributes to devScore + pillar metrics |
-| Codeforces | DsaStats.codeforces + DevScore | contributes to devScore + pillar metrics |
-| HackerRank | PlatformStats.hackerrank + DevScore | contributes to devScore + pillar metrics |
-| CodeChef | PlatformStats.codechef + DevScore | contributes to devScore + pillar metrics |
-| Kaggle | PlatformStats.kaggle + DevScore | contributes to devScore + pillar metrics |
-| Hugging Face | PlatformStats.huggingface + DevScore | contributes to devScore + pillar metrics |
+## 6. Search Input To Output Mapping
 
-## Practical Recruiter Interpretation Guide
+| Filter/Input | Data Source | Output Signal |
+|---|---|---|
+| Skill and keywords | Profile techStack, project metadata | Relevance match |
+| College | Profile college | College-filtered ranking |
+| Platform-specific interest | Stats collections | Platform badges and details |
+| Performance threshold | DevScore score and pillars | Score-aware shortlist |
+| Public visibility | Profile isPublic and owner rules | Access-controlled result set |
 
-- devScore: broad normalized signal for overall strength
-- archetype + secondaryArchetype: role-fit context
-- pillars: where candidate is strongest (problem solving, building, etc.)
-- hasPortfolio: practical project demonstration signal
-- techStack and college: direct filterable constraints
+## 7. Limit and Boundary Notes
 
-## Candidate Discovery Flow
-
-1. recruiter sets filters
-2. backend fetches only public profiles
-3. corresponding users and latest scores are joined
-4. candidates are sorted by selected mode
-5. recruiter can navigate to public profile and portfolio
-
-## Current Limitations
-
-- no direct per-platform filter in recruiter endpoint
-- recruiter search depends on latest available stats snapshots
-- visibility/privacy hardening should be made consistent across all related read endpoints
-
-## Recommended Enhancements
-
-- add optional platform filter list (github/leetcode/etc.)
-- add availability flags per platform in recruiter result payload
-- add score recency timestamp to recruiter result rows
-- add explicit filters for hasPortfolio and score pillar thresholds
-
-## Cross-References
-
-- [FEATURES.md](./FEATURES.md)
-- [API_REFERENCE.md](./API_REFERENCE.md)
-- [platform_analytics_catalog.md](./platform_analytics_catalog.md)
-- [devfolio_project_audit.md](./devfolio_project_audit.md)
+- Candidate output is visibility-aware and excludes private-only data for non-owners.
+- Recruiter route is limited to recruiter and admin roles.
+- Ranking should be interpreted with confidence and platform coverage, not score alone.

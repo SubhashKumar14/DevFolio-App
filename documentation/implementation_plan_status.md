@@ -1,91 +1,76 @@
-﻿# Implementation Plan Status
+﻿# Implementation Plan Status Tracker (Diagram First)
 
-Last updated: 2026-04-03
-Primary evidence source: [devfolio_project_audit.md](./devfolio_project_audit.md)
+This tracker visualizes progress, open risk, and next actions.
 
-## Overall Progress
+## Theoretical Foundation
+Status tracking combines leading and lagging indicators for realistic delivery confidence.
 
-Estimated overall readiness toward production hardening plan: **78%**
+- Completion percentage alone is insufficient without risk and quality context.
+- Confidence improves when validation depth grows alongside feature progress.
+- Explicit risk visualization supports better release decisions.
 
-- Product breadth: high
-- Reliability hardening: medium-high
-- Security/privacy hardening: medium
-- Test depth and delivery automation: low-medium
+## 1. Overall Progress Snapshot
 
-## Status Board
+```mermaid
+pie title Implementation Progress Snapshot
+  "Completed" : 78
+  "In Progress" : 18
+  "Planned" : 4
+```
 
-| Track | Status | Progress | Notes |
-| --- | --- | --- | --- |
-| Feature completion | in-progress | 96% | core modules, recruiter, leaderboard, compare, portfolio, admin are implemented |
-| Security/privacy hardening | in-progress | 78% | major gains landed; server-side auth hardening gaps remain |
-| Token architecture migration | in-progress | 85% | cookie model in place; refresh body fallback still present |
-| Scheduler scaling safety | in-progress | 70% | lock support exists but unlocked fallback path remains |
-| Cache strategy hardening | in-progress | 65% | cache read paths improved; invalidation strategy still broad |
-| Integration test expansion | in-progress | 40% | baseline suites pass (`2` suites, `9` tests), coverage still narrow |
-| E2E automation | not started | 10% | no full frontend/backend regression pipeline |
-| Deployment automation | not started | 20% | no CI workflow/IaC templates detected in repo |
-| Documentation synchronization | in-progress | 72% | key pages updated in this cycle; requires discipline in future PRs |
-| Accessibility and UX hardening | planned | 60% | baseline workable; chart and media accessibility still limited |
+## 2. Status Flow
 
-## Completed Since Last Milestone
+```mermaid
+flowchart LR
+  S1[Baseline complete] --> S2[Security hardening complete]
+  S2 --> S3[Reliability hardening mostly complete]
+  S3 --> S4[Quality expansion active]
+  S4 --> S5[Product depth active]
+  S5 --> S6[Release gate pending final validation]
+```
 
-- persisted sync queue + worker and job status tracking
-- aggregation-first recruiter and leaderboard backend paths
-- encrypted GitHub OAuth token at rest
-- expanded frontend sync polling and user-facing sync visibility
-- request-level observability middleware and standardized error handling
-- baseline quality gates verified (lint/build/tests/audit clean)
+## 3. Blocker Status Model
 
-## Active Blockers
+```mermaid
+flowchart TD
+  B1[P0 blockers] --> B1R[Resolved]
+  B2[P1 items] --> B2R[Mostly resolved, monitor regressions]
+  B3[P2 and P3 quality tasks] --> B3A[Ongoing hardening and polish]
+```
 
-| Blocker | Priority | Status | Exit Criteria |
-| --- | --- | --- | --- |
-| Backend env startup reliability | P0 | open | clean-environment startup passes with documented env setup |
-| Server-side password policy parity | P0 | open | weak passwords rejected by API regardless of client |
-| Refresh-token body fallback removal | P0 | open | cookie-only refresh flow enforced and tested |
-| Scheduler single-run guarantee | P0 | open | no duplicate global sync in horizontal topology |
-| CORS multi-origin parity | P1 | open | runtime behavior matches CSRF + docs for multi-origin setups |
-| Redis invalidation strategy | P1 | open | no `KEYS` broad scans in production invalidation path |
-| CI quality gate workflow | P1 | open | lint/build/tests/audit executed automatically per PR |
+## 4. Current Risk Heatmap
 
-## Next 2 Sprints (Recommended)
+```mermaid
+quadrantChart
+  title Risk by Impact and Likelihood
+  x-axis Low likelihood --> High likelihood
+  y-axis Low impact --> High impact
+  quadrant-1 Monitor
+  quadrant-2 Mitigate quickly
+  quadrant-3 Backlog
+  quadrant-4 Watchlist
+  ExternalAdapterBreaks: [0.72, 0.66]
+  TestCoverageGaps: [0.62, 0.74]
+  AuthRegression: [0.35, 0.82]
+  UIChartRenderingEdgeCases: [0.54, 0.45]
+```
 
-### Sprint A (Release Hardening)
+## 5. Next Sprint Action Graph
 
-1. close all P0 blockers
-2. add integration tests for auth lifecycle, privacy/ownership, and scheduler safety
-3. verify startup and auth behavior in staging-like clean environment
+```mermaid
+flowchart TD
+  N1[Expand automated test matrix] --> N2[Cover recruiter and admin flow]
+  N2 --> N3[Strengthen sync failure observability]
+  N3 --> N4[Polish accessibility and responsive edge cases]
+  N4 --> N5[Run full release validation checklist]
+```
 
-### Sprint B (Post-Hardening Stabilization)
+## 6. Completion Criteria Tracker
 
-1. replace Redis `KEYS` invalidation strategy
-2. optimize compare/project external API dependencies via cache or async enrichment
-3. add CI workflows and begin E2E backbone
-
-## Readiness Signals
-
-Positive signals:
-
-- frontend lint and production build pass
-- backend test suites pass (current baseline)
-- client and server production dependency audits report zero vulnerabilities
-- no active IDE diagnostics
-
-Risk signals:
-
-- startup fails in clean env without tightly aligned environment bootstrap
-- remaining auth/scheduler hardening gaps are production-impacting
-- automated regression depth is still not broad enough for safe rapid release cadence
-
-## Deployment Recommendation
-
-Current recommendation: **conditional no-go** for full production release.
-
-Release can proceed after all P0 blockers above are closed and validated in staged runtime checks.
-
-## Cross-References
-
-- [implementation_plan.md](./implementation_plan.md)
-- [task.md](./task.md)
-- [devfolio_project_audit.md](./devfolio_project_audit.md)
-- [fixes.md](./fixes.md)
+| Gate | Current Status |
+|---|---|
+| Security posture | pass with continuous monitoring |
+| Reliability and sync safety | pass with ongoing observability improvements |
+| Quality automation | in progress |
+| UX/accessibility polish | in progress |
+| Documentation completeness | in progress with diagram-first rewrite |

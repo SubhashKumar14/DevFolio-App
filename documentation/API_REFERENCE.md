@@ -1,340 +1,185 @@
-﻿# API Reference
+﻿# API Reference (Diagram First)
 
-Last updated: 2026-03-29
-Base URL (dev): http://localhost:5000/api
+This reference is organized around route topology, auth flow, sync flow, and endpoint contracts.
 
-## Conventions
+## Theoretical Foundation
+The API contract is designed using resource-oriented and stateless service principles.
 
-- Auth header: Authorization: Bearer <accessToken>
-- Refresh token transport: httpOnly cookie (`refreshToken`) scoped to `/api/auth` (legacy body token still accepted for migration)
-- Success envelope: { success: true, data: ... }
-- Error envelope: { success: false, message: string }
-- JSON body limit: 10mb
+- Contract-first design keeps clients and server behavior stable as features evolve.
+- Clear auth boundaries separate public, optional-auth, and protected operations.
+- Explicit error semantics improve recoverability and deterministic client behavior.
 
-## Auth and Roles Matrix
-
-| Scope | Requirement |
-| --- | --- |
-| Public | No token required |
-| Optional auth | Token may be provided; request still allowed without token |
-| User auth | Valid bearer token required |
-| Recruiter auth | Valid token + role in {recruiter, admin} |
-| Admin auth | Valid token + role=admin |
-
-## API Lifecycle and Field Flows
-
-### Authentication Token Flow
+## 1. API Topology
 
 ```mermaid
-sequenceDiagram
-  participant C as Client
-  participant A as API
-  participant DB as MongoDB
-
-  C->>A: POST /auth/login (email,password)
-  A->>DB: verify user + password hash
-  A-->>C: accessToken + refreshToken + user payload
-  C->>A: protected request with access token
-  A-->>C: 401 if access token expired
-  C->>A: POST /auth/refresh (refreshToken)
-  A->>DB: validate stored refresh token
-  A-->>C: rotated access token
-  C->>A: retry original request
+flowchart LR
+  C[Client] --> H[/api/health]
+  C --> AUTH[/api/auth/*]
+  C --> USER[/api/user/*]
+  C --> PROFILE[/api/profile/*]
+  C --> INTEGRATIONS[/api/integrations/*]
+  C --> STATS[/api/stats/*]
+  C --> SCORE[/api/score/*]
+  C --> PROJECTS[/api/projects/*]
+  C --> PORTFOLIO[/api/portfolio/*]
+  C --> LEADERBOARD[/api/leaderboard/*]
+  C --> COMPARE[/api/compare/*]
+  C --> RECRUITER[/api/recruiter/*]
+  C --> ADMIN[/api/admin/*]
+  C --> CONTESTS[/api/contests/*]
 ```
 
-### Stats Sync to DevScore Flow
+## 2. Middleware Pipeline
 
 ```mermaid
 flowchart TD
-  H[User handles on User document] --> I[POST /integrations/dsa/connect]
-  I --> S[POST /stats/sync]
-  S --> G[GitHub adapter fetch]
-  S --> D[DSA adapters fetch]
-  S --> P[Platform adapters fetch]
-  G --> GS[Persist GithubStats]
-  D --> DS[Persist DsaStats]
-  P --> PS[Persist PlatformStats]
-  GS --> R[DevScore recompute]
-  DS --> R
-  PS --> R
-  R --> DV[Persist DevScore snapshot]
-  DV --> L[Leaderboard and Recruiter reads]
-  DV --> A1[Analytics and Dashboard reads]
+  A[Incoming request] --> B[Helmet + Compression]
+  B --> C[CORS origin check]
+  C --> D[attachRequestContext + requestLogger]
+  D --> E[JSON parser]
+  E --> F[apiLimiter on /api]
+  F --> G[csrfOriginProtection on /api]
+  G --> H[authenticate optionalAuth roleGuard per route]
+  H --> I[Controller + Service + DB]
+  I --> J[errorHandler if needed]
 ```
 
-### Field Propagation Notes
+## 3. Authentication Token Flow
 
-- `User` platform handles drive adapter request identity.
-- Adapter responses map into `GithubStats`, `DsaStats`, and `PlatformStats`.
-- Scoring consumes those 3 stats collections and writes a new `DevScore` snapshot.
-- Leaderboard, compare, and recruiter endpoints consume the latest score and selected profile fields.
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant Auth
+  participant Store as authStore
 
-## Route Groups
-
-### Health
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /health | Public | API liveness probe |
-
-### Auth
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| POST | /auth/register | Public | Register user, create profile, issue access token, set refresh cookie |
-| POST | /auth/login | Public | Login and issue access token, set refresh cookie |
-| POST | /auth/refresh | Public (rate limited) | Rotate access token using refresh cookie (body token accepted for legacy migration) |
-| POST | /auth/logout | User | Clear persisted refresh token and refresh cookie |
-| GET | /auth/github | Public | Redirect to GitHub OAuth authorize URL |
-| GET | /auth/github/callback | Public | OAuth callback exchange and redirect |
-| POST | /auth/github/link | User | Link GitHub account using OAuth code |
-
-Register request body:
-
-```json
-{
-  "email": "dev@example.com",
-  "password": "secret123",
-  "displayName": "subha",
-  "role": "developer"
-}
+  Client->>API: POST /api/auth/login
+  API->>Auth: validate credentials
+  Auth-->>Client: accessToken + refresh cookie
+  Client->>Store: setAccessToken(accessToken)
+  Client->>API: protected request with Bearer token
+  API-->>Client: 401 if expired
+  Client->>API: POST /api/auth/refresh
+  API-->>Client: new accessToken
+  Client->>Store: replace token and retry original request
 ```
 
-Login request body:
+## 4. Stats Sync and Score Recompute Flow
 
-```json
-{
-  "email": "dev@example.com",
-  "password": "secret123"
-}
+```mermaid
+sequenceDiagram
+  participant User
+  participant Client
+  participant API
+  participant Queue as Sync Queue
+  participant Adapters
+  participant DB
+  participant Score as DevScore Engine
+
+  User->>Client: Trigger sync
+  Client->>API: POST /api/stats/sync
+  API->>Queue: enqueue or run job
+  Queue->>Adapters: fetch platform payloads
+  Adapters->>DB: write stats collections
+  DB->>Score: compute from latest data
+  Score->>DB: save DevScore snapshot
+  Client->>API: GET /api/stats/sync/:jobId
+  API-->>Client: sync status and progress
 ```
 
-Refresh request body (legacy fallback; cookie-first flow can use empty body):
+## 5. Endpoint Matrix
 
-```json
-{
-  "refreshToken": "<jwt-refresh-token>"
-}
+### Public and Optional Auth
+
+| Method | Path | Auth | Role | Notes |
+|---|---|---|---|---|
+| GET | /api/health | none | public | Health status and timestamp |
+| GET | /api/auth/github | none | public | GitHub OAuth redirect |
+| GET | /api/auth/github/callback | none | public | GitHub OAuth callback |
+| GET | /api/user/search | none | public | Public user search |
+| GET | /api/profile/:userId | optionalAuth | public/owner | Profile read with visibility rules |
+| GET | /api/portfolio/:identifier | optionalAuth | public/owner | Portfolio read by handle or id |
+| GET | /api/leaderboard | optionalAuth | public | Global leaderboard |
+| GET | /api/leaderboard/college/:collegeName | optionalAuth | public | College leaderboard |
+| GET | /api/score/:userId | optionalAuth | public/owner | Current score snapshot |
+| GET | /api/score/:userId/history | optionalAuth | public/owner | Historical scores |
+| GET | /api/score/:userId/benchmark | optionalAuth | public/owner | Benchmark payload |
+| GET | /api/stats/github/:userId | optionalAuth | public/owner | GitHub stats |
+| GET | /api/stats/dsa/:userId | optionalAuth | public/owner | DSA stats |
+| GET | /api/stats/platforms/:userId | optionalAuth | public/owner | Other platform stats |
+| GET | /api/contests/upcoming | none | public | Contest feed |
+
+### Auth Routes
+
+| Method | Path | Auth | Role | Notes |
+|---|---|---|---|---|
+| POST | /api/auth/register | none | public | Local registration |
+| POST | /api/auth/login | none | public | Local login |
+| POST | /api/auth/google | none | public | Google login |
+| POST | /api/auth/refresh | none | public | Rotate access token |
+| POST | /api/auth/logout | required | any logged-in | Clear session |
+| POST | /api/auth/github/link | required | developer/recruiter/admin | Link GitHub account |
+
+### User, Profile, Projects, Portfolio
+
+| Method | Path | Auth | Role | Notes |
+|---|---|---|---|---|
+| GET | /api/user/me | required | any logged-in | Current user payload |
+| PUT | /api/user/me | required | any logged-in | Update base user fields |
+| GET | /api/user/export | required | any logged-in | Export user data |
+| PUT | /api/profile/me | required | developer/mentor/recruiter/admin | Update profile |
+| GET | /api/projects/:userId | required | owner/admin | List projects |
+| POST | /api/projects | required | developer/mentor | Create project |
+| PUT | /api/projects/:projectId | required | owner/admin | Update project |
+| DELETE | /api/projects/:projectId | required | owner/admin | Delete project |
+| POST | /api/portfolio | required | developer/mentor | Save portfolio code |
+| PATCH | /api/portfolio/visibility | required | developer/mentor | Toggle portfolio visibility |
+
+### Integrations, Stats, Score, Compare
+
+| Method | Path | Auth | Role | Notes |
+|---|---|---|---|---|
+| POST | /api/integrations/github/connect | required | developer/mentor | Link GitHub integration |
+| POST | /api/integrations/dsa/connect | required | developer/mentor | Save DSA handles |
+| PATCH | /api/integrations/platforms/:platform/disconnect | required | developer/mentor | Disconnect platform |
+| POST | /api/integrations/platforms/:platform/disconnect | required | developer/mentor | Compatibility alias |
+| POST | /api/stats/sync | required | developer/mentor/admin | Trigger sync |
+| GET | /api/stats/sync/:jobId | required | owner/admin | Poll sync status |
+| POST | /api/score/recompute | required | developer/mentor/admin | Recompute score |
+| GET | /api/compare/:userId1/:userId2 | required | developer/mentor | Side by side compare |
+
+### Recruiter and Admin
+
+| Method | Path | Auth | Role | Notes |
+|---|---|---|---|---|
+| GET | /api/recruiter/search | required | recruiter/admin | Candidate search |
+| GET | /api/admin/stats | required | admin | Global stats |
+| GET | /api/admin/users | required | admin | User management list |
+| PATCH | /api/admin/users/:userId/role | required | admin | Change role |
+| DELETE | /api/admin/users/:userId | required | admin | Delete user |
+| POST | /api/admin/trigger-sync | required | admin | Trigger global sync |
+| GET | /api/admin/sync-jobs/:jobId | required | admin | Poll global sync job |
+
+## 6. Error Status and Control Surface
+
+```mermaid
+flowchart TD
+  R[Request] --> V{Validation passes?}
+  V -->|No| E400[400 validation error]
+  V -->|Yes| A{Authenticated when required?}
+  A -->|No| E401[401 unauthorized]
+  A -->|Yes| Z{Role allowed?}
+  Z -->|No| E403[403 forbidden]
+  Z -->|Yes| N{Resource exists?}
+  N -->|No| E404[404 not found]
+  N -->|Yes| L{Rate or origin blocked?}
+  L -->|Yes| E429[429 or CSRF origin rejection]
+  L -->|No| S[2xx success]
 ```
 
-Auth token transport notes:
+## 7. Contract Invariants
 
-- access token is returned in JSON response body
-- refresh token is stored in an httpOnly cookie (`refreshToken`) scoped to `/api/auth`
-- logout clears both persisted refresh token and refresh cookie
-
-### User
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /user/me | User | Return current user profile + platform handles |
-| PUT | /user/me | User | Update displayName/archetypes/platform handles |
-| GET | /user/search | Public | Search public users by displayName prefix/contains |
-| GET | /user/export | User | Export current user data package |
-
-Update /user/me allowed fields:
-
-- displayName
-- archetype
-- secondaryArchetype
-- githubUsername
-- leetcodeUsername
-- codeforcesUsername
-- hackerrankUsername
-- codechefUsername
-- kaggleUsername
-- huggingfaceUsername
-
-### Profile
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /profile/:userId | Optional auth | Fetch profile by ObjectId/displayName (public profiles, or owner access) |
-| PUT | /profile/me | User | Update profile fields and visibility |
-
-PUT /profile/me allowed fields:
-
-- bio
-- avatarUrl
-- techStack
-- socialLinks
-- college
-- isPublic
-
-Validation notes:
-
-- `avatarUrl` must be a valid `http://` or `https://` URL (or null/empty)
-- `socialLinks.{linkedin|website|resumeUrl|twitter}` must be valid `http://` or `https://` URLs when provided
-
-### Integrations
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| POST | /integrations/dsa/connect | User | Connect/update all supported platform handles |
-| POST | /integrations/github/connect | User | GitHub connect path (delegates to auth/link flow) |
-| PATCH | /integrations/platforms/:platform/disconnect | User | Soft-disconnect one platform handle (history retained, reconnect later) |
-| POST | /integrations/platforms/:platform/disconnect | User | Compatibility alias for disconnect in environments that do not forward PATCH |
-
-PATCH /integrations/platforms/:platform/disconnect path params:
-
-- platform in {github, leetcode, codeforces, hackerrank, codechef, kaggle, huggingface}
-
-Soft-disconnect behavior:
-
-- clears the active handle from User (and GitHub token/id for github)
-- does not hard-delete historical stats documents
-- user can reconnect later by saving handle again via /integrations/dsa/connect
-
-### Stats
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /stats/github/:userId | Optional auth | Return GithubStats for public profile, or owner access |
-| GET | /stats/dsa/:userId | Optional auth | Return DsaStats for public profile, or owner access |
-| GET | /stats/platforms/:userId | Optional auth | Return PlatformStats for public profile, or owner access |
-| POST | /stats/sync | User (sync limiter) | Manual platform sync + devscore recompute |
-
-### Score
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /score/:userId | Optional auth | Get latest score for public profile, or owner access |
-| GET | /score/:userId/history | Optional auth | Get recent score history (max 30) for public profile, or owner access |
-| GET | /score/:userId/benchmark | Optional auth | Get domain benchmark percentile summary for public profile, or owner access |
-| POST | /score/recompute | User | Force recompute and persist new score |
-
-### Projects
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /projects/:userId | User | Fetch projects for userId (owner-only; admin override) |
-| POST | /projects | User | Create project for authenticated user |
-| PUT | /projects/:projectId | User | Update own project |
-| DELETE | /projects/:projectId | User | Delete own project |
-
-POST /projects body:
-
-```json
-{
-  "name": "DevFolio",
-  "description": "Portfolio scoring app",
-  "repoLink": "https://github.com/org/repo",
-  "liveUrl": "https://devfolio.app",
-  "techStack": ["React", "Node.js", "MongoDB"]
-}
-```
-
-Validation notes:
-
-- `repoLink` must be a valid GitHub URL when provided
-- `liveUrl` must be a valid `http://` or `https://` URL when provided
-
-### Portfolio
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /portfolio/:identifier | Optional auth | Fetch portfolio by user ObjectId or displayName |
-| POST | /portfolio | User | Save/update rawHtml + sanitized html + css + js |
-| PATCH | /portfolio/visibility | User | Toggle public/private visibility |
-
-POST /portfolio body:
-
-```json
-{
-  "rawHtml": "<div>Hello</div>",
-  "cssContent": "body{font-family:sans-serif}",
-  "jsContent": "console.log('hello')"
-}
-```
-
-PATCH /portfolio/visibility body:
-
-```json
-{
-  "isPublic": true
-}
-```
-
-### Leaderboard
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /leaderboard | Optional auth | Multi-mode leaderboard over public profiles with filters + pagination |
-| GET | /leaderboard/college/:collegeName | Optional auth | College-scoped leaderboard over public profiles |
-
-Query params:
-
-- page (default 1)
-- limit (default 20)
-- mode in {devscore, github, leetcode, codeforces, hackerrank, codechef, kaggle, huggingface}
-- college (optional)
-- archetype (optional)
-
-### Compare
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /compare/:userId1/:userId2 | User | Compare two developers (requires both profiles public, unless requester is owner for that profile) |
-
-Query params:
-
-- platform (defaults devscore)
-
-### Recruiter
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /recruiter/search | Recruiter/Admin | Search public developers with scoring filters |
-
-Query params:
-
-- name
-- techStack (comma separated)
-- college
-- minScore
-- archetype
-- sortBy (devScore or name)
-
-### Admin
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /admin/stats | Admin | Platform totals and archetype distribution |
-| GET | /admin/users | Admin | Paginated users list |
-| PATCH | /admin/users/:userId/role | Admin | Change user role |
-| DELETE | /admin/users/:userId | Admin | Delete user and cascaded records |
-| POST | /admin/trigger-sync | Admin | Trigger global sync and recompute loop |
-
-### Contests
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| GET | /contests/upcoming | Public | Cached merged upcoming contest feed |
-
-## Common Error Statuses
-
-| Status | Meaning |
-| --- | --- |
-| 400 | Validation/business rule error |
-| 401 | Missing/invalid token or bad credentials |
-| 403 | Forbidden by role/privacy/csrf origin |
-| 404 | Resource not found |
-| 409 | Duplicate key conflict |
-| 429 | Rate limit exceeded |
-| 500 | Unexpected server error |
-
-## Security and Middleware Notes
-
-- apiLimiter applies to /api/*
-- authLimiter applies to auth route handlers
-- syncLimiter applies to /stats/sync
-- csrfOriginProtection blocks non-safe requests from disallowed origins
-- helmet and cors are globally enabled
-
-## Known Caveats (Current Behavior)
-
-- Some optional-auth read endpoints can expose data that may need tighter privacy checks.
-- Refresh token currently travels in request body and is stored client-side.
-- Projects read endpoint currently uses route userId rather than strict owner self-scope.
-
-Track remediation in [task.md](./task.md) and [fixes.md](./fixes.md).
+- Response body wraps data through consistent JSON envelope from apiClient usage.
+- Refresh endpoint is excluded from retry recursion in client interceptor logic.
+- Role isolation is enforced both on frontend route guards and backend roleGuard middleware.
+- Optional-auth read routes still enforce owner-or-public visibility checks.

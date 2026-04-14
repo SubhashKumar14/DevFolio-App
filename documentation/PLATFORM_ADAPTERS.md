@@ -1,229 +1,132 @@
-﻿# Platform Adapters
+﻿# Platform Adapters (Diagram First)
 
-Last updated: 2026-03-29
+This document defines adapter architecture, contract, and per-platform flow.
 
-## Purpose
+## Theoretical Foundation
+Platform integration uses anti-corruption layer and adapter pattern principles.
 
-Platform adapters translate third-party platform data into internal, score-ready payloads.
+- External schema volatility is absorbed at the adapter boundary.
+- Normalized internal contracts preserve scoring and analytics stability.
+- Graceful degradation ensures partial failures do not collapse the full sync pipeline.
 
-Location: server/src/services
+## 1. Adapter Architecture
 
-## Adapter Contract
+```mermaid
+flowchart LR
+  SYNC[Sync trigger: user or admin] --> ORCH[Integration and stats services]
+  ORCH --> GH[GitHub adapter]
+  ORCH --> LC[LeetCode adapter]
+  ORCH --> CF[Codeforces adapter]
+  ORCH --> HR[HackerRank adapter]
+  ORCH --> CC[CodeChef adapter]
+  ORCH --> KG[Kaggle adapter]
+  ORCH --> HF[Hugging Face adapter]
+  ORCH --> CONTEST[Contest adapter]
 
-Each adapter follows a practical contract:
+  GH --> DB[(Stats collections)]
+  LC --> DB
+  CF --> DB
+  HR --> DB
+  CC --> DB
+  KG --> DB
+  HF --> DB
+  CONTEST --> CACHE[(Contest feed response)]
+```
 
-- input: username/handle (and optional token for GitHub)
-- external fetch: one or more API calls/scrapes
-- normalization: returns stable object shape expected by controllers and score builder
-- resiliency: catches errors and returns safe fallback values
+## 2. Adapter Contract UML
 
-## Adapter Inventory
+```mermaid
+classDiagram
+  class AdapterRequest {
+    +userId
+    +platform handles or OAuth token
+    +request metadata
+  }
 
-| Adapter | File | Input | Output Target Model |
-| --- | --- | --- | --- |
-| GitHub | githubService.js | githubUsername + optional accessToken | GithubStats |
-| LeetCode | leetcodeService.js | username | DsaStats.leetcode |
-| Codeforces | codeforcesService.js | username | DsaStats.codeforces |
-| HackerRank | hackerrankService.js | username | PlatformStats.hackerrank |
-| CodeChef | codechefService.js | username | PlatformStats.codechef |
-| Kaggle | kaggleService.js | username | PlatformStats.kaggle |
-| Hugging Face | huggingfaceService.js | username | PlatformStats.huggingface |
-| Contest Feed | contestService.js | none | /contests/upcoming payload |
+  class AdapterResponse {
+    +platformId
+    +normalized payload
+    +lastSyncedAt
+    +quality flags
+    +errors[]
+  }
 
-## Per-Adapter Details
+  class AdapterService {
+    +connect()
+    +disconnect()
+    +sync()
+    +normalize()
+    +persist()
+  }
 
-### GitHub Adapter
+  class DevScoreInput {
+    +github
+    +leetcode
+    +codeforces
+    +hackerrank
+    +codechef
+    +kaggle
+    +huggingface
+  }
 
-Data sources:
+  AdapterRequest --> AdapterService
+  AdapterService --> AdapterResponse
+  AdapterResponse --> DevScoreInput
+```
 
-- REST user profile
-- REST repos
-- REST orgs
-- search APIs for commit/pr/issue counters
-- GraphQL contribution calendar when token available
-- fallback scraping and public events fallback for calendar
+## 3. End-To-End Sync Sequence
 
-Key normalized fields:
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant Queue
+  participant Adapter
+  participant Model as Stats Models
+  participant Score as DevScore Engine
 
-- totalCommits
-- totalContributionsLastYear
-- totalContributionsAllTime
-- publicRepos
-- starsReceived
-- pullRequestsTotal, pullRequestsMerged
-- issuesOpened, issuesClosed
-- forksCount, followers
-- organizations[]
-- languageDistribution[]
-- contributionCalendar[]
-- currentStreak, longestStreak
+  Client->>API: POST /api/stats/sync
+  API->>Queue: enqueue sync job
+  Queue->>Adapter: run each connected platform adapter
+  Adapter->>Model: save normalized stats
+  Queue->>Score: computeDevScore(platformData)
+  Score->>Model: persist DevScore snapshot
+  API-->>Client: job id / completion response
+```
 
-### LeetCode Adapter
+## 4. Per-Adapter Coverage Diagram
 
-Data source:
+```mermaid
+flowchart TD
+  P1[GitHub] --> G1[commits contributions repos stars prs issues streak languages calendar]
+  P2[LeetCode] --> L1[easy medium hard contest rating top percentage daily activity]
+  P3[Codeforces] --> C1[current max rating rank contests results tags daily submissions]
+  P4[HackerRank] --> H1[stars badges level domains contest activity]
+  P5[CodeChef] --> C2[stars rating contests solved global rank]
+  P6[Kaggle] --> K1[tier medals notebooks datasets competitions followers]
+  P7[Hugging Face] --> H2[models datasets spaces downloads likes followers pipelines]
+  P8[Contest] --> T1[upcoming contest feed]
+```
 
-- GraphQL endpoint
+## 5. Error Handling State Model
 
-Primary query:
+```mermaid
+stateDiagram-v2
+  [*] --> Requested
+  Requested --> Running
+  Running --> Normalized: fetch and transform success
+  Running --> Partial: one or more platform fetch failures
+  Partial --> Normalized: fallback values or cached payload
+  Running --> Failed: unrecoverable error
+  Normalized --> Persisted
+  Persisted --> ScoreRecomputed
+  ScoreRecomputed --> Completed
+  Failed --> Completed
+```
 
-- solved counts by difficulty
-- submission calendar
-- contest ranking/rating
-- badge + tag + language distributions
+## 6. Adapter Invariants
 
-Fallback query:
-
-- solved counts + submission calendar only
-
-Key normalized fields:
-
-- easySolved, mediumSolved, hardSolved, totalSolved
-- contestRating, contestGlobalRanking
-- acceptanceRate
-- currentStreak, activeDays, maxStreak
-- topPercentage, contestsParticipated
-- badgesEarned
-- categoryWiseProblemCount[]
-- languagesUsed[]
-- dailyActivity[]
-
-### Codeforces Adapter
-
-Data sources:
-
-- user.info
-- user.rating
-- user.status
-
-Key normalized fields:
-
-- currentRating, maxRating, rank
-- totalSolved
-- contestsParticipated
-- recentContestResults[]
-- ratingHistory[]
-- dailySubmissions[]
-- tagsDistribution[]
-
-### HackerRank Adapter
-
-Data sources:
-
-- public REST profile endpoints
-
-Key normalized fields:
-
-- badges[]
-- totalBadges
-- totalStars
-- domainScores[]
-- badgeTierByDomain
-- domainRanks
-- contestRanking
-- contestsParticipated
-- level and profile metadata
-
-### CodeChef Adapter
-
-Data source:
-
-- HTML profile parsing
-
-Key normalized fields:
-
-- currentRating
-- stars and starsCount
-- problemsSolved
-- globalRank, countryRank
-- highestRating
-- contestCount
-- fullySolvedCount, partiallySolvedCount
-
-### Kaggle Adapter
-
-Data source:
-
-- public users API endpoint
-
-Key normalized fields:
-
-- tier
-- totalMedals and medal breakdowns
-- competitionMedals, notebookMedals, datasetMedals
-- competitionsCount
-- notebookVotesReceived
-- datasetDownloads
-- followers/following
-- ranking
-
-### Hugging Face Adapter
-
-Data sources:
-
-- models API
-- datasets API
-- spaces API
-- user profile and overview endpoints
-
-Key normalized fields:
-
-- modelsPublished
-- datasetsPublished
-- spacesCreated
-- modelDownloads
-- datasetDownloads
-- totalDownloads
-- totalLikes
-- spacesLikes
-- followers/following
-- organizations[]
-- topModels[]
-
-### Contest Adapter
-
-Aggregates:
-
-- Codeforces upcoming contests
-- LeetCode upcoming contests
-
-Unified output fields:
-
-- platform
-- name
-- startTime
-- durationSeconds
-- url
-
-## Adapter Error Handling Pattern
-
-- outbound axios calls have timeouts
-- each adapter catches failures and emits fallback-safe payload
-- sync flow continues even when one platform fails
-
-## Adapter Output Consumption
-
-- persisted in stats collections
-- buildPlatformData combines persisted records
-- devscoreEngine consumes combined platformData
-- analytics/leaderboard/compare views consume resulting records and score outputs
-
-## Integration Caveats
-
-- Some adapters depend on unofficial or scrape-like endpoints and may break on upstream changes
-- GraphQL-enhanced GitHub calendar quality depends on GitHub token availability
-- Flexible PlatformStats schema trades strict validation for adapter evolution speed
-
-## When Adding a New Platform
-
-1. create new adapter in server/src/services
-2. add user handle field in User model
-3. wire adapter into stats sync and scheduler
-4. extend buildPlatformData mapping
-5. update scoring engine signal mapping (if needed)
-6. update analytics UI and constants
-7. update documentation files:
-   - PLATFORM_ADAPTERS
-   - FEATURES
-   - API_REFERENCE
-   - platform_analytics_catalog
-
+- Adapters produce normalized payloads, not UI-formatted responses.
+- Missing optional metrics stay null when unknown, not forced to zero.
+- Sync can proceed partially and still recompute score from available signals.
+- Disconnect supports PATCH and POST aliases for client compatibility.

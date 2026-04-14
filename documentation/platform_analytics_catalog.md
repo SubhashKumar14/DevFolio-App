@@ -1,217 +1,117 @@
-﻿# Platform Analytics Catalog
+﻿# Platform Analytics Catalog (Diagram First)
 
-Last updated: 2026-03-29
+This catalog documents analytics components, platform metrics, and rendering behavior.
 
-## Purpose
+## Theoretical Foundation
+Analytics design follows observability and metric-semantics principles.
 
-This catalog lists what analytics signals are available per platform and how they are presented in the UI.
+- Metrics are valuable only when tied to clear interpretation models.
+- Temporal aggregation must preserve trend meaning and comparability.
+- Visualization should expose uncertainty and missing-data conditions explicitly.
 
-## Platform Scope
+## 1. Analytics Architecture
 
-Current first-class analytics coverage:
+```mermaid
+flowchart LR
+  UI[Analytics page tabs and cards] --> API1[/api/score/:userId/benchmark]
+  UI --> API2[/api/stats/github/:userId]
+  UI --> API3[/api/stats/dsa/:userId]
+  UI --> API4[/api/stats/platforms/:userId]
+  UI --> API5[/api/score/:userId and history]
 
-- GitHub
-- LeetCode
-- Codeforces
-- HackerRank
-- CodeChef
-- Kaggle
-- Hugging Face
+  API1 --> SCORE[(DevScore)]
+  API2 --> GH[(GithubStats)]
+  API3 --> DSA[(DsaStats)]
+  API4 --> PLATFORM[(PlatformStats)]
+  API5 --> SCORE
+```
 
-## Shared Analytics Components
+## 2. Shared Analytics Components
 
-- ActivityHeatmap (cross-platform and per-platform views)
-- StreakCounter
-- PlatformCard grid
-- DevScore pillar breakdown card
-- Platform diagnostics cards
+```mermaid
+classDiagram
+  class AnalyticsPage {
+    +overview cards
+    +connected platform tabs
+    +deep platform sections
+  }
+  class ActivityHeatmap {
+    +all-time and year modes
+    +single and multi-platform blending
+    +tooltip portal rendering
+  }
+  class PlatformBreakdown {
+    +platform-specific visuals
+    +trend charts
+    +signal summaries
+  }
+  class ScoreCards {
+    +overall score
+    +pillars
+    +benchmark and history
+  }
 
-## Data Sources by Platform
+  AnalyticsPage --> ActivityHeatmap
+  AnalyticsPage --> PlatformBreakdown
+  AnalyticsPage --> ScoreCards
+```
 
-| Platform | Primary Model Source | Adapter |
-| --- | --- | --- |
-| GitHub | GithubStats | githubService.js |
-| LeetCode | DsaStats.leetcode | leetcodeService.js |
-| Codeforces | DsaStats.codeforces | codeforcesService.js |
-| HackerRank | PlatformStats.hackerrank | hackerrankService.js |
-| CodeChef | PlatformStats.codechef | codechefService.js |
-| Kaggle | PlatformStats.kaggle | kaggleService.js |
-| Hugging Face | PlatformStats.huggingface | huggingfaceService.js |
+## 3. Metric Coverage By Platform
 
-## Metric Catalog by Platform
+```mermaid
+flowchart TD
+  G[GitHub metrics] --> G1[contributions streak prs issues stars language mix]
+  L[LeetCode metrics] --> L1[solved mix contest rating acceptance top percentage]
+  C[Codeforces metrics] --> C1[rating max rank contests trajectory]
+  H[HackerRank metrics] --> H1[stars badges levels domains]
+  CC[CodeChef metrics] --> CC1[rating stars solved contests rank]
+  K[Kaggle metrics] --> K1[tier medals notebook impact dataset impact]
+  HF[Hugging Face metrics] --> HF1[models datasets spaces downloads likes followers]
+```
 
-### GitHub
+## 4. Connected Platform Scope Rules
 
-Key metrics:
+```mermaid
+flowchart TD
+  A[Connected platform list] --> B[Render only connected platform tabs]
+  B --> C[Compute overview cards from connected platforms]
+  C --> D[Combined heatmap only for connected platforms]
+  D --> E[Hide unconnected platform deep sections]
+```
 
-- contributions last year/all time
-- total commits
-- public repos
-- stars received
-- pull requests total/merged
-- issues opened/closed
-- followers
-- language distribution
-- contribution calendar
-- current and longest streak
+## 5. Heatmap Rendering Model
 
-Visuals:
+```mermaid
+flowchart LR
+  D1[Daily activity points] --> D2[Year and all-time bucketing]
+  D2 --> D3{Platform count per day}
+  D3 -->|1| C1[Single color intensity]
+  D3 -->|2-3| C2[HSL blended hue]
+  D3 -->|4+| C3[Dual-color stripe logic]
+  C1 --> T[Tooltip via portal]
+  C2 --> T
+  C3 --> T
+```
 
-- activity heatmap cells
-- contribution trends
-- language charts
-- platform summary cards
+## 6. Analytics Query and Tab Behavior
 
-### LeetCode
+```mermaid
+sequenceDiagram
+  participant User
+  participant Router
+  participant Analytics
+  participant API
 
-Key metrics:
+  User->>Router: /dashboard/analytics?platform=id
+  Router->>Analytics: parse selected platform
+  Analytics->>API: load benchmark + stats payloads
+  API-->>Analytics: connected platforms and metrics
+  Analytics-->>User: overview then deep-dive tab
+```
 
-- solved counts by difficulty
-- total solved
-- contest rating and global rank
-- acceptance rate
-- badges earned
-- active days and streaks
-- daily activity
-- tag/language distributions
+## 7. Diagnostic and Empty-State Rules
 
-Visuals:
-
-- solved breakdown chart
-- contest and quality signal cards
-- activity trend components
-- heatmap integration
-
-### Codeforces
-
-Key metrics:
-
-- current and max rating
-- rank
-- total solved
-- contest participation count
-- rating history
-- recent contest results
-- daily submissions
-- tag distribution
-
-Visuals:
-
-- rating trend chart
-- contest history summary
-- submission activity views
-- heatmap integration
-
-### HackerRank
-
-Key metrics:
-
-- total badges
-- total stars
-- domain scores
-- contest ranking
-- contests participated
-- tier-like badge breakdown
-
-Visuals:
-
-- badge/star summary cards
-- domain score snapshots
-- heatmap integration where daily data exists
-
-### CodeChef
-
-Key metrics:
-
-- current rating
-- stars/starsCount
-- highest rating
-- global/country ranks
-- problems solved
-- contest count
-- fully/partially solved counters
-
-Visuals:
-
-- rating and rank cards
-- solved vs contest snapshots
-- platform summary panel
-
-### Kaggle
-
-Key metrics:
-
-- tier
-- total medals and medal category breakdowns
-- competition count
-- notebooks/datasets count
-- notebook votes
-- dataset downloads
-- followers
-- ranking
-
-Visuals:
-
-- medal summary cards
-- rank and impact panels
-- platform contribution displays
-
-### Hugging Face
-
-Key metrics:
-
-- models published
-- datasets published
-- spaces created
-- model + dataset downloads
-- total downloads
-- total likes
-- followers/following
-- organizations
-- top models
-
-Visuals:
-
-- publication counts
-- adoption metrics (downloads/likes)
-- model spotlight snippets
-
-## Heatmap Behavior Notes
-
-ActivityHeatmap supports:
-
-- all-time and year-specific activity windows
-- cross-platform blending using HSL circular averaging for lower platform counts
-- striped rendering mode for multi-platform overlap scenarios
-- portal tooltip rendering to avoid clipping behind neighboring cards
-
-## Diagnostic Metrics
-
-From DevScore diagnostics output:
-
-- strongestSignals
-- weakSignals
-- domainFitScore
-- unconnectedPlatformRecommendations
-- platformScores map
-
-Used in dashboard and analytics surfaces for action-oriented guidance.
-
-## Fallback and Empty-State Rules
-
-- if platform not connected: omit platform-specific cards and deep sections
-- if platform connected but no data: show zero/empty placeholders with non-crashing fallback
-- if adapter call fails during sync: keep last known stats and continue overall sync flow
-
-## Query and Tab Behavior
-
-- Analytics page supports URL query platform selection: /dashboard/analytics?platform=<id>
-- connected-platform scope determines which tabs/sections are rendered
-- platform constants are centralized in client/src/lib/constants.js
-
-## Cross-References
-
-- [FEATURES.md](./FEATURES.md)
-- [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md)
-- [API_REFERENCE.md](./API_REFERENCE.md)
-- [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md)
+- If platform payload is missing, show empty state with connect guidance.
+- If only one platform is connected, keep all overview cards scoped to that platform.
+- Preserve zeros with nullish handling so valid zero metrics are not hidden.
+- Use chart wrappers that wait for positive width and height before rendering.

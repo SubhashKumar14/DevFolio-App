@@ -1,184 +1,117 @@
-﻿# Folder Structure
+﻿# Folder Structure (Diagram First)
 
-Last updated: 2026-04-03
+This document explains workspace structure, ownership boundaries, and change flow.
 
-## Root Layout
+## Theoretical Foundation
+Repository structure is organized by cohesion, coupling, and ownership boundaries.
 
-```text
-Devfolio-1.0.1/
-  client/
-  server/
-  documentation/
-  visualdoc/
-  README.md
-  .gitignore
+- Domain grouping reduces cognitive load and navigation time.
+- Stable interfaces between folders improve parallel team contribution.
+- Structure mirrors runtime architecture to simplify traceability from code to behavior.
+
+## 1. High-Level Repository Structure
+
+```mermaid
+flowchart TD
+  ROOT[Devfolio-1.0.1]
+  ROOT --> CLIENT[client]
+  ROOT --> SERVER[server]
+  ROOT --> DOCS[documentation]
+  ROOT --> TESTS[tests]
+  ROOT --> UPLOADS[uploads]
+  ROOT --> ROOT_FILES[README CHANGELOG CONTRIBUTING]
+
+  CLIENT --> C_SRC[src]
+  CLIENT --> C_PUBLIC[public]
+  CLIENT --> C_CFG[vite tailwind eslint configs]
+
+  SERVER --> S_SRC[src]
+  SERVER --> S_CFG[Dockerfile jest nodemon package]
+
+  S_SRC --> S_CONFIG[config]
+  S_SRC --> S_ROUTES[routes]
+  S_SRC --> S_CTRL[controllers]
+  S_SRC --> S_SRV[services]
+  S_SRC --> S_MODELS[models]
+  S_SRC --> S_MW[middleware]
+  S_SRC --> S_CRON[cron]
+  S_SRC --> S_UTILS[utils]
+
+  C_SRC --> C_COMPONENTS[components]
+  C_SRC --> C_PAGES[pages]
+  C_SRC --> C_SERVICES[services]
+  C_SRC --> C_STORES[stores]
+  C_SRC --> C_LIB[lib]
+  C_SRC --> C_HOOKS[hooks]
+  C_SRC --> C_UTILS[utils]
 ```
 
-## Frontend Structure
+## 2. Frontend Ownership Map
 
-```text
-client/
-  public/
-    assets/
-      icons/
-  src/
-    components/
-      auth/
-      common/
-      dashboard/
-      layout/
-      portfolio/
-      ui/
-    hooks/
-    lib/
-    pages/
-    services/
-    stores/
-    utils/
-    App.jsx
-    main.jsx
-    index.css
-  package.json
-  vite.config.js
-  tailwind.config.js
-  vercel.json
+```mermaid
+flowchart LR
+  PAGES[pages] --> LAYOUT[components/layout]
+  PAGES --> DOMAIN[components/dashboard and components/portfolio]
+  PAGES --> AUTH[components/auth]
+  PAGES --> UI[components/ui]
+  PAGES --> SERVICES[services/*.js]
+  SERVICES --> API[lib/apiClient.js]
+  PAGES --> STORES[stores/authStore and stores/themeStore]
+  PAGES --> HOOKS[hooks/*]
 ```
 
-### Frontend ownership map
+## 3. Backend Ownership Map
 
-- pages: route-level UI screens
-- components: reusable UI modules grouped by domain
-- services: API wrappers over axios client
-- stores: Zustand state containers
-- hooks: query/auth lifecycle hooks
-- lib: constants, routing helpers, schemas, generic utilities
-- utils: feature-specific helper utilities (portfolio render helpers, etc.)
-
-## Backend Structure
-
-```text
-server/
-  .env (local-only, not tracked)
-  src/
-    app.js
-    server.js
-    config/
-      db.js
-      env.js
-      redisClient.js
-    middleware/
-      auth.js
-      roleGuard.js
-      rateLimiter.js
-      csrfOriginProtection.js
-      errorHandler.js
-    models/
-      User.js
-      Profile.js
-      GithubStats.js
-      DsaStats.js
-      PlatformStats.js
-      DevScore.js
-      Project.js
-      PortfolioCode.js
-    routes/
-      authRoutes.js
-      userRoutes.js
-      profileRoutes.js
-      integrationRoutes.js
-      statsRoutes.js
-      scoreRoutes.js
-      projectRoutes.js
-      leaderboardRoutes.js
-      portfolioRoutes.js
-      compareRoutes.js
-      adminRoutes.js
-      recruiterRoutes.js
-      contestRoutes.js
-      exportRoutes.js
-    controllers/
-      authController.js
-      userController.js
-      profileController.js
-      integrationController.js
-      statsController.js
-      scoreController.js
-      projectController.js
-      leaderboardController.js
-      portfolioController.js
-      compareController.js
-      adminController.js
-      recruiterController.js
-      contestController.js
-      exportController.js
-      userSearchController.js
-    services/
-      devscoreEngine.js
-      githubService.js
-      leetcodeService.js
-      codeforcesService.js
-      hackerrankService.js
-      codechefService.js
-      kaggleService.js
-      huggingfaceService.js
-      contestService.js
-    cron/
-      scheduler.js
-    utils/
-      sanitizer.js
-  tests/
-    e2e/
-      flows.spec.js
-    unit/
-  package.json
-  jest.config.js
+```mermaid
+flowchart LR
+  ROUTES[routes/*.js] --> CTRL[controllers/*.js]
+  CTRL --> SRV[services/*.js]
+  SRV --> MODELS[models/*.js]
+  CTRL --> MODELS
+  APP[app.js] --> ROUTES
+  APP --> MW[middleware/*.js]
+  SERVER[server.js] --> APP
+  SERVER --> CRON[cron/scheduler.js]
+  SERVER --> QUEUE[services/syncJobQueue.js]
 ```
 
-### Backend ownership map
+## 4. Data Artifacts and Lifecycles
 
-- routes: endpoint mapping + middleware composition
-- controllers: request orchestration and business actions
-- services: external API adapters and scoring engine
-- models: persistence contracts
-- middleware: cross-cutting request controls
-- config: environment/bootstrap integrations
-- cron: scheduled background operations
-
-## Documentation Structure
-
-```text
-documentation/
-  README.md
-  summary.md
-  ARCHITECTURE.md
-  API_REFERENCE.md
-  DATABASE_SCHEMA.md
-  FEATURES.md
-  TECH_STACK.md
-  FOLDER_STRUCTURE.md
-  UI_UX_DESIGN_SYSTEM.md
-  WORKFLOW.md
-  ENVIRONMENT_SETUP.md
-  CONCEPTS_AND_IMPLEMENTATION.md
-  PLATFORM_ADAPTERS.md
-  platform_analytics_catalog.md
-  all_recruiter_platforms.md
-  ROADMAP.md
-  implementation_plan.md
-  implementation_plan_status.md
-  task.md
-  devfolio_project_audit.md
-  fixes.md
+```mermaid
+flowchart TD
+  INTEGRATIONS[Connected account handles on User] --> STATS[GithubStats DsaStats PlatformStats]
+  STATS --> SCORE[DevScore snapshots]
+  USER_DATA[User and Profile] --> PORTFOLIO[PortfolioCode]
+  USER_DATA --> PROJECTS[Project]
+  SCORE --> ANALYTICS[Analytics and Leaderboard]
+  STATS --> RECRUITER[Recruiter search ranking]
+  JOBS[SyncJob queue records] --> STATS
 ```
 
-## Notable Architectural Boundaries
+## 5. Change Flow For New Feature
 
-- client and server are independently runnable and deployable
-- documentation folder is the canonical project knowledge base
-- devscoreEngine is a critical shared decision module for analytics + ranking features
+```mermaid
+sequenceDiagram
+  participant Product as Product requirement
+  participant FE as Frontend pages/components
+  participant API as Route and controller
+  participant Service as Service layer
+  participant Data as Model or external adapter
+  participant Docs as documentation/*
 
-## Maintenance Guidance
+  Product->>FE: Add UI surface
+  FE->>API: Call endpoint contract
+  API->>Service: Add business logic
+  Service->>Data: Persist or fetch data
+  Data-->>Service: Result payload
+  Service-->>API: Response object
+  API-->>FE: Stable API response
+  FE->>Docs: Update docs and diagrams
+```
 
-- keep route/controller/service/model naming aligned by domain
-- when adding a new API route, update both API_REFERENCE and WORKFLOW docs
-- when adding a new platform adapter, update PLATFORM_ADAPTERS, FEATURES, and analytics catalog docs
+## 6. Boundary Rules
+
+- Keep route files thin and push behavior to controllers/services.
+- Keep component-level API calls in client services and lib/apiClient.
+- Keep shared auth logic centralized in authStore and AuthBootstrap.
+- Keep schema shape changes mirrored in DATABASE_SCHEMA and API_REFERENCE docs.

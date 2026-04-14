@@ -1,169 +1,126 @@
-﻿# Concepts and Implementation
+﻿# Concepts and Implementation (Diagram First)
 
-Last updated: 2026-03-29
+This document captures the product concepts and how they map to implementation modules.
 
-## Why DevFolio Exists
+## Theoretical Foundation
+Product concepts are modeled as domain abstractions that map directly to implementation modules.
 
-Developers often spread activity across multiple platforms, making it hard to represent skill and consistency in one place. DevFolio unifies those signals into profile, analytics, and ranking experiences.
+- Domain-driven thinking aligns user intent with persistent business concepts.
+- Archetypes behave as weighting lenses, not hard segmentation gates.
+- Concept-to-code traceability reduces drift between product language and runtime behavior.
 
-## Core Product Concepts
+## 1. Product Concept Graph
 
-### 1. Unified Developer Identity
+```mermaid
+mindmap
+  root((DevFolio Concepts))
+    Unified Developer Identity
+      One profile across coding and AI platforms
+      Public handle and visibility model
+    Archetype System
+      Primary archetype
+      Secondary archetype
+      Domain affinity mapping
+    Platform Signal Model
+      GitHub
+      DSA platforms
+      AI and data platforms
+    DevScore v2
+      Per-platform scoring
+      Domain-aware aggregation
+      Diagnostics and improvement hints
+    Recruiter Discovery
+      Search and ranking
+      Public evidence surfaces
+    Portfolio Concept
+      Editable code portfolio
+      Public preview route
+```
 
-Identity combines:
+## 2. Unified Identity Concept To Implementation
 
-- account identity (User)
-- public profile metadata (Profile)
-- platform handles (User)
-- platform activity snapshots (GithubStats/DsaStats/PlatformStats)
-- computed scoring intelligence (DevScore)
-- public code artifact (PortfolioCode)
+```mermaid
+flowchart LR
+  C1[Identity concept] --> C2[User model with handles and archetypes]
+  C2 --> C3[Profile model with visibility and social metadata]
+  C3 --> C4[Public profile route /p/:handle]
+  C3 --> C5[Owner-aware protected profile route]
+```
 
-### 2. Archetype System
+## 3. Archetype and Domain Concept Model
 
-Primary archetypes in code:
+```mermaid
+flowchart TD
+  A[Primary archetype] --> D[Resolved domain]
+  B[Secondary archetype optional] --> D2[Secondary domain]
+  D --> M[Domain affinity weights]
+  D2 --> M
+  M --> S[Platform weighted aggregation]
+  S --> O[Final DevScore]
+```
 
-- builder
-- problem_solver
-- ai_engineer
-- security_expert
-- open_source
-- competitor
+## 4. Signal Model Concept
 
-Secondary archetype support:
+```mermaid
+flowchart LR
+  subgraph Inputs
+    I1[Platform stats collections]
+    I2[Recency and activity metadata]
+    I3[Confidence by available signals]
+  end
+  subgraph Engine
+    E1[Normalize per signal]
+    E2[Platform scorer]
+    E3[Domain affinity blend]
+    E4[Nonlinear transform]
+  end
+  subgraph Outputs
+    O1[overallScore]
+    O2[pillars]
+    O3[platformScores]
+    O4[diagnostics]
+  end
 
-- user can set a secondary archetype
-- score engine blends primary + secondary weighting
+  Inputs --> Engine --> Outputs
+```
 
-Implementation touchpoints:
+## 5. Privacy and Visibility Concept
 
-- user model fields
-- onboarding/settings UI
-- devscoreEngine weighting and diagnostics output
+```mermaid
+stateDiagram-v2
+  [*] --> PrivateData
+  PrivateData --> PublicViewable: isPublic true
+  PublicViewable --> OwnerViewable: owner access always
+  PublicViewable --> RecruiterViewable: recruiter role + allowed fields
+  PrivateData --> OwnerViewable
+```
 
-### 3. Platform Signal Model
+## 6. Implementation Decision Map
 
-Core connected platforms:
+```mermaid
+flowchart TD
+  D1[Chosen: Express + Mongo + React] --> D2[Fast delivery and schema flexibility]
+  D3[Chosen: Adapter-based platform ingestion] --> D4[Independent platform evolution]
+  D5[Chosen: Score snapshots not mutable single row] --> D6[History and benchmarking]
+  D7[Deferred: strict schema for all platform payloads] --> D8[Future hardening]
+  D9[Deferred: full e2e matrix] --> D10[Planned quality expansion]
+```
 
-- github
-- leetcode
-- codeforces
-- hackerrank
-- codechef
-- kaggle
-- huggingface
+## 7. Practical Mental Model
 
-Signal ingestion pattern:
+```mermaid
+flowchart TD
+  U[User activity everywhere] --> A[Adapters normalize evidence]
+  A --> S[Score engine evaluates quality]
+  S --> P[Product surfaces present evidence]
+  P --> R[Recruiters evaluate candidates]
+  P --> U2[Users improve signals and resync]
+  U2 --> U
+```
 
-1. resolve username/handle
-2. fetch source payload using adapter service
-3. normalize to internal shape
-4. persist stats model
-5. aggregate into platformData for scoring
+## 8. Concept Invariants
 
-### 4. DevScore v2 Concept
-
-DevScore v2 transforms heterogeneous platform activity into:
-
-- overall score (0-1000)
-- rawScore and weightedRawScore
-- 5 pillars
-- domain label and fit diagnostics
-- platformScores map
-- strengths and improvement hints
-
-Pillars:
-
-- problemSolving
-- building
-- community
-- consistency
-- specialization
-
-Implementation boundaries:
-
-- scoring logic: server/src/services/devscoreEngine.js
-- persistence and retention: score/stats/admin/scheduler controllers
-- consumers: dashboard, leaderboard, compare, public profile
-
-### 5. Visibility and Privacy Model
-
-Current visibility controls:
-
-- profile.isPublic controls public profile route visibility
-- portfolio.isPublic controls public portfolio preview visibility
-
-Current implementation caveat:
-
-- privacy intent is not yet uniformly enforced across all optional-auth read endpoints
-
-### 6. Portfolio Concept
-
-Portfolio is a programmable artifact:
-
-- rawHtml for editing
-- sanitized htmlContent for safer rendering
-- cssContent and jsContent
-- iframe sandbox render
-
-Implementation:
-
-- save path sanitizes raw HTML with DOMPurify
-- preview path assembles html/css/js and escapes script closing tags
-
-### 7. Recruiter Discovery Concept
-
-Recruiter value comes from ranking + profile context:
-
-- public profile constraints
-- latest DevScore snapshot
-- archetype fit
-- college and tech stack filters
-- portfolio availability flag
-
-### 8. Operational Concepts
-
-#### Sync
-
-- manual sync: user-triggered stats refresh
-- nightly sync: cron refresh for connected users
-
-#### Caching
-
-- read-through cache helper
-- used on contest and leaderboard paths
-
-#### Retention
-
-- DevScore history capped to latest 30 entries per user
-
-## Implementation Decisions
-
-### Chosen
-
-- Mongoose document-oriented schema for flexible platform payloads
-- adapter-per-platform service files
-- centralized error middleware pattern
-- interceptor-driven token refresh on frontend
-
-### Deferred / Backlog
-
-- secure cookie refresh-token architecture
-- stronger authorization consistency across read endpoints
-- scheduler lock strategy for multi-instance runtime
-- deeper integration/e2e testing
-
-## Practical Mental Model
-
-Think in three layers:
-
-1. ingestion layer: adapters gather external data
-2. intelligence layer: devscoreEngine computes normalized scoring outputs
-3. experience layer: dashboard/analytics/leaderboard/recruiter/public-profile present outputs
-
-## Cross-References
-
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md)
-- [platform_analytics_catalog.md](./platform_analytics_catalog.md)
-- [WORKFLOW.md](./WORKFLOW.md)
+- Product value is evidence aggregation, not single-platform ranking.
+- Archetype is a weighting lens, not a hard gate.
+- Score quality depends on recency, consistency, and breadth.
+- Privacy and role rules constrain all read surfaces.

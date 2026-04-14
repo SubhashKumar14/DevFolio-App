@@ -1,147 +1,107 @@
-﻿# Implementation Plan
+﻿# Implementation Plan (Diagram First)
 
-Last updated: 2026-03-29
-Planning horizon: production hardening and reliability completion
+This plan organizes delivery into phases, workstreams, and release gates.
 
-## Goal
+## Theoretical Foundation
+Implementation planning uses incremental risk reduction and dependency-aware sequencing.
 
-Move DevFolio from feature-complete beta toward production-safe release by closing security/privacy gaps, improving reliability, and expanding test coverage.
+- Early phases target systemic risk before optimization and expansion.
+- Phase gates prevent hidden instability from propagating downstream.
+- Plan artifacts are executable governance tools, not static status documents.
 
-## Phase 0 - Baseline and Guardrails (completed)
+## 1. Goal Flow
 
-- established 7-platform ingestion architecture
-- implemented DevScore v2 with diagnostics and retention
-- wired dashboard, analytics, profile, leaderboard, compare, recruiter, admin surfaces
-- added core middleware controls and basic operational checks
+```mermaid
+flowchart TD
+  G1[Goal: production-ready DevFolio platform] --> G2[Security and privacy hardening]
+  G2 --> G3[Reliability and scale hardening]
+  G3 --> G4[Quality and test expansion]
+  G4 --> G5[Product depth and recruiter intelligence]
+  G5 --> G6[Release readiness and audit closure]
+```
 
-## Phase 1 - Security and Privacy Hardening (current)
+## 2. Phase Roadmap
 
-### 1.1 Authorization consistency
+```mermaid
+flowchart LR
+  P0[Phase 0 Baseline and guardrails] --> P1[Phase 1 Security and privacy]
+  P1 --> P2[Phase 2 Reliability and scale]
+  P2 --> P3[Phase 3 Test and quality]
+  P3 --> P4[Phase 4 Product depth]
+  P4 --> P5[Release validation]
+```
 
-Deliverables:
+## 3. Phase 1 Breakdown
 
-- enforce owner-only project reads (self-scope endpoint)
-- unify visibility checks for profile/stat/score read routes
-- ensure public search only exposes approved fields
+```mermaid
+flowchart TD
+  A1[Authorization consistency] --> A2[Owner/public checks across read endpoints]
+  B1[Token architecture migration] --> B2[cookie-first refresh and bootstrap guard]
+  C1[Secret handling hardening] --> C2[env validation and encryption key safety]
+```
 
-Success criteria:
+## 4. Phase 2 Breakdown
 
-- no cross-user read leaks for private data
-- privacy behavior consistent across profile, stats, score, and recruiter-adjacent endpoints
+```mermaid
+flowchart TD
+  R1[Scheduler safety] --> R2[distributed lock and failure isolation]
+  R3[Cache invalidation correctness] --> R4[leaderboard and score consistency]
+  R5[External call resilience] --> R6[adapter fallback and timeout strategy]
+```
 
-### 1.2 Token architecture migration
+## 5. Phase 3 Breakdown
 
-Deliverables:
+```mermaid
+flowchart TD
+  Q1[API integration tests] --> Q2[critical auth profile score paths]
+  Q3[E2E flows] --> Q4[dashboard sync analytics recruiter admin]
+  Q5[Regression gates] --> Q6[lint build test + smoke checks]
+```
 
-- migrate refresh token to httpOnly secure cookie strategy
-- remove localStorage dependency for refresh token
-- use in-memory access token strategy where feasible
+## 6. Phase 4 Breakdown
 
-Success criteria:
+```mermaid
+flowchart TD
+  D1[Recruiter intelligence depth] --> D2[better filtering and explainability]
+  D3[UX and accessibility polish] --> D4[responsive and chart ergonomics]
+  D5[Operational observability] --> D6[sync metrics and status confidence]
+```
 
-- token theft surface reduced
-- refresh flow still seamless across page refresh and 401 retry
+## 7. Work Breakdown Structure
 
-### 1.3 Secret handling hardening
+```mermaid
+mindmap
+  root((Implementation WBS))
+    Security
+      auth and role checks
+      owner/public visibility
+      secret handling
+    Reliability
+      sync queue and worker
+      cache consistency
+      adapter resilience
+    Quality
+      integration tests
+      e2e tests
+      regression gates
+    Product
+      recruiter depth
+      analytics quality
+      UX refinements
+    Release
+      audit closure
+      status tracking
+      go/no-go gate
+```
 
-Deliverables:
+## 8. Exit Criteria Diagram
 
-- encrypt githubAccessToken at rest using dedicated utility
-- key rotation documentation and migration notes
-
-Success criteria:
-
-- raw OAuth token no longer stored directly in database
-
-## Phase 2 - Reliability and Scale Hardening
-
-### 2.1 Scheduler safety
-
-Deliverables:
-
-- move scheduler to worker process OR introduce distributed lock
-- add job instrumentation and collision detection logs
-
-Success criteria:
-
-- no duplicate nightly sync execution in multi-instance deployments
-
-### 2.2 Cache invalidation correctness
-
-Deliverables:
-
-- wire cache invalidation where writes affect cached reads
-- replace broad KEYS invalidation strategy with safer scan/versioning approach
-
-Success criteria:
-
-- fresh leaderboard/contest data with controlled cache operations
-
-### 2.3 External call resilience
-
-Deliverables:
-
-- improve retry/backoff strategy for adapter calls
-- separate enrichment calls from user-interactive latency paths
-
-Success criteria:
-
-- lower request tail latency and fewer user-facing failures during upstream instability
-
-## Phase 3 - Test and Quality Expansion
-
-### 3.1 API integration tests
-
-Target suites:
-
-- auth register/login/refresh/logout
-- privacy and authorization matrix (profile/stats/score/projects)
-- recruiter and admin role enforcement
-- sync and score recompute behavior
-
-### 3.2 E2E flows
-
-Target journeys:
-
-- register -> onboarding -> connect -> sync -> dashboard
-- settings updates reflected in public profile
-- portfolio save/publish and public preview
-- recruiter search and candidate access
-
-### 3.3 Regression gates
-
-- require test suite pass in CI before release
-- maintain lint/build/test/audit checks as release gate
-
-## Phase 4 - Product Depth
-
-- recruiter advanced filters and ranking insights
-- mentor role UX surface
-- richer analytics trend narratives and benchmark contextualization
-- observability and operational dashboarding
-
-## Work Breakdown Structure
-
-| Workstream | Owner | Priority | Dependencies |
-| --- | --- | --- | --- |
-| auth and token migration | backend + frontend | P0 | cookie strategy, auth middleware updates |
-| authorization/privacy matrix | backend | P0 | route/controller updates + tests |
-| scheduler hardening | backend/platform | P1 | redis or worker deployment model |
-| test expansion | backend + qa | P1 | stable endpoint contracts |
-| recruiter enhancements | frontend + backend | P2 | stabilized scoring and privacy model |
-| mentor experience | product + frontend | P3 | role UX definitions |
-
-## Exit Criteria for Production Release
-
-1. P0 tasks complete and validated
-2. integration test suite added for critical routes
-3. no known critical findings in audit report
-4. staging smoke + regression pass complete
-5. rollout and rollback runbooks validated
-
-## Cross-References
-
-- [implementation_plan_status.md](./implementation_plan_status.md)
-- [task.md](./task.md)
-- [devfolio_project_audit.md](./devfolio_project_audit.md)
-- [fixes.md](./fixes.md)
+```mermaid
+flowchart TD
+  E1[All critical blockers resolved] --> E2[Security checks pass]
+  E2 --> E3[Client lint and build pass]
+  E3 --> E4[Server tests pass]
+  E4 --> E5[Key user workflows verified]
+  E5 --> E6[Documentation updated]
+  E6 --> E7[Release decision]
+```

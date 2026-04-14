@@ -1,168 +1,153 @@
-﻿# Workflow
+﻿# Workflow (Diagram First)
 
-Last updated: 2026-03-29
+This document captures all core user and system workflows as executable-style diagrams.
+
+## Theoretical Foundation
+Workflow modeling combines state-transition and process-orchestration concepts.
+
+- Each workflow represents a finite sequence of guarded state changes.
+- Async queue boundaries improve throughput while preserving control points.
+- Feedback loops are necessary for adaptation, observability, and continuous improvement.
 
 ## Workflow Index
 
-- User onboarding and authentication
-- Platform connection and sync
-- DevScore lifecycle
-- Portfolio lifecycle
-- Recruiter discovery flow
-- Admin operations flow
-- Release validation workflow
+```mermaid
+flowchart LR
+  W1[1 Onboarding and Auth]
+  W2[2 Platform Connect and Sync]
+  W3[3 DevScore Lifecycle]
+  W4[4 Portfolio Lifecycle]
+  W5[5 Recruiter Discovery]
+  W6[6 Admin Operations]
+  W7[7 Contest Feed]
+  W8[8 Release Validation]
+```
 
 ## 1. User Onboarding and Authentication
 
 ```mermaid
 sequenceDiagram
-  participant U as User
-  participant C as Client
-  participant A as API
-  participant DB as MongoDB
+  participant User
+  participant Client
+  participant API
+  participant Auth as Auth Controller
+  participant DB as User and Profile
 
-  U->>C: Register with email/password/role
-  C->>A: POST /api/auth/register
-  A->>DB: create User + Profile
-  A-->>C: accessToken + refreshToken + user
-  C->>C: store auth state and route by role
+  User->>Client: Register or Google sign in
+  Client->>API: POST /api/auth/register or /api/auth/google
+  API->>Auth: Validate and issue tokens
+  Auth->>DB: Create User and Profile
+  DB-->>Auth: Persisted identity
+  Auth-->>Client: access token + refresh cookie
+  Client->>API: GET /api/user/me
+  API-->>Client: Hydrated user session
 ```
-
-Login path:
-
-1. user submits credentials
-2. API validates password hash
-3. API issues access+refresh token pair
-4. client stores tokens in auth store/localStorage strategy
-5. protected routes call /api/user/me when needed
-
-Refresh path:
-
-1. request returns 401
-2. axios interceptor requests /api/auth/refresh with stored refresh token
-3. API verifies token and rotates
-4. request retries with new access token
 
 ## 2. Platform Connection and Sync
 
 ```mermaid
 flowchart TD
-  S1[User enters handles in settings/onboarding] --> S2[POST /api/integrations/dsa/connect]
-  S2 --> S3[Handles normalized and saved on User]
-  S3 --> S4[POST /api/stats/sync]
-  S4 --> S5[Platform adapters fetch external data]
-  S5 --> S6[Persist GithubStats/DsaStats/PlatformStats]
-  S6 --> S7[Recompute and store DevScore]
-  S7 --> S8[Dashboard and analytics queries refresh]
+  A[User opens Settings Integrations] --> B[Save platform handles or OAuth link]
+  B --> C[POST /api/integrations/*]
+  C --> D[POST /api/stats/sync]
+  D --> E{Sync mode}
+  E -->|Immediate| F[Fetch adapters now]
+  E -->|Queued| G[Create SyncJob and worker pulls]
+  F --> H[Persist GithubStats DsaStats PlatformStats]
+  G --> H
+  H --> I[Recompute DevScore]
+  I --> J[Refresh dashboard analytics leaderboard recruiter]
 ```
-
-Disconnect flow (soft delete):
-
-```mermaid
-flowchart TD
-  D1[User clicks Disconnect in Settings] --> D2[PATCH /api/integrations/platforms/:platform/disconnect]
-  D2 --> D3[User handle cleared on User document]
-  D3 --> D4[Historical stats retained]
-  D4 --> D5[Platform hidden from connected views]
-  D5 --> D6[User can reconnect later via handle save + sync]
-```
-
-Notes:
-
-- disconnect is non-destructive for historical stats rows
-- reconnect uses existing connect endpoint and new handle submission
 
 ## 3. DevScore Lifecycle
 
-Primary computation triggers:
-
-- manual: POST /api/score/recompute
-- sync-linked: POST /api/stats/sync
-- scheduled: nightly cron job
-
-Lifecycle steps:
-
-1. build platformData from stats collections
-2. apply archetype and secondary archetype context
-3. compute normalized platform signals
-4. compute 5 pillar outputs
-5. derive overall score + diagnostics
-6. persist DevScore history (retention cap 30)
-
-Consumption paths:
-
-- dashboard score card and diagnostics
-- leaderboard ranking modes
-- compare view radar data
-- public profile score section
+```mermaid
+stateDiagram-v2
+  [*] --> DataAvailable
+  DataAvailable --> Normalized: platform shaping
+  Normalized --> PlatformScores: scorer per platform
+  PlatformScores --> DomainAggregation: domain affinity weighting
+  DomainAggregation --> DevScoreComputed: nonlinear transform to 0..1000
+  DevScoreComputed --> Persisted: save snapshot and diagnostics
+  Persisted --> Exposed: score api benchmark history
+  Exposed --> [*]
+```
 
 ## 4. Portfolio Lifecycle
 
 ```mermaid
 sequenceDiagram
-  participant U as User
-  participant C as Client Editor
-  participant A as API
-  participant DB as MongoDB
+  participant Dev as Developer
+  participant Editor as Portfolio Editor
+  participant API
+  participant Model as PortfolioCode
+  participant Public as Public Portfolio Viewer
 
-  U->>C: Edit HTML/CSS/JS
-  C->>C: Render live iframe preview
-  U->>C: Save
-  C->>A: POST /api/portfolio
-  A->>A: sanitize raw HTML
-  A->>DB: upsert PortfolioCode
-  U->>C: Toggle visibility
-  C->>A: PATCH /api/portfolio/visibility
-  A->>DB: update isPublic
+  Dev->>Editor: Edit HTML CSS JS
+  Editor->>API: POST /api/portfolio
+  API->>Model: Save raw and sanitized content
+  Dev->>API: PATCH /api/portfolio/visibility
+  API->>Model: Toggle isPublic
+  Public->>API: GET /api/portfolio/:identifier
+  API-->>Public: Public portfolio payload
 ```
-
-Public preview lifecycle:
-
-1. route resolves identifier as ObjectId or displayName
-2. portfolio fetched by userId
-3. visibility check enforced (owner can always view)
-4. html/css/js assembled into sandboxed iframe
 
 ## 5. Recruiter Discovery Workflow
 
-1. recruiter opens recruiter dashboard
-2. enters filters (name, stack, college, score, archetype)
-3. API route /api/recruiter/search applies profile and user filters
-4. latest DevScore per candidate is attached
-5. client renders candidate grid/list with score and portfolio availability
+```mermaid
+flowchart LR
+  R1[Recruiter login] --> R2[Open recruiter dashboard]
+  R2 --> R3[Apply filters skill college role score platform]
+  R3 --> R4[GET /api/recruiter/search]
+  R4 --> R5[Aggregate user+profile+score+platform stats]
+  R5 --> R6[Return ranked candidates with signal cards]
+  R6 --> R7[Open public profile and portfolio]
+```
 
 ## 6. Admin Operations Workflow
 
-1. admin loads /api/admin/stats and /api/admin/users
-2. admin can:
-   - change roles
-   - delete users (cascade)
-   - trigger global sync
-3. global sync loops through connected users and updates stats/scores
+```mermaid
+flowchart TD
+  A1[Admin dashboard] --> A2[View global stats and users]
+  A2 --> A3[Manage user role or delete user]
+  A2 --> A4[Trigger global sync]
+  A4 --> A5[Create global SyncJob]
+  A5 --> A6[Worker processes users]
+  A6 --> A7[Admin polls /api/admin/sync-jobs/:jobId]
+```
 
 ## 7. Contest Feed Workflow
 
-1. client requests /api/contests/upcoming
-2. server cacheGet checks Redis cache
-3. on miss, fetch Codeforces + LeetCode upcoming contests
-4. merge and sort by start time
-5. cache for 1 hour and return
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant ContestService
+  participant Sources as Contest sources
+
+  Client->>API: GET /api/contests/upcoming
+  API->>ContestService: fetch upcoming contests
+  ContestService->>Sources: provider fetch
+  Sources-->>ContestService: normalized contests
+  ContestService-->>API: sorted feed
+  API-->>Client: upcoming contests list
+```
 
 ## 8. Release Validation Workflow
 
-Recommended pre-deploy flow:
+```mermaid
+flowchart TD
+  V1[Update code and docs] --> V2[Run client lint and build]
+  V2 --> V3[Run server tests]
+  V3 --> V4[Verify auth refresh and protected routes]
+  V4 --> V5[Verify sync and score recompute]
+  V5 --> V6[Verify recruiter and admin flows]
+  V6 --> V7[Audit risk and status docs]
+  V7 --> V8[Release decision]
+```
 
-1. frontend lint
-2. frontend production build
-3. backend tests
-4. dependency audit
-5. documentation sync
-6. audit review and blocker closure
+## Workflow Gaps To Track
 
-Detailed checklist: [devfolio_project_audit.md](./devfolio_project_audit.md) and [task.md](./task.md)
-
-## Workflow Gaps to Track
-
-- privacy checks should be consistently enforced across all optional-auth read endpoints
-- token refresh architecture should migrate to httpOnly cookie flow
-- scheduler execution should be made safe for multi-instance deployments
+- Expand e2e workflow automation for recruiter and admin paths.
+- Keep queued sync observability and retry metrics visible.
+- Keep docs and route contract changes synchronized.

@@ -1,85 +1,83 @@
-﻿# DevFolio Summary
+﻿# DevFolio Summary (Diagram First)
 
-Last updated: 2026-03-29
+This is the one-page visual summary of product, architecture, status, and release readiness.
 
-## One-Page Project Picture
+## Theoretical Foundation
+The summary uses systems thinking to unify product, engineering, and operations views.
 
-DevFolio is a platform that turns fragmented developer activity into a unified profile and score system. Users connect coding/AI platforms, sync data, compute DevScore v2, and present themselves through a public profile and live portfolio.
+- Platform value emerges from feedback loops between user behavior and analytics.
+- Socio-technical alignment is required for trustworthy scoring and recruiter insight.
+- Release readiness depends on both capability breadth and control maturity.
 
-## What Exists Today
+## 1. One-Page Project Picture
 
-### Product surfaces
+```mermaid
+flowchart LR
+  U[Developers Recruiters Admins] --> FE[React client]
+  FE --> API[Express API]
+  API --> DB[(MongoDB)]
+  API --> EXT[Developer platform APIs]
+  API --> SCORE[DevScore engine]
+  SCORE --> FE
+```
 
-- Public marketing + authentication pages
-- Authenticated dashboard with quick stats, streaks, heatmaps, and diagnostics
-- Analytics deep dive with platform tabs and custom visuals
-- Public profile pages
-- Portfolio editor + live preview + public preview
-- Leaderboard with multi-mode ranking
-- Compare page with dual-user radar analytics
-- Recruiter search panel
-- Admin operations panel
+## 2. Product Surface Overview
 
-### Platform coverage
+```mermaid
+flowchart TD
+  PUBLIC[Public surfaces] --> P1[Landing]
+  PUBLIC --> P2[Public profile]
+  PUBLIC --> P3[Portfolio preview]
+  PUBLIC --> P4[Contest feed]
 
-Core 7 connected platforms:
+  AUTH[Authenticated developer surfaces] --> D1[Dashboard]
+  AUTH --> D2[Analytics]
+  AUTH --> D3[Projects]
+  AUTH --> D4[Portfolio editor]
+  AUTH --> D5[Leaderboard and compare]
 
-- GitHub
-- LeetCode
-- Codeforces
-- HackerRank
-- CodeChef
-- Kaggle
-- Hugging Face
+  ROLE[Role-specific surfaces] --> R1[Recruiter dashboard]
+  ROLE --> R2[Admin dashboard]
+```
 
-### Scoring system
+## 3. Data and Scoring Lifecycle
 
-- DevScore v2, score range 0-1000
-- 5 pillars: problem solving, building, community, consistency, specialization
-- Primary + secondary archetype support (weighted blending)
-- Domain fit + platform diagnostics + strengths/improvements
+```mermaid
+flowchart TD
+  A[Connect handles and OAuth] --> B[Sync adapters fetch metrics]
+  B --> C[Persist stats collections]
+  C --> D[Compute DevScore]
+  D --> E[Persist score history and diagnostics]
+  E --> F[Dashboard analytics leaderboard recruiter]
+```
 
-## Runtime Shape
+## 4. Current Quality Snapshot
 
-- Frontend: React 19 + Vite + TanStack Query + Zustand + Recharts + Tailwind
-- Backend: Express 5 + Mongoose + JWT + Redis (optional) + node-cron
-- Data: MongoDB collections for user/profile/platform stats/devscore/projects/portfolio
+```mermaid
+pie title Quality Snapshot
+  "Security and privacy hardening" : 30
+  "Reliability and sync safety" : 25
+  "Feature completeness" : 20
+  "Quality automation" : 15
+  "UX and accessibility polish" : 10
+```
 
-## Current Quality Snapshot
+## 5. Readiness Assessment Model
 
-Validated against current codebase:
+```mermaid
+flowchart TD
+  R1[Critical blockers resolved] --> R2[Security controls in place]
+  R2 --> R3[Core workflows stable]
+  R3 --> R4[Quality expansion ongoing]
+  R4 --> R5[Ready with monitored rollout]
+```
 
-- Frontend lint: pass
-- Frontend build: pass
-- Backend tests: pass (smoke-level)
-- Dependency audit (prod deps): 0 vulnerabilities (client + server)
+## 6. Fast Onboarding Path
 
-## Readiness Assessment
-
-Overall: partially production ready.
-
-Major strengths:
-
-- Solid feature breadth and coherent data model
-- Clear platform adapter boundaries
-- Scoring pipeline implemented and persisted
-- Good baseline middleware security (helmet, cors, rate limits, csrf-origin checks)
-
-Current blockers before production go-live:
-
-- Authorization/privacy gaps in some read paths
-- Token storage architecture still uses localStorage refresh strategy
-- Scheduler scaling model can duplicate cron jobs in multi-instance deploys
-- Coverage depth is still low (mostly smoke tests)
-
-Detailed breakdown: [devfolio_project_audit.md](./devfolio_project_audit.md)
-
-## If You Need To Onboard Fast
-
-Read these files in sequence:
-
-1. [ARCHITECTURE.md](./ARCHITECTURE.md)
-2. [FEATURES.md](./FEATURES.md)
-3. [API_REFERENCE.md](./API_REFERENCE.md)
-4. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
-5. [WORKFLOW.md](./WORKFLOW.md)
+```mermaid
+flowchart LR
+  O1[Read README docs hub] --> O2[Read ARCHITECTURE and API reference]
+  O2 --> O3[Run environment setup]
+  O3 --> O4[Trace workflow and scoring docs]
+  O4 --> O5[Pick tasks from plan and status docs]
+```

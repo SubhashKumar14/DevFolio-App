@@ -1,174 +1,197 @@
-﻿# Architecture
+﻿# Architecture (Diagram First)
 
-Last updated: 2026-03-29
+This document models DevFolio as runtime topology, module boundaries, data flows, and security boundaries.
 
-## System Overview
+## Theoretical Foundation
+The system architecture applies separation-of-concerns and bounded-context design for maintainability.
 
-DevFolio uses a split client/server architecture:
+- Layering isolates presentation, application, domain, and persistence concerns.
+- Adapter boundaries localize external API volatility to service modules.
+- Controlled async workflows balance consistency, throughput, and operational safety.
 
-- client: React SPA (routing, UI state, API orchestration)
-- server: Express API (auth, business logic, platform sync, scoring, persistence)
-- database: MongoDB via Mongoose
-- cache: Redis via ioredis (optional in production when REDIS_URL is set)
-
-## Runtime Topology
+## 1. System Topology
 
 ```mermaid
 flowchart LR
-  U[Browser] --> C[React SPA]
-  C -->|REST /api| A[Express API]
-  A --> M[(MongoDB)]
-  A --> R[(Redis Cache Optional)]
-  A --> G[GitHub API]
-  A --> L[LeetCode API]
-  A --> CF[Codeforces API]
-  A --> HR[HackerRank Source]
-  A --> CC[CodeChef Source]
-  A --> K[Kaggle Source]
-  A --> HF[Hugging Face API]
+  subgraph Client[Frontend: React SPA]
+    R[React Router]
+    Q[React Query Cache]
+    Z[Zustand Stores]
+    UI[Pages and Components]
+    R --> UI
+    UI --> Q
+    UI --> Z
+  end
+
+  subgraph Server[Backend: Express API]
+    APP[app.js middleware chain]
+    ROUTES[Route modules]
+    CTRL[Controllers]
+    SRV[Services and DevScore Engine]
+    APP --> ROUTES --> CTRL --> SRV
+  end
+
+  subgraph Data[Persistence]
+    MONGO[(MongoDB Collections)]
+    REDIS[(Redis lock and cache optional)]
+  end
+
+  subgraph External[External Platforms]
+    GITHUB[GitHub]
+    LEETCODE[LeetCode]
+    CODEFORCES[Codeforces]
+    HACKERRANK[HackerRank]
+    CODECHEF[CodeChef]
+    KAGGLE[Kaggle]
+    HUGGINGFACE[Hugging Face]
+    CONTESTS[Contest providers]
+  end
+
+  Client -->|HTTP /api| Server
+  Server --> MONGO
+  Server --> REDIS
+  SRV --> GITHUB
+  SRV --> LEETCODE
+  SRV --> CODEFORCES
+  SRV --> HACKERRANK
+  SRV --> CODECHEF
+  SRV --> KAGGLE
+  SRV --> HUGGINGFACE
+  ROUTES --> CONTESTS
 ```
 
-## Frontend Architecture
+## 2. Request Lifecycle Through Middleware
 
-### Composition
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Express as Express App
+  participant Security as Helmet+CORS+CSRF
+  participant Obs as Request Context+Logger
+  participant RL as Rate Limiter
+  participant Route as Domain Route
+  participant Controller
+  participant Service
+  participant Mongo
 
-- Entry: client/src/main.jsx
-- Route graph: client/src/App.jsx
-- Layout shell:
-  - RootLayout for public/no-sidebar flows
-  - DashboardLayout for authenticated app shell
-- Route protection: ProtectedRoute with optional role filtering support
+  Browser->>Express: Request /api/*
+  Express->>Security: Security headers and origin checks
+  Express->>Obs: Attach requestId and request metadata
+  Express->>RL: API limiter
+  Express->>Route: Route match
+  Route->>Controller: Validated request
+  Controller->>Service: Business logic
+  Service->>Mongo: Read/Write
+  Mongo-->>Service: Data
+  Service-->>Controller: Response payload
+  Controller-->>Browser: JSON with requestId
+```
 
-### State and Data
+## 3. Frontend and Backend Module UML
 
-- Server state: TanStack Query
-- Auth/token + session state: Zustand (authStore)
-- Theme state: Zustand (themeStore)
-- API client: Axios instance with auth header + 401 refresh interceptor
+```mermaid
+classDiagram
+  class AppRouter {
+    +Public routes
+    +Protected routes
+    +Role guards
+  }
+  class AuthStore {
+    +user
+    +accessToken
+    +isAuthHydrated
+    +setAccessToken()
+    +logout()
+  }
+  class ApiClient {
+    +axios instance
+    +auth interceptor
+    +refresh lock
+  }
+  class Controllers {
+    +auth
+    +profile
+    +stats
+    +score
+    +recruiter
+    +admin
+  }
+  class Services {
+    +adapter services
+    +devscoreEngine
+    +sync queue
+  }
+  class Models {
+    +User
+    +Profile
+    +DevScore
+    +Stats collections
+  }
 
-### UI Modules
+  AppRouter --> AuthStore
+  AppRouter --> ApiClient
+  ApiClient --> Controllers
+  Controllers --> Services
+  Services --> Models
+```
 
-- Dashboard components: quick stats, streak counter, activity heatmap, platform cards
-- Analytics: platform-specific cards/charts/heatmaps
-- Portfolio editor: raw code editing + preview iframe pipeline
-
-## Backend Architecture
-
-### App bootstrap
-
-- app.js wires middleware + route prefixes
-- server.js connects MongoDB, imports scheduler, starts listener
-
-### Middleware chain
-
-1. helmet
-2. cors (origin from CLIENT_URL)
-3. body parsers
-4. global apiLimiter
-5. csrfOriginProtection
-6. route handlers
-7. errorHandler
-
-### Route domains
-
-- auth
-- user/profile
-- integrations
-- stats/score
-- projects/portfolio
-- leaderboard/compare
-- recruiter/admin
-- contests/export/search
-
-## Data Architecture
-
-Core collections:
-
-- User
-- Profile
-- GithubStats
-- DsaStats
-- PlatformStats
-- DevScore
-- Project
-- PortfolioCode
-
-Key persistence patterns:
-
-- Profile, GithubStats, DsaStats, PlatformStats, PortfolioCode are 1:1 with userId
-- DevScore is append-only history with retention cap (latest 30)
-- Project is 1:N from user
-
-## Scoring Pipeline Architecture
+## 4. Data and Scoring Pipeline
 
 ```mermaid
 flowchart TD
-  S1[Collect platform stats] --> S2[Normalize platform signals]
-  S2 --> S3[Apply archetype/domain weighting]
-  S3 --> S4[Compute 5 pillars]
-  S4 --> S5[Derive diagnostics strengths improvements]
-  S5 --> S6[Amplify to 0-1000 DevScore]
-  S6 --> S7[Persist DevScore history]
+  A[User connects platforms] --> B[Adapters pull raw platform data]
+  B --> C[Persist to stats collections]
+  C --> D[Compute DevScore]
+  D --> E[Store DevScore snapshot]
+  E --> F[Dashboard Analytics Leaderboard Recruiter]
+  E --> G[Score history and benchmark]
+  C --> H[Heatmaps and deep platform analytics]
 ```
 
-Trigger points:
+## 5. Runtime Startup Topology
 
-- POST /api/score/recompute
-- POST /api/stats/sync
-- nightly cron scheduler
+```mermaid
+flowchart TD
+  S1[Load env and validate required vars] --> S2[Connect MongoDB]
+  S2 --> S3[Start sync job worker]
+  S3 --> S4[Start Express server]
+  S4 --> S5[Schedule cron jobs]
+  S5 --> S6[Accept traffic]
+```
 
-## Integration Architecture (Platform Adapters)
+## 6. Security Boundary Model
 
-Adapter modules in server/src/services:
+```mermaid
+flowchart LR
+  subgraph Public
+    P1[Landing]
+    P2[Public profile]
+    P3[Portfolio preview]
+    P4[Leaderboard optional auth]
+  end
 
-- githubService.js
-- leetcodeService.js
-- codeforcesService.js
-- hackerrankService.js
-- codechefService.js
-- kaggleService.js
-- huggingfaceService.js
-- contestService.js
+  subgraph Authenticated
+    A1[Developer pages]
+    A2[Recruiter dashboard]
+    A3[Admin dashboard]
+  end
 
-Pattern:
+  subgraph Controls
+    C1[JWT access token]
+    C2[Refresh cookie]
+    C3[Role guard]
+    C4[Owner/public visibility checks]
+    C5[Rate limit and origin protection]
+  end
 
-- fetch platform payload
-- normalize shape
-- persist into dedicated stats model
-- include in buildPlatformData for scoring
+  Public --> Controls
+  Authenticated --> Controls
+```
 
-## Caching Architecture
+## 7. Architecture Invariants
 
-- cacheGet helper wraps Redis get/setex with fallback when Redis unavailable
-- contests and leaderboard paths use cache read-through
-- cache invalidation helper exists but is currently not widely wired into write paths
-
-## Scheduler Architecture
-
-- scheduler imported directly in server.js
-- cron runs nightly sync for users with connected handles
-- updates stats models + recomputes devscore history
-
-## Security Architecture (Current)
-
-Implemented:
-
-- JWT-based auth
-- roleGuard for admin/recruiter paths
-- auth/sync/api rate limits
-- csrf origin check for non-safe methods
-- DOMPurify HTML sanitization for portfolio save path
-
-Known architecture risks:
-
-- token storage strategy still localStorage-centric
-- some authorization/privacy checks are not uniformly enforced across all read endpoints
-- scheduler import model can duplicate jobs in horizontally scaled deployments
-
-## Cross-References
-
-- [API_REFERENCE.md](./API_REFERENCE.md)
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
-- [WORKFLOW.md](./WORKFLOW.md)
-- [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md)
-- [devfolio_project_audit.md](./devfolio_project_audit.md)
+- Frontend talks only to /api via shared apiClient.
+- All protected backend domains use authenticate middleware.
+- Role-sensitive routes use explicit roleGuard.
+- DevScore persists snapshots and retains bounded history.
+- Sync operations can run as queued background jobs.

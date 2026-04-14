@@ -1,130 +1,90 @@
-﻿# DevFolio Documentation Hub
+﻿# DevFolio Documentation Hub (Diagram First)
 
-Last updated: 2026-04-03
-Status: synchronized with current audit cycle (release hardening in progress)
+This documentation set is rewritten to be diagram-centric. Use this page as the navigation map.
 
-## Start Here
+## Theoretical Foundation
+DevFolio documentation follows a multimodal knowledge model where diagrams and prose work together to reduce onboarding time and ambiguity.
 
-If this is your first time in the project, read in this order:
-
-1. [summary.md](./summary.md) - one-page project snapshot
-2. [ARCHITECTURE.md](./ARCHITECTURE.md) - system design and data flow
-3. [FEATURES.md](./FEATURES.md) - current product capabilities
-4. [API_REFERENCE.md](./API_REFERENCE.md) - endpoint-level contract
-5. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - persistence and indexing contract
-
-## Fast Navigation By Persona
-
-| Persona | Read First | Then |
-| --- | --- | --- |
-| Frontend engineer | [FEATURES.md](./FEATURES.md) | [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md), [platform_analytics_catalog.md](./platform_analytics_catalog.md) |
-| Backend engineer | [ARCHITECTURE.md](./ARCHITECTURE.md) | [API_REFERENCE.md](./API_REFERENCE.md), [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md), [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md) |
-| Product owner | [summary.md](./summary.md) | [ROADMAP.md](./ROADMAP.md), [implementation_plan_status.md](./implementation_plan_status.md) |
-| QA / release | [devfolio_project_audit.md](./devfolio_project_audit.md) | [task.md](./task.md), [fixes.md](./fixes.md), [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) |
-| Recruiter module stakeholder | [all_recruiter_platforms.md](./all_recruiter_platforms.md) | [FEATURES.md](./FEATURES.md), [API_REFERENCE.md](./API_REFERENCE.md) |
-
-## Current Product Snapshot
-
-DevFolio is a full-stack developer identity platform with:
-
-- 7 connected platforms: GitHub, LeetCode, Codeforces, HackerRank, CodeChef, Kaggle, Hugging Face
-- DevScore v2 (0-1000), 5-pillar scoring, archetype weighting
-- Public profile pages, portfolio editor/preview, leaderboard, compare, recruiter search, admin panel
-- role model: developer, recruiter, mentor, admin
-- manual + scheduled sync workflows for external platform analytics
-
-## Verified Engineering Status (2026-04-03)
-
-Validation checks executed against current workspace:
-
-- frontend lint: pass
-- frontend production build: pass
-- backend tests: pass (`2` suites, `9` tests)
-- client production dependency audit: `0` vulnerabilities
-- server production dependency audit: `0` vulnerabilities
-- backend startup in clean env: **fails** without complete env bootstrap alignment (`MONGODB_URI` missing)
-
-See [devfolio_project_audit.md](./devfolio_project_audit.md) for full findings and risk classification.
-
-## Release Readiness Snapshot
-
-- recommendation: **conditional no-go** for full production launch
-- blockers: see P0 tasks in [task.md](./task.md)
-- progress tracking: [implementation_plan_status.md](./implementation_plan_status.md)
-- completed fixes and validated deltas: [fixes.md](./fixes.md)
+- Diagram-first structure supports rapid mental model construction.
+- Theoretical narrative captures assumptions, invariants, and trade-offs behind each diagram.
+- Cross-document traceability keeps architecture, API, data, and delivery theory aligned.
 
 ## Documentation Map
 
-| File | Purpose |
-| --- | --- |
-| [summary.md](./summary.md) | Executive summary and readiness snapshot |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Runtime architecture, boundaries, and data flow |
-| [API_REFERENCE.md](./API_REFERENCE.md) | API contracts, auth model, request/response details |
-| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Mongo schema, indexes, data constraints |
-| [FEATURES.md](./FEATURES.md) | Feature inventory by role and UI surface |
-| [TECH_STACK.md](./TECH_STACK.md) | Dependency and tooling catalog |
-| [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md) | Source tree and ownership map |
-| [UI_UX_DESIGN_SYSTEM.md](./UI_UX_DESIGN_SYSTEM.md) | UI tokens, patterns, accessibility guidelines |
-| [WORKFLOW.md](./WORKFLOW.md) | End-user and backend workflow sequences |
-| [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) | Local setup, environment variables, runbook |
-| [CONCEPTS_AND_IMPLEMENTATION.md](./CONCEPTS_AND_IMPLEMENTATION.md) | Core product concepts and implementation notes |
-| [PLATFORM_ADAPTERS.md](./PLATFORM_ADAPTERS.md) | External platform adapter details |
-| [platform_analytics_catalog.md](./platform_analytics_catalog.md) | Platform analytics dimensions and visualizations |
-| [all_recruiter_platforms.md](./all_recruiter_platforms.md) | Recruiter search signal inventory |
-| [ROADMAP.md](./ROADMAP.md) | Product and engineering roadmap |
-| [implementation_plan.md](./implementation_plan.md) | Delivery and hardening plan |
-| [implementation_plan_status.md](./implementation_plan_status.md) | Current status against the plan |
-| [task.md](./task.md) | Actionable engineering task board |
-| [devfolio_project_audit.md](./devfolio_project_audit.md) | Full pre-deployment audit report |
-| [fixes.md](./fixes.md) | Applied fixes and historical change log |
+```mermaid
+mindmap
+  root((DevFolio Docs))
+    Architecture
+      ARCHITECTURE
+      FOLDER_STRUCTURE
+      TECH_STACK
+    Product
+      FEATURES
+      CONCEPTS_AND_IMPLEMENTATION
+      UI_UX_DESIGN_SYSTEM
+      WORKFLOW
+    Data and Scoring
+      DATABASE_SCHEMA
+      SCORING
+      DEVSCORE_ALGORITHM_FLOW
+      platform_analytics_catalog
+    API and Integrations
+      API_REFERENCE
+      PLATFORM_ADAPTERS
+      all_recruiter_platforms
+    Delivery and Governance
+      implementation_plan
+      implementation_plan_status
+      ROADMAP
+      task
+      fixes
+      devfolio_project_audit
+      summary
+    Operations
+      ENVIRONMENT_SETUP
+```
 
-## Visual Documentation Navigation
+## System Snapshot
+
+```mermaid
+flowchart LR
+  U[Users: Developer Recruiter Admin] --> FE[Client SPA React Vite]
+  FE --> API[Server Express API]
+  API --> DB[(MongoDB)]
+  API --> CACHE[(Redis optional)]
+  API --> GH[GitHub APIs]
+  API --> LC[LeetCode APIs]
+  API --> CF[Codeforces APIs]
+  API --> HR[HackerRank APIs]
+  API --> CC[CodeChef APIs]
+  API --> KG[Kaggle APIs]
+  API --> HF[Hugging Face APIs]
+  API --> SCORE[DevScore Engine]
+  SCORE --> DB
+  DB --> FE
+```
+
+## Read Path By Persona
 
 ```mermaid
 flowchart TD
-	A[summary.md] --> B[ARCHITECTURE.md]
-	A --> C[FEATURES.md]
-	B --> D[API_REFERENCE.md]
-	B --> E[DATABASE_SCHEMA.md]
-	C --> F[UI_UX_DESIGN_SYSTEM.md]
-	C --> G[platform_analytics_catalog.md]
-	D --> H[PLATFORM_ADAPTERS.md]
-	D --> I[WORKFLOW.md]
-	E --> I
-	H --> J[CONCEPTS_AND_IMPLEMENTATION.md]
-	A --> K[ROADMAP.md]
-	K --> L[implementation_plan.md]
-	L --> M[implementation_plan_status.md]
-	M --> N[task.md]
-	N --> O[fixes.md]
-	A --> P[devfolio_project_audit.md]
-	P --> N
-	P --> O
-	L --> Q[ENVIRONMENT_SETUP.md]
-	C --> R[all_recruiter_platforms.md]
+  A[Start Here] --> B{What are you doing?}
+  B -->|Understand architecture| C[ARCHITECTURE + FOLDER_STRUCTURE + TECH_STACK]
+  B -->|Build feature| D[FEATURES + WORKFLOW + API_REFERENCE]
+  B -->|Work on scoring| E[SCORING + DEVSCORE_ALGORITHM_FLOW + DATABASE_SCHEMA]
+  B -->|Work on platform adapters| F[PLATFORM_ADAPTERS + platform_analytics_catalog]
+  B -->|Release safely| G[implementation_plan + implementation_plan_status + devfolio_project_audit]
+  B -->|Fix production issues| H[fixes + ENVIRONMENT_SETUP + API_REFERENCE]
 ```
 
-## Practical Reading Paths
+## Coverage Matrix
 
-### Path A - Understand project quickly (30-45 min)
-
-1. summary
-2. architecture
-3. features
-4. API reference
-5. database schema
-
-### Path B - Release hardening path
-
-1. audit
-2. task board
-3. implementation status
-4. fixes log
-5. environment setup
-
-### Path C - Extend a platform integration
-
-1. platform adapters
-2. concepts and implementation
-3. API reference (stats + score + integrations)
-4. workflow
+| Domain | Primary Docs |
+|---|---|
+| System design | ARCHITECTURE.md, FOLDER_STRUCTURE.md, TECH_STACK.md |
+| Product and UX | FEATURES.md, UI_UX_DESIGN_SYSTEM.md, WORKFLOW.md |
+| Data and score | DATABASE_SCHEMA.md, SCORING.md, DEVSCORE_ALGORITHM_FLOW.md |
+| API and adapters | API_REFERENCE.md, PLATFORM_ADAPTERS.md |
+| Recruiter intelligence | all_recruiter_platforms.md, platform_analytics_catalog.md |
+| Delivery and audit | implementation_plan.md, implementation_plan_status.md, task.md, fixes.md, devfolio_project_audit.md, ROADMAP.md, summary.md |
+| Local and deployment ops | ENVIRONMENT_SETUP.md |

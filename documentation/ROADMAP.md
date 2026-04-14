@@ -1,95 +1,83 @@
-﻿# Roadmap
+﻿# Roadmap (Diagram First)
 
-Last updated: 2026-03-29
+This roadmap visualizes completed milestones, active tracks, and near-term plans.
 
-## Status Legend
+## Theoretical Foundation
+Roadmapping is outcome-oriented and uncertainty-aware.
 
-- done: implemented and in current codebase
-- in-progress: partially implemented or blocked by hardening work
-- planned: not yet implemented
+- Time horizons represent confidence bands, not deterministic promises.
+- Track-based planning separates foundational risk from feature expansion.
+- Decision gates maintain strategic focus under changing constraints.
 
-## Completed Milestones
+## 1. Milestone Timeline
 
-### Core platform and scoring
+```mermaid
+timeline
+  title DevFolio Delivery Timeline
+  section Completed
+    Core architecture and feature surfaces : done
+    DevScore v2 integration : done
+    Privacy and security hardening P0/P1 : done
+    Sync queue reliability and admin controls : done
+  section In Progress
+    Quality automation depth : active
+    Recruiter intelligence expansion : active
+    UX and accessibility refinements : active
+  section Planned
+    Ops tooling improvements : queued
+    Expanded testing matrix : queued
+    Search and recommendation enhancements : queued
+```
 
-- done: 7 core platform integration pipeline
-- done: DevScore v2 with 5 pillars and 0-1000 scale
-- done: secondary archetype support in model + UI + score flow
-- done: score history retention cap (latest 30)
+## 2. Priority Tracks
 
-### Product surfaces
+```mermaid
+flowchart LR
+  A[Track A: Production hardening] --> A1[security consistency and operational confidence]
+  B[Track B: Quality and test depth] --> B1[integration and e2e coverage]
+  C[Track C: Recruiter intelligence] --> C1[richer ranking and filter semantics]
+  D[Track D: UX and accessibility] --> D1[chart ergonomics and inclusive design]
+```
 
-- done: dashboard with heatmap, streak, diagnostics
-- done: analytics deep-dive page with per-platform views
-- done: public profile page
-- done: portfolio editor, save, preview, visibility controls
-- done: leaderboard with multi-mode ranking
-- done: compare page with radar
-- done: recruiter dashboard
-- done: admin dashboard
+## 3. Next 30 Day Plan
 
-### Ops and baseline security
+```mermaid
+flowchart TD
+  N1[Stabilize regression suite] --> N2[Cover auth refresh and role routes]
+  N2 --> N3[Cover sync and score recompute]
+  N3 --> N4[Cover recruiter and admin workflows]
+  N4 --> N5[Publish release confidence report]
+```
 
-- done: helmet, cors, rate limits, csrf origin middleware
-- done: centralized error middleware
-- done: HTML sanitization for portfolio persistence
-- done: production-oriented env checks and encryption-key fallback handling
+## 4. Next 60-90 Day Plan
 
-## Current Priority Tracks
+```mermaid
+flowchart TD
+  M1[Expand recruiter search intelligence] --> M2[Platform-aware filters and explainability]
+  M2 --> M3[Improve recommendation quality]
+  M3 --> M4[Operational dashboarding and alerting]
+  M4 --> M5[Continuous quality gate maturity]
+```
 
-### Track A - Production hardening
+## 5. Decision Gate Model
 
-- in-progress: tighten authorization and privacy consistency for read endpoints
-- in-progress: migrate token architecture away from localStorage refresh strategy
-- planned: encrypt github access token at rest using dedicated key utility
-- planned: scheduler lock or worker split for multi-instance safety
+```mermaid
+flowchart TD
+  G1[Feature complete] --> G2[Security and privacy checks pass]
+  G2 --> G3[Quality gate pass]
+  G3 --> G4[Operational readiness pass]
+  G4 --> G5[Release go]
+  G2 -->|fail| R1[Remediate and retest]
+  G3 -->|fail| R1
+  G4 -->|fail| R1
+```
 
-### Track B - Quality and test depth
+## 6. Strategic Risks and Mitigations
 
-- in-progress: smoke tests exist
-- planned: integration tests for auth refresh, sync, recruiter search, privacy checks
-- planned: e2e tests for key user journeys (onboarding -> sync -> score -> profile)
-
-### Track C - Recruiter intelligence
-
-- planned: direct platform filters in recruiter search
-- planned: pillar threshold filters
-- planned: score recency and trend deltas in result cards
-
-### Track D - UX and accessibility
-
-- in-progress: responsive heatmap and tooltip layering improvements are in place
-- planned: improve alt text coverage and keyboard semantics on chart-heavy components
-- planned: accessibility pass for interactive visualization controls
-
-## Next 30-Day Plan
-
-1. close P0 security/privacy blockers
-2. ship token storage migration path
-3. add integration tests for protected endpoints
-4. stabilize scheduler for horizontal deployment
-5. run full pre-deploy audit and staging verification
-
-## Next 60-90 Day Plan
-
-1. recruiter feature depth and enterprise filters
-2. analytics enrichment and trend insights
-3. mentoring/mentor-specific experience surface
-4. observability upgrade (structured logging + request correlation + metrics)
-
-## Decision Gates
-
-Before production go-live:
-
-- all P0 blockers from task.md resolved
-- audit risk score improved to release threshold
-- core integration tests passing in CI
-- deployment runbook tested in staging
-
-## Cross-References
-
-- [implementation_plan.md](./implementation_plan.md)
-- [implementation_plan_status.md](./implementation_plan_status.md)
-- [task.md](./task.md)
-- [devfolio_project_audit.md](./devfolio_project_audit.md)
-- [fixes.md](./fixes.md)
+```mermaid
+flowchart LR
+  R1[External API volatility] --> M1[adapter fallback and normalization guards]
+  R2[Test gap regressions] --> M2[incremental test matrix expansion]
+  R3[Ranking trust concerns] --> M3[diagnostics transparency and score explainability]
+  R4[Operational blind spots] --> M4[sync job observability and status endpoints]
+```

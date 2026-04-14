@@ -1,200 +1,102 @@
-﻿# Features
+﻿# Features (Diagram First)
 
-Last updated: 2026-03-29
+This file catalogs product features by role and system capability.
 
-## Feature Inventory
+## Theoretical Foundation
+Feature modeling is capability-driven and role-aware.
 
-This document enumerates the features currently implemented in code, grouped by domain and role.
+- Role-based surface design ensures each user class gets relevant workflows.
+- Capability decomposition supports incremental delivery without breaking core journeys.
+- Feature reliability depends on consistency across API, data, and UI boundaries.
 
-## Role Model
+## 1. Feature Inventory Graph
 
-- developer
-- recruiter
-- mentor
-- admin
+```mermaid
+flowchart LR
+  PUBLIC[Public] --> LANDING[Landing and marketing]
+  PUBLIC --> AUTH[Login Register OAuth]
+  PUBLIC --> PROFILE[Public profile]
+  PUBLIC --> PORTFOLIO[Public portfolio preview]
+  PUBLIC --> CONTESTS[Contest feed]
 
-Current behavior notes:
+  DEV[Developer and Mentor] --> DASH[Dashboard]
+  DEV --> ONBOARDING[Onboarding]
+  DEV --> SETTINGS[Settings and integrations]
+  DEV --> ANALYTICS[Analytics]
+  DEV --> PROJECTS[Project management]
+  DEV --> PORT_EDIT[Portfolio editor]
+  DEV --> LEADERBOARD[Leaderboard]
+  DEV --> COMPARE[Compare]
+  DEV --> GOALS[Goals and wrapped]
 
-- Most product functionality targets developer role.
-- Recruiter and admin have dedicated dashboard pages and protected backend routes.
-- Mentor role exists in auth model and route defaults but does not yet have a dedicated dashboard surface.
+  RECRUITER[Recruiter] --> RECRUIT[Recruiter search dashboard]
+  ADMIN[Admin] --> ADMIN_PANEL[Admin dashboard and sync ops]
+```
 
-## Public Features
+## 2. Role Model Diagram
 
-### Landing and Marketing
+```mermaid
+flowchart TD
+  R1[developer] --> F1[full developer workflow]
+  R2[mentor] --> F2[same as developer workflow]
+  R3[recruiter] --> F3[recruiter dashboard + settings]
+  R4[admin] --> F4[admin operations + recruiter access + settings]
+```
 
-- Interactive hero and visual storytelling
-- Platform-first messaging (7 core platform support)
-- Links to auth onboarding
+## 3. Feature Lifecycle Flow
 
-### Authentication Pages
+```mermaid
+sequenceDiagram
+  participant User
+  participant Client
+  participant API
+  participant Data
 
-- Register with role selection
-- Login with role-based post-auth redirection
+  User->>Client: Perform action from feature page
+  Client->>API: Call route contract
+  API->>Data: Read or write models
+  Data-->>API: Updated state
+  API-->>Client: Response payload
+  Client-->>User: UI feedback and refreshed cards
+```
 
-### Public Profile
+## 4. Scoring and Analytics Feature Map
 
-- Route: /p/:handle
-- Displays profile bio/college/archetype summary
-- Shows score, heatmap, streak and platform cards
-- Share and contact actions
-- Links to public portfolio and optional resume URL
+```mermaid
+flowchart TD
+  S1[Manual or scheduled sync] --> S2[Adapters fetch data]
+  S2 --> S3[Stats collections updated]
+  S3 --> S4[DevScore recompute]
+  S4 --> S5[Dashboard cards]
+  S4 --> S6[Analytics deep sections]
+  S4 --> S7[Leaderboard and compare]
+  S4 --> S8[Recruiter ranking]
+```
 
-### Public Portfolio Preview
+## 5. Operations Feature Map
 
-- Route: /portfolio/:username and /portfolio/preview/:username
-- Renders saved HTML/CSS/JS in sandboxed iframe
+```mermaid
+flowchart LR
+  O1[Manual sync endpoint] --> O2[SyncJob queue]
+  O2 --> O3[Worker processes users]
+  O3 --> O4[Status polling endpoints]
+  O4 --> O5[Admin observability]
+```
 
-### Public Contest Feed
+## 6. Security and Reliability Features
 
-- Route: /dashboard/contests (app page)
-- Backend endpoint /api/contests/upcoming
-- Merged and sorted upcoming entries from Codeforces + LeetCode
+```mermaid
+flowchart TD
+  X1[JWT access token in memory] --> X2[Refresh token in httpOnly cookie]
+  X2 --> X3[Auth bootstrap at app start]
+  X3 --> X4[Role guard on frontend and backend]
+  X4 --> X5[Owner/public visibility checks]
+  X5 --> X6[Rate limiting and origin protection]
+```
 
-## Authenticated Developer Features
+## 7. Backlog and Gaps
 
-### Dashboard
-
-- Quick stats cards
-- Platform activity heatmap
-- Streak counter
-- Profile completeness card
-- DevScore pillar preview
-- Platform diagnostics blocks
-- Export user data action
-- Manual sync action
-
-### Onboarding
-
-- Select primary archetype
-- Connect platform usernames/handles
-- Structured platform field inputs
-
-### Settings
-
-- Profile data edit
-- Platform handle updates and save/sync
-- Platform disconnect action (soft delete via PATCH, reconnect anytime)
-- Archetype + secondary archetype assignment
-- Privacy toggle for profile visibility
-
-### Profile Management
-
-- Edit bio
-- Edit comma-based tech stack
-- Avatar and social metadata (via settings/profile)
-
-### Project Management
-
-- Create/update/delete projects
-- List projects in dashboard section
-- GitHub stars auto-fetch on create (best effort)
-
-### Portfolio Builder
-
-- Multi-tab editor (HTML/CSS/JS)
-- Live preview with optional console panel
-- Save and publish visibility controls
-- Sanitized HTML persistence for public render
-
-### Analytics
-
-- Tab/query-parameter driven platform selection
-- Platform-specific metrics and chart sections
-- Multi-platform heatmap and trend rendering
-- Supports all 7 core connected platforms
-
-### Compare
-
-- Compare two users by score or platform mode
-- Radar chart visualization
-- Shared repository signal in backend compare payload
-
-### Leaderboard
-
-- Ranking modes: devscore + 7 platform modes
-- Filters: college, archetype, pagination
-- Public/optional-auth accessible backend data source
-
-### Wrapped and Goals
-
-- Wrapped: yearly summary style insights
-- Goals: milestone and target progression display
-
-## Recruiter Features
-
-### Recruiter Search Dashboard
-
-- Filter by name
-- Filter by tech stack
-- Filter by college
-- Filter by minimum score
-- Filter by archetype
-- Sort by score or name
-- Returns profile + latest score + portfolio availability
-
-## Admin Features
-
-### Admin Dashboard
-
-- Platform usage totals
-- User listing
-- Role change controls
-- User delete with cascading cleanup
-- Global sync trigger
-
-## Backend Platform Operations
-
-### Manual Sync
-
-- Endpoint: POST /api/stats/sync
-- Pulls connected platform data for authenticated user
-- Persists stats documents
-- Recomputes and stores DevScore snapshot
-
-### Scheduled Sync
-
-- Nightly cron scheduler
-- Iterates users with connected handles
-- Fetches adapters in grouped manner
-- Persists stats and computes scores
-
-## Scoring Features
-
-### DevScore v2
-
-- Score range 0-1000
-- 5 pillars with score, max, percentile, grade
-- Archetype and secondary archetype influenced weighting
-- Domain and domainFit diagnostics
-- platformScores map by connected platform
-- strengths and improvements recommendation arrays
-
-### Benchmark and History
-
-- Score history endpoint (up to latest 30 entries)
-- Domain benchmark endpoint with percentile-style comparison
-
-## Security and Reliability Features
-
-- JWT authentication middleware
-- Role guard middleware for recruiter/admin routes
-- Rate limiting: API, auth, sync
-- CORS with configured origin
-- CSRF origin protection for unsafe methods
-- Centralized error handling middleware
-- HTML sanitization for stored portfolio output
-
-## Known Feature Gaps / Backlog
-
-- Mentor-specific dashboard is not implemented
-- Authorization and privacy consistency needs hardening across all read endpoints
-- Token storage model should migrate away from localStorage strategy
-- Automated tests need deeper integration/e2e coverage
-
-## Feature-to-Doc Cross-Links
-
-- API contracts: [API_REFERENCE.md](./API_REFERENCE.md)
-- Data model backing features: [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
-- Runtime flow detail: [WORKFLOW.md](./WORKFLOW.md)
-- Audit and production blockers: [devfolio_project_audit.md](./devfolio_project_audit.md)
+- Expand automated e2e feature coverage.
+- Add richer recruiter platform filters.
+- Continue UX accessibility hardening for all cards and charts.
+- Add stronger operational dashboards for sync failures.
