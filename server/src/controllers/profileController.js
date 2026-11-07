@@ -45,7 +45,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     [
       'displayName',
       'publicHandle',
-      'email',
+      ...(isOwner(req.user, userId) ? ['email'] : []),
       'archetype',
       'secondaryArchetype',
       'githubUsername',
