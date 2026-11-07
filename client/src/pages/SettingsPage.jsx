@@ -563,7 +563,12 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted">Allow anyone to view your DevScore using your unique URL.</p>
                   </div>
                   <button
-                    className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${profile?.isPublic ? 'bg-accent-cyan' : 'bg-muted/30'}`}
+                    type="button"
+                    role="switch"
+                    aria-label="Public profile visibility"
+                    aria-checked={Boolean(profile?.isPublic)}
+                    disabled={updateProfileMutation.isPending}
+                    className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-cyan disabled:opacity-50 ${profile?.isPublic ? 'bg-accent-cyan' : 'bg-muted/30'}`}
                     onClick={() => updateProfileMutation.mutate({ isPublic: !profile?.isPublic })}
                   >
                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${profile?.isPublic ? 'right-1' : 'left-1'}`} />
