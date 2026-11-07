@@ -7,6 +7,7 @@ import { AuthBootstrap } from '@/components/auth/AuthBootstrap';
 
 // Lazy loaded pages
 const LandingPage = lazy(() => import('@/pages/LandingPage'));
+const DesignStudioPage = lazy(() => import('@/pages/DesignStudioPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
@@ -47,6 +48,7 @@ function App() {
         {/* Public Routes */}
         <Route element={<RootLayout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/design-studio" element={<DesignStudioPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/p/:handle" element={<PublicProfilePage />} />
