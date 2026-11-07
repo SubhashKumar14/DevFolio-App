@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { DESIGN_PRESETS } from '@/lib/designPresets';
+import { useDesignStore } from '@/stores/designStore';
 
 // ─── Supported platforms ─────────────────────────
 const ALL_PLATFORMS = [
@@ -62,6 +65,8 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const isDeveloperRole = user?.role === 'developer' || user?.role === 'mentor';
   const [activeTab, setActiveTab] = useState('profile');
+  const design = useDesignStore((state) => state.design);
+  const setDesign = useDesignStore((state) => state.setDesign);
 
   const invalidateUserDataQueries = async (targetUserId = user?._id) => {
     if (!targetUserId) return;
@@ -331,7 +336,7 @@ export default function SettingsPage() {
     disconnectPlatformMutation.mutate(platformId);
   };
 
-  const tabs = isDeveloperRole ? ['profile', 'platforms', 'archetype', 'privacy'] : ['profile'];
+  const tabs = isDeveloperRole ? ['profile', 'platforms', 'archetype', 'privacy', 'appearance'] : ['profile', 'appearance'];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in p-2 md:p-0">
@@ -546,6 +551,38 @@ export default function SettingsPage() {
                   {updateUserMutation.isPending ? 'Saving...' : 'Save Identity'}
                 </Button>
               </CardFooter>
+            </Card>
+          )}
+
+          {/* ─── Appearance Tab — all roles ──────────────────── */}
+          {activeTab === 'appearance' && (
+            <Card className="animate-slide-up">
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Choose one of five complete visual directions. Your selection applies to every page and is saved on this device.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {DESIGN_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      aria-pressed={design === preset.id}
+                      onClick={() => setDesign(preset.id)}
+                      className="dv-appear-choice focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-cyan"
+                    >
+                      <span className="dv-kicker">{preset.number} / {preset.category}</span>
+                      <strong>{preset.name}</strong>
+                      <small>{preset.description}</small>
+                      {design === preset.id && <small className="text-accent-cyan font-semibold">Current design</small>}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-muted">
+                  Need a larger preview? <Link to="/design-studio" className="text-accent-cyan underline underline-offset-4">Open the design studio</Link>.
+                  The design changes how DevFolio looks; it does not change your metrics, content or permissions.
+                </p>
+              </CardContent>
             </Card>
           )}
 
