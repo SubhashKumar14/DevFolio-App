@@ -3,11 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#f7f7f2" />
+    <meta name="description" content="DevFolio brings coding activity, a five-pillar DevScore, goals, projects and portfolios into one developer workspace." />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DevFolio — Developer Profile Aggregator</title>
+    <title>DevFolio — Your work, in one place</title>
     <!-- Prevent FOUC with dark mode -->
     <script>
       (function() {
+        const chosenDesign = localStorage.getItem('devfolioDesign');
+        const allowedDesigns = ['workshop', 'terminal', 'atlas', 'edition', 'afterhours'];
+        document.documentElement.dataset.design = allowedDesigns.includes(chosenDesign) ? chosenDesign : 'workshop';
         const theme = localStorage.getItem('theme');
         if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.documentElement.classList.add('dark');
