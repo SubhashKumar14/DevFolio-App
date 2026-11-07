@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
+import { ArrowUpRight, Menu } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { profileService } from '@/services/profileService';
 import { getDefaultRouteForRole } from '@/lib/roleRoutes';
 import { getPublicProfilePath } from '@/lib/publicRoutes';
 import { ThemeToggle } from './ThemeToggle';
-import { Button } from '@/components/ui/button';
-import { Code2, Menu, Sparkles } from 'lucide-react';
+import { BrandMark } from './BrandMark';
 
-export function Navbar({ onMenuClick }) {
+export function Navbar({ onMenuClick, isMobileMenuOpen = false }) {
   const { isAuthenticated, user, logout } = useAuthStore();
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
@@ -29,83 +29,56 @@ export function Navbar({ onMenuClick }) {
   const avatarFallback = user?.displayName?.[0]?.toUpperCase() || 'U';
 
   return (
-    <nav className={`fixed top-0 z-50 w-full border-b border-border ${isLanding ? 'bg-background/60' : 'bg-card/80'} backdrop-blur-xl supports-[backdrop-filter]:bg-card/60`}>
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+    <header className="dv-nav fixed top-0 z-50 w-full border-b">
+      <div className="dv-nav-inner mx-auto flex items-center justify-between px-5 sm:px-8 gap-5">
+        <div className="flex items-center gap-3">
           {isDashboard && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-md hover:bg-card-elevated"
               onClick={onMenuClick}
+              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-controls="dashboard-mobile-nav"
+              aria-expanded={isMobileMenuOpen}
             >
-              <Menu className="h-5 w-5" />
-            </Button>
+              <Menu size={21} aria-hidden="true" />
+            </button>
           )}
-
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="relative">
-              <Code2 className="h-7 w-7 text-accent-cyan transition-transform group-hover:scale-110 duration-300" />
-              <div className="absolute -inset-1 bg-accent-cyan/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </div>
-            <span className="font-extrabold text-xl tracking-tight hidden sm:inline-block">
-              Dev<span className="text-accent-cyan">Folio</span>
-            </span>
-          </Link>
+          <BrandMark />
         </div>
-
-        <div className="flex flex-1 items-center justify-end space-x-3">
-          <nav className="flex items-center space-x-2">
-            {!isAuthenticated ? (
-              <>
-                <Link to="/login">
-                  <Button variant="ghost" size="sm" className="text-sm font-medium">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button size="sm" className="rounded-full px-5 font-semibold shadow-lg shadow-accent-cyan/20">
-                    <Sparkles className="w-4 h-4 mr-1" />
-                    Get Started
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <>
-                {!isDashboard && (
-                  <Link to={dashboardPath}>
-                    <Button variant="ghost" size="sm">Dashboard</Button>
-                  </Link>
-                )}
-                <Button variant="outline" size="sm" onClick={logout} className="rounded-full">
-                  Logout
-                </Button>
-
-                {publicProfilePath && (
-                  <Link
-                    to={publicProfilePath}
-                    title="Open public profile"
-                    className="inline-flex"
-                  >
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt=""
-                        className="h-9 w-9 rounded-full object-cover border border-border hover:border-accent-cyan/60 transition-colors"
-                      />
-                    ) : (
-                      <span className="h-9 w-9 rounded-full border border-border bg-card-elevated flex items-center justify-center text-sm font-semibold text-accent-cyan hover:border-accent-cyan/60 transition-colors">
-                        {avatarFallback}
-                      </span>
-                    )}
-                  </Link>
-                )}
-              </>
-            )}
-            <ThemeToggle />
+        {isLanding && (
+          <nav className="hidden lg:flex items-center gap-8" aria-label="Website sections">
+            <a href="#features" className="text-sm text-muted hover:text-foreground">What it does</a>
+            <a href="#how-it-works" className="text-sm text-muted hover:text-foreground">How it works</a>
+            <Link to="/design-studio" className="text-sm text-muted hover:text-foreground">Design studio</Link>
           </nav>
-        </div>
+        )}
+        <nav className="ml-auto flex items-center gap-2 sm:gap-3" aria-label="Account navigation">
+          {isAuthenticated ? (
+            <>
+              {!isDashboard && <Link className="dv-nav-action hidden sm:inline-flex" to={dashboardPath}>Workspace</Link>}
+              <button type="button" className="dv-nav-action hidden sm:inline-flex" onClick={logout}>Sign out</button>
+              {publicProfilePath && (
+                <Link to={publicProfilePath} title="View your public profile" aria-label="View your public profile" className="shrink-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover border border-border" />
+                  ) : (
+                    <span className="h-9 w-9 rounded-full border border-border bg-card-elevated grid place-items-center text-sm font-bold text-accent-cyan">{avatarFallback}</span>
+                  )}
+                </Link>
+              )}
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="dv-nav-action hidden sm:inline-flex">Log in</Link>
+              <Link to="/register" className="dv-nav-cta">
+                Start free <ArrowUpRight size={15} aria-hidden="true" />
+              </Link>
+            </>
+          )}
+          <ThemeToggle />
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 }
