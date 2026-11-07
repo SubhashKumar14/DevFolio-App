@@ -5,10 +5,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import './index.css';
+import './design-system.css';
 import App from './App.jsx';
 
 // Import themeStore to trigger initial theme application on load
 import './stores/themeStore';
+import './stores/designStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
