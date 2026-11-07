@@ -80,11 +80,14 @@ export default function LivePreview({ html, css, js }) {
 
       {/* Console Panel */}
       <div className="border-t border-border bg-card-elevated">
-        <div 
-          className="flex items-center justify-between px-4 py-2 bg-card-elevated hover:bg-card-elevated/80 cursor-pointer border-b border-border transition-colors"
-          onClick={() => setIsConsoleOpen(!isConsoleOpen)}
-        >
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between bg-card-elevated border-b border-border">
+          <button
+            type="button"
+            aria-expanded={isConsoleOpen}
+            aria-controls="portfolio-console-output"
+            onClick={() => setIsConsoleOpen((wasOpen) => !wasOpen)}
+            className="flex flex-1 items-center gap-2 px-4 py-2 text-left hover:bg-card-elevated/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-cyan"
+          >
             <Terminal className="w-4 h-4 text-muted" />
             <span className="text-sm font-medium">Console</span>
             {logs.length > 0 && (
@@ -92,11 +95,12 @@ export default function LivePreview({ html, css, js }) {
                 {logs.length}
               </span>
             )}
-          </div>
-          <div className="flex gap-3">
-            <button 
+          </button>
+          <div className="flex gap-3 pr-4">
+            <button
+              type="button"
               className="text-xs text-muted hover:text-foreground underline decoration-muted/50 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setLogs([]); }}
+              onClick={() => setLogs([])}
             >
               Clear
             </button>
@@ -104,7 +108,7 @@ export default function LivePreview({ html, css, js }) {
         </div>
 
         {isConsoleOpen && (
-          <div className="h-48 overflow-y-auto w-full p-2 bg-card border-t border-border shadow-inner custom-scrollbar">
+          <div id="portfolio-console-output" role="region" aria-label="Console output" className="h-48 overflow-y-auto w-full p-2 bg-card border-t border-border shadow-inner custom-scrollbar">
             {logs.length === 0 ? (
               <p className="text-xs text-muted italic px-2">No output</p>
             ) : (
