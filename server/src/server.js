@@ -1,18 +1,17 @@
 import app from './app.js';
 import env from './config/env.js';
 import connectDB from './config/db.js';
-import './cron/scheduler.js';
 import { startSyncJobWorker } from './services/syncJobQueue.js';
 
 const startServer = async () => {
-  // Connect to MongoDB
+  // Only advertise an available HTTP service after its required DB is ready.
   await connectDB();
 
-  // Start background workers
+  // Importing the scheduler registers the cron task. Do this after DB startup.
+  await import('./cron/scheduler.js');
   startSyncJobWorker();
 
-  // Start Express server
-  app.listen(env.PORT, () => {
+  app.listen(env.PORT, '0.0.0.0', () => {
     console.log(` DevFolio API running on port ${env.PORT} [${env.NODE_ENV}]`);
   });
 };
