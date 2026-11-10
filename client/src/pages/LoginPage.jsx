@@ -102,10 +102,13 @@ export default function LoginPage() {
               const Icon = role.icon;
               const isSelected = selectedRole === role.id;
               return (
-                <div
+                <button
                   key={role.id}
+                  type="button"
+                  aria-label={`Select ${role.title} role`}
+                  aria-pressed={isSelected}
                   onClick={() => setSelectedRole(role.id)}
-                  className={`role-card role-${role.id} ${isSelected ? 'selected' : ''}`}
+                  className={`role-card role-${role.id} w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-cyan ${isSelected ? 'selected' : ''}`}
                 >
                   {/* Selection indicator */}
                   {isSelected && (
@@ -131,7 +134,7 @@ export default function LoginPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -22,8 +22,10 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config || {};
     const requestUrl = String(originalRequest.url || '');
     const isRefreshRequest = requestUrl.includes('/auth/refresh');
+    const isCredentialRequest = /\/auth\/(login|register)(?:[/?]|$)/.test(requestUrl);
+    const hadAccessToken = Boolean(useAuthStore.getState().accessToken);
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshRequest) {
+    if (error.response?.status === 401 && hadAccessToken && !isCredentialRequest && !originalRequest._retry && !isRefreshRequest) {
       originalRequest._retry = true;
       try {
         const refreshRes = await axios.post(

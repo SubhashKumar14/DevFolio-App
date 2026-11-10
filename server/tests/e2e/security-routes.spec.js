@@ -30,6 +30,7 @@ describe('Auth/privacy/role route integration', () => {
     const express = (await import('express')).default;
     const { errorHandler } = await import('../../src/middleware/errorHandler.js');
     const { default: authRoutes } = await import('../../src/routes/authRoutes.js');
+    const { default: profileRoutes } = await import('../../src/routes/profileRoutes.js');
     const { default: projectRoutes } = await import('../../src/routes/projectRoutes.js');
     const { default: statsRoutes } = await import('../../src/routes/statsRoutes.js');
     const { default: scoreRoutes } = await import('../../src/routes/scoreRoutes.js');
@@ -39,6 +40,7 @@ describe('Auth/privacy/role route integration', () => {
     app = express();
     app.use(express.json());
     app.use('/api/auth', authRoutes);
+    app.use('/api/profile', profileRoutes);
     app.use('/api/projects', projectRoutes);
     app.use('/api/stats', statsRoutes);
     app.use('/api/score', scoreRoutes);
@@ -104,6 +106,39 @@ describe('Auth/privacy/role route integration', () => {
     expect(response.status).toBe(403);
     expect(response.body.success).toBe(false);
     expect(response.body.message).toMatch(/private/i);
+  });
+
+  test('GET /api/profile/:userId excludes email for visitors but includes it for the owner', async () => {
+    const targetUserId = createObjectId();
+    const selectedFields = [];
+
+    jest.spyOn(Profile, 'findOne').mockImplementation(() => ({
+      populate: async (_field, projection) => {
+        selectedFields.push(projection.split(' '));
+        const user = {
+          _id: targetUserId,
+          displayName: 'Example Developer',
+          email: 'private@example.test',
+        };
+        if (!projection.split(' ').includes('email')) delete user.email;
+        return { isPublic: true, userId: user };
+      },
+    }));
+
+    const publicResponse = await request(app).get(`/api/profile/${targetUserId}`);
+    expect(publicResponse.status).toBe(200);
+    expect(publicResponse.body.data.userId.email).toBeUndefined();
+    expect(selectedFields[0]).not.toContain('email');
+
+    const accessToken = jwt.sign({ userId: targetUserId, role: 'developer' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    jest.spyOn(User, 'findById').mockResolvedValue({ _id: targetUserId, role: 'developer' });
+
+    const ownerResponse = await request(app)
+      .get(`/api/profile/${targetUserId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(ownerResponse.status).toBe(200);
+    expect(ownerResponse.body.data.userId.email).toBe('private@example.test');
+    expect(selectedFields[1]).toContain('email');
   });
 
   test('GET /api/user/search returns only users with public profiles', async () => {
